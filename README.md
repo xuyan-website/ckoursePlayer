@@ -20,13 +20,15 @@ Your media player doesn't know what "Section 4 - Lesson 12" means. Your file man
 
 ### ✅ v1 — Core
 - 📁 **Smart folder import** — point Ckourse at any course folder and it parses the structure automatically, detecting sections, lessons, subtitles, and attachments
-- ▶️ **Built-in video player** — native HTML5 player with subtitle support, autoplay, and timestamp navigation
+- ☁️ **Google Drive courses** — connect your own Google account and import a course straight from Drive, streaming lessons without downloading the whole folder first
+- ▶️ **Built-in video player** — native HTML5 player with subtitle support, timestamp navigation, and autoplay with a configurable delay between lessons
 - 📊 **Progress tracking** — per-lesson completion, per-course progress bar, resume from exactly where you stopped
 - 📝 **Timestamped notes** — add notes tied to specific timestamps and navigate back to them instantly, even across lessons
 - 🔖 **Bookmarks** — bookmark lessons for quick access from a dedicated page
 - 🗂️ **Course library** — a clean dashboard of all your imported courses with progress at a glance
 - 🎉 **Completion celebration** — canvas particle animation when you finish a course
 - 🌙 **Themes** — light, dark, and system-sync
+- 🔄 **Auto-update** — the app checks for new releases and offers to update in place
 
 ### 🚧 v2 — Planned
 - 📄 **PDF/resource viewer** — read course attachments without leaving the app
@@ -47,6 +49,8 @@ Your media player doesn't know what "Section 4 - Lesson 12" means. Your file man
 | Analytics | [PostHog](https://posthog.com/) (optional, env-configured) |
 | Backend | [Rust](https://www.rust-lang.org/) |
 | Database | SQLite via [rusqlite](https://github.com/rusqlite/rusqlite) (bundled) |
+| Cloud Storage | [Google Drive API](https://developers.google.com/drive) (optional, bring-your-own credentials) |
+| Credential Storage | OS keychain via [keyring](https://github.com/hwchen/keyring-rs) |
 | Build Tool | [Vite](https://vite.dev/) |
 
 ---
@@ -124,6 +128,25 @@ CI builds macOS (universal) and Windows installers on tag push — see [`.github
 
 ---
 
+## Google Drive Setup
+
+Drive support is **bring-your-own-credentials**: you create a personal Google Cloud project and paste its credentials into Ckourse's Settings. Nothing is shipped with the app and nothing is sent to a Ckourse server — credentials are stored in your OS keychain, and the app talks to Google directly.
+
+This is deliberate. Reading a course folder requires the Restricted `drive.readonly` scope, which would demand an annual third-party security assessment for a shared, published app. Using your own project — which stays in "testing" mode — sidesteps that entirely and keeps your files under your own account.
+
+The app ships an interactive walkthrough (**Settings → Google Drive → Setup guide**) that links each console page directly. The short version:
+
+1. [Create a Google Cloud project](https://console.cloud.google.com/projectcreate).
+2. Enable the [Drive API](https://console.cloud.google.com/apis/library/drive.googleapis.com) and the [Picker API](https://console.cloud.google.com/apis/library/picker.googleapis.com).
+3. Configure the OAuth consent screen and add your own Google account as a test user.
+4. Create an **OAuth client ID** (application type: *Web application*).
+5. Create an **API key** — this powers the folder picker.
+6. Paste the client ID, client secret, and API key into Ckourse's Settings, then click Connect.
+
+OAuth completes through a one-shot `http://127.0.0.1` listener on a random port, so no redirect URI needs to be registered ahead of time.
+
+---
+
 ## Project Structure
 
 ```
@@ -133,7 +156,10 @@ ckourse/
 │   │   ├── app-shell/        # Layout, sidebar, navigation
 │   │   ├── course-detail/    # Video player, notes, sections
 │   │   ├── dashboard/        # Course cards, stats, empty state
-│   │   └── ui/               # Shared UI primitives
+│   │   ├── ui/               # Shared UI primitives
+│   │   ├── DriveSetupGuide.tsx  # Interactive Google Cloud walkthrough
+│   │   ├── ErrorBoundary.tsx
+│   │   └── UpdateBanner.tsx
 │   ├── pages/                # Route pages (Dashboard, CourseDetail, Notes,
 │   │                         #   Bookmarks, Progress, ImportCourse, Settings)
 │   ├── hooks/                # Custom React hooks
@@ -145,9 +171,13 @@ ckourse/
 │   │   ├── main.rs           # Tauri entry point
 │   │   ├── lib.rs            # Tauri app setup
 │   │   ├── db.rs             # SQLite schema and queries
-│   │   ├── parser.rs         # Course folder parser
+│   │   ├── parser.rs         # Course folder parser (local + Drive)
 │   │   ├── subtitle.rs       # Subtitle file handling
-│   │   └── commands/         # courses.rs, lessons.rs, notes.rs, settings.rs
+│   │   ├── google.rs         # Google OAuth, Drive API, token refresh
+│   │   ├── drive_protocol.rs # drive:// handler — streams Drive media
+│   │   ├── video_protocol.rs # video:// handler — streams local media
+│   │   └── commands/         # courses.rs, lessons.rs, notes.rs,
+│   │                         #   settings.rs, drive.rs
 │   └── tauri.conf.json       # Tauri configuration
 └── public/                   # Static assets
 ```
