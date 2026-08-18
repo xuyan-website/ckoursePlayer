@@ -7,4 +7,4 @@
 /gen/schemas
 
 # Bundled ffprobe binaries (downloaded by scripts/download-ffprobe.sh)
-/binaries/
+#/binaries/

@@ -1151,8 +1151,25 @@ fn strip_common_affixes(titles: &mut [String]) {
 
     // Snap prefix to a structural separator boundary (" - ", " – ", " _ ")
     // to avoid cutting in the middle of meaningful words like "Lecture"
+    //if prefix_len > 0 {
+    //    let prefix_str = &first[..prefix_len];
+    //    let separators = [" - ", " – ", " _ "];
+    //    let mut best_boundary = 0;
+    //    for sep in &separators {
+    //        if let Some(pos) = prefix_str.rfind(sep) {
+    //            let boundary = pos + sep.len();
+    //            if boundary > best_boundary {
+    //                best_boundary = boundary;
+    //            }
+    //        }
+    //    }
+    //    prefix_len = best_boundary;
+    //}
+    //调整中文识别
     if prefix_len > 0 {
-        let prefix_str = &first[..prefix_len];
+        // 保证不截断 UTF-8 字符
+        let safe_len = first.floor_char_boundary(prefix_len);
+        let prefix_str = &first[..safe_len];
         let separators = [" - ", " – ", " _ "];
         let mut best_boundary = 0;
         for sep in &separators {
@@ -1163,7 +1180,7 @@ fn strip_common_affixes(titles: &mut [String]) {
                 }
             }
         }
-        prefix_len = best_boundary;
+        prefix_len = best_boundary; // best_boundary 基于 safe_len 计算，是安全的
     }
 
     // Find common suffix
@@ -1181,14 +1198,34 @@ fn strip_common_affixes(titles: &mut [String]) {
     }
 
     // Snap suffix to a structural separator boundary
+    //if suffix_len > 0 {
+    //    let suffix_start = first.len() - suffix_len;
+    //    let suffix_str = &first[suffix_start..];
+    //    let separators = [" - ", " – ", " _ "];
+    //    let mut best_boundary = 0;
+    //    for sep in &separators {
+    //        if let Some(pos) = suffix_str.find(sep) {
+    //            // suffix_len = everything from this separator onwards
+    //            let candidate = suffix_str.len() - pos;
+    //            if candidate > best_boundary {
+    //                best_boundary = candidate;
+    //            }
+    //        }
+    //    }
+    //    suffix_len = best_boundary;
+    //}
+    //调整中文识别
     if suffix_len > 0 {
-        let suffix_start = first.len() - suffix_len;
+        // 确保起始索引不超出字符串长度，并修正为合法字符边界
+        let raw_start = first.len().saturating_sub(suffix_len); // 防溢出
+        let suffix_start = first.floor_char_boundary(raw_start);
         let suffix_str = &first[suffix_start..];
+
         let separators = [" - ", " – ", " _ "];
         let mut best_boundary = 0;
         for sep in &separators {
             if let Some(pos) = suffix_str.find(sep) {
-                // suffix_len = everything from this separator onwards
+                // candidate 是分隔符起始到末尾的字节长度（在 suffix_str 内）
                 let candidate = suffix_str.len() - pos;
                 if candidate > best_boundary {
                     best_boundary = candidate;
