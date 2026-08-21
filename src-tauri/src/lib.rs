@@ -4,7 +4,7 @@ mod drive_protocol;
 mod google;
 mod parser;
 mod subtitle;
-mod video_protocol;
+mod video_optimize;
 
 use db::DbState;
 use tauri::Manager;
@@ -12,7 +12,6 @@ use tauri::Manager;
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
-        .register_asynchronous_uri_scheme_protocol(video_protocol::SCHEME, video_protocol::handle)
         .register_asynchronous_uri_scheme_protocol(drive_protocol::SCHEME, drive_protocol::handle)
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_dialog::init())
@@ -46,6 +45,7 @@ pub fn run() {
         })
         .invoke_handler(tauri::generate_handler![
             commands::parse_course_folder,
+            video_optimize::optimize_video_faststart,
             commands::import_course,
             commands::get_courses,
             commands::get_course,

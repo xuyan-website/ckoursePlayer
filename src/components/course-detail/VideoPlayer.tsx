@@ -298,12 +298,14 @@ export const VideoPlayer = forwardRef<VideoPlayerHandle, VideoPlayerProps>(funct
   const preferredSubLangRef = useRef<string | null>(null);
   const playbackSpeedRef = useRef(playbackSpeed);
 
-  // Local lessons stream from disk via the `stream://` protocol; Google Drive
-  // lessons store `gdrive:<fileId>` and stream via the `gdrive://` protocol.
+  // Local lessons stream from disk via Tauri's built-in `asset://` protocol
+  // (native async IO, no IPC byte passing — much faster than a custom scheme).
+  // Google Drive lessons store `gdrive:<fileId>` and stream via the `gdrive://`
+  // protocol.
   const videoSrc = lesson
     ? lesson.videoPath.startsWith("gdrive:")
       ? convertFileSrc(lesson.videoPath.slice("gdrive:".length), "gdrive")
-      : convertFileSrc(lesson.videoPath, "stream")
+      : convertFileSrc(lesson.videoPath)
     : undefined;
 
   // Reset state when lesson changes

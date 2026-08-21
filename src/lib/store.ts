@@ -174,3 +174,14 @@ export async function deleteCustomCategory(name: string): Promise<void> {
 export async function searchContent(query: string): Promise<SearchResult[]> {
   return invoke<SearchResult[]>("search_content", { query });
 }
+
+export interface OptimizeResult {
+  status: "already_optimized" | "optimized" | "skipped" | "failed";
+  message: string;
+}
+
+export async function optimizeVideoFaststart(
+  videoPath: string,
+): Promise<OptimizeResult> {
+  return invoke<OptimizeResult>("optimize_video_faststart", { videoPath });
+}

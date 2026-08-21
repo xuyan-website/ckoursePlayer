@@ -18,6 +18,7 @@ import {
   BookmarkSimpleIcon as BookmarkSimple,
   HeartIcon as Heart,
   GoogleDriveLogoIcon as GoogleDriveLogo,
+  LightningIcon as Lightning,
 } from "@phosphor-icons/react";
 import { cn } from "@/lib/utils";
 import { reportError } from "@/lib/posthog";
@@ -51,6 +52,7 @@ import {
   addNote as storeAddNote,
   updateNote as storeUpdateNote,
   deleteNote as storeDeleteNote,
+  optimizeVideoFaststart,
 } from "@/lib/store";
 
 interface CourseDetailProps {
@@ -255,6 +257,58 @@ function CourseDetailInner({
   const [showEditor, setShowEditor] = useState(false);
   const [autoPlay, setAutoPlay] = useState(false);
   const [curriculumOpen, setCurriculumOpen] = useState(true);
+  const [optimizing, setOptimizing] = useState(false);
+
+  const handleOptimizeVideos = useCallback(async () => {
+    const candidates = allLessons.filter(
+      (l) =>
+        !l.videoPath.startsWith("gdrive:") &&
+        /\.(mp4|m4v|mov)$/i.test(l.videoPath),
+    );
+    if (candidates.length === 0) {
+      toast.info("No local MP4 videos to optimize in this course.");
+      return;
+    }
+    setOptimizing(true);
+    const toastId = toast.loading(`Optimizing videos… (0/${candidates.length})`);
+    let optimized = 0;
+    let already = 0;
+    let skipped = 0;
+    let failed = 0;
+    try {
+      for (let i = 0; i < candidates.length; i++) {
+        const r = await optimizeVideoFaststart(candidates[i].videoPath);
+        if (r.status === "optimized") optimized++;
+        else if (r.status === "already_optimized") already++;
+        else if (r.status === "skipped") skipped++;
+        else failed++;
+        toast.loading(`Optimizing videos… (${i + 1}/${candidates.length})`, {
+          id: toastId,
+        });
+      }
+      toast.dismiss(toastId);
+      const parts: string[] = [];
+      if (optimized) parts.push(`${optimized} optimized`);
+      if (already) parts.push(`${already} already fast-start`);
+      if (skipped) parts.push(`${skipped} skipped`);
+      if (failed) parts.push(`${failed} failed`);
+      if (failed > 0) {
+        toast.error(`Optimization finished with failures: ${parts.join(", ")}`);
+      } else if (optimized > 0) {
+        toast.success(
+          `Optimized ${optimized} video${optimized > 1 ? "s" : ""} for faster startup.`,
+        );
+      } else {
+        toast.info(`All ${already + skipped} videos were already optimized or skipped.`);
+      }
+    } catch (err) {
+      toast.dismiss(toastId);
+      reportError(err, "CourseDetail.handleOptimizeVideos", {});
+      toast.error("Failed to optimize videos.");
+    } finally {
+      setOptimizing(false);
+    }
+  }, [allLessons]);
   const [videoTime, setVideoTime] = useState(0);
   const videoTimeRef = useRef(0);
   const videoPlayerRef = useRef<VideoPlayerHandle>(null);
@@ -658,6 +712,16 @@ function CourseDetailInner({
             <PencilSimple className="size-3.5" />
             Edit
           </button>
+          <button
+            onClick={handleOptimizeVideos}
+            disabled={optimizing}
+            className="flex items-center gap-1.5 rounded-lg border border-border px-2.5 py-1.5 font-sans text-xs font-medium text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground disabled:cursor-not-allowed disabled:opacity-50"
+            style={{ transitionTimingFunction: SNAPPY }}
+            title="Move MP4 metadata to the front of each file for faster playback start"
+          >
+            <Lightning className="size-3.5" />
+            {optimizing ? "Optimizing…" : "Optimize"}
+          </button>
         </div>
       </div>
 
@@ -680,7 +744,7 @@ function CourseDetailInner({
             ref={videoPlayerRef}
             lesson={activeLesson}
             subtitles={subtitles}
-            hasNext={!!hasNext}
+            hasNext={hasNext}
             accentColor={course.accentColor}
             autoPlay={autoPlay}
             autoSkipEnabled={settings.autoplay_next}
