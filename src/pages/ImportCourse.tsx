@@ -617,33 +617,42 @@ function ConfigureStep({
     const toastId = toast.loading(`Optimizing… (0/${targets.length})`);
     let done = 0;
     let failed = 0;
+    let next = 0;
     const failMessages: string[] = [];
-    for (let i = 0; i < targets.length; i++) {
-      const lesson = targets[i];
-      setVideoStatus((prev) => ({ ...prev, [lesson.videoPath]: "optimizing" }));
-      try {
-        const r = await optimizeVideoFaststart(lesson.videoPath);
-        setVideoStatus((prev) => ({
-          ...prev,
-          [lesson.videoPath]:
-            r.status === "optimized"
-              ? "optimized"
-              : r.status === "failed"
-                ? "failed"
-                : "already_optimized",
-        }));
-        if (r.status === "optimized") done++;
-        else if (r.status === "failed") {
+    const CONCURRENCY = 4;
+    const worker = async () => {
+      while (next < targets.length) {
+        const lesson = targets[next++];
+        setVideoStatus((prev) => ({ ...prev, [lesson.videoPath]: "optimizing" }));
+        try {
+          const r = await optimizeVideoFaststart(lesson.videoPath);
+          setVideoStatus((prev) => ({
+            ...prev,
+            [lesson.videoPath]:
+              r.status === "optimized"
+                ? "optimized"
+                : r.status === "failed"
+                  ? "failed"
+                  : "already_optimized",
+          }));
+          if (r.status === "optimized") done++;
+          else if (r.status === "failed") {
+            failed++;
+            failMessages.push(r.message);
+          }
+        } catch (e) {
+          setVideoStatus((prev) => ({ ...prev, [lesson.videoPath]: "failed" }));
           failed++;
-          failMessages.push(r.message);
+          failMessages.push(String(e));
         }
-      } catch (e) {
-        setVideoStatus((prev) => ({ ...prev, [lesson.videoPath]: "failed" }));
-        failed++;
-        failMessages.push(String(e));
+        toast.loading(`Optimizing… (${done + failed}/${targets.length})`, {
+          id: toastId,
+        });
       }
-      toast.loading(`Optimizing… (${i + 1}/${targets.length})`, { id: toastId });
-    }
+    };
+    await Promise.all(
+      Array.from({ length: Math.min(CONCURRENCY, targets.length) }, () => worker()),
+    );
     toast.dismiss(toastId);
     if (failed > 0) {
       const detail = failMessages[0] ?? "unknown error";
