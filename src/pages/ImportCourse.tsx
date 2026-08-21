@@ -1,6 +1,7 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useMemo, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import LottieLib from "lottie-react";
+import { toast } from "sonner";
 
 // Handle CJS/ESM default export interop: in some Vite/Rollup build modes
 // lottie-react resolves to the module namespace object rather than the component
@@ -20,6 +21,7 @@ import {
   DotsSixVerticalIcon as DotsSixVertical,
   PencilSimpleIcon as PencilSimple,
   CloudIcon as Cloud,
+  LightningIcon as Lightning,
 } from "@phosphor-icons/react";
 import {
   DndContext,
@@ -50,8 +52,23 @@ import {
   drivePickFolder,
   parseDriveFolder,
 } from "@/lib/drive";
-import { importCourse, getCustomCategories, addCustomCategory, deleteCustomCategory } from "@/lib/store";
+import {
+  importCourse,
+  getCustomCategories,
+  addCustomCategory,
+  deleteCustomCategory,
+  optimizeVideoFaststart,
+  checkVideoFaststart,
+} from "@/lib/store";
 import { EASE_OUT } from "@/lib/constants";
+
+type VideoStatus =
+  | "needs_optimize"
+  | "already_optimized"
+  | "skipped"
+  | "optimizing"
+  | "optimized"
+  | "failed";
 
 function makeId() {
   return Math.random().toString(36).slice(2, 11);
@@ -546,6 +563,99 @@ function ConfigureStep({
 }) {
   const totalLessons = course.sections.reduce((sum, s) => sum + s.lessons.length, 0);
 
+  const [videoStatus, setVideoStatus] = useState<Record<string, VideoStatus>>({});
+  const [checking, setChecking] = useState(false);
+  const [optimizing, setOptimizing] = useState(false);
+
+  // Check every local MP4's moov position once the parsed course is available.
+  useEffect(() => {
+    let cancelled = false;
+    const lessons = course.sections.flatMap((s) => s.lessons);
+    const localMp4s = lessons.filter((l) => /\.(mp4|m4v|mov)$/i.test(l.videoPath));
+    setVideoStatus({});
+    if (localMp4s.length === 0) return;
+    setChecking(true);
+    (async () => {
+      const entries = await Promise.all(
+        localMp4s.map(async (l) => {
+          try {
+            const r = await checkVideoFaststart(l.videoPath);
+            return [l.videoPath, r.status] as [string, VideoStatus];
+          } catch {
+            return [l.videoPath, "skipped" as VideoStatus] as [string, VideoStatus];
+          }
+        }),
+      );
+      if (!cancelled) {
+        setVideoStatus(Object.fromEntries(entries));
+        setChecking(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [course]);
+
+  const needsCount = useMemo(
+    () => Object.values(videoStatus).filter((s) => s === "needs_optimize").length,
+    [videoStatus],
+  );
+  const readyCount = useMemo(
+    () =>
+      Object.values(videoStatus).filter((s) =>
+        s === "already_optimized" || s === "optimized"
+      ).length,
+    [videoStatus],
+  );
+
+  const handleOptimize = useCallback(async () => {
+    const targets = course.sections
+      .flatMap((s) => s.lessons)
+      .filter((l) => videoStatus[l.videoPath] === "needs_optimize");
+    if (targets.length === 0) return;
+    setOptimizing(true);
+    const toastId = toast.loading(`Optimizing… (0/${targets.length})`);
+    let done = 0;
+    let failed = 0;
+    const failMessages: string[] = [];
+    for (let i = 0; i < targets.length; i++) {
+      const lesson = targets[i];
+      setVideoStatus((prev) => ({ ...prev, [lesson.videoPath]: "optimizing" }));
+      try {
+        const r = await optimizeVideoFaststart(lesson.videoPath);
+        setVideoStatus((prev) => ({
+          ...prev,
+          [lesson.videoPath]:
+            r.status === "optimized"
+              ? "optimized"
+              : r.status === "failed"
+                ? "failed"
+                : "already_optimized",
+        }));
+        if (r.status === "optimized") done++;
+        else if (r.status === "failed") {
+          failed++;
+          failMessages.push(r.message);
+        }
+      } catch (e) {
+        setVideoStatus((prev) => ({ ...prev, [lesson.videoPath]: "failed" }));
+        failed++;
+        failMessages.push(String(e));
+      }
+      toast.loading(`Optimizing… (${i + 1}/${targets.length})`, { id: toastId });
+    }
+    toast.dismiss(toastId);
+    if (failed > 0) {
+      const detail = failMessages[0] ?? "unknown error";
+      toast.error(`Optimized ${done}, ${failed} failed — ${detail}`, {
+        duration: 8000,
+      });
+    } else {
+      toast.success(`Optimized ${done} video${done === 1 ? "" : "s"} for faster startup`);
+    }
+    setOptimizing(false);
+  }, [course, videoStatus]);
+
   const sectionSensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 4 } }),
     useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }),
@@ -720,9 +830,30 @@ function ConfigureStep({
         className="flex flex-col gap-3"
         style={{ animation: `card-in 350ms ${EASE_OUT} 150ms both` }}
       >
-        <h3 className="font-heading text-base font-bold text-foreground">
-          Course Structure
-        </h3>
+        <div className="flex items-center justify-between gap-2">
+          <h3 className="font-heading text-base font-bold text-foreground">
+            Course Structure
+          </h3>
+          {Object.keys(videoStatus).length > 0 && (
+            <div className="flex items-center gap-3">
+              <span className="font-sans text-xs text-muted-foreground">
+                {checking
+                  ? "Checking videos…"
+                  : `${needsCount} need optimization · ${readyCount} ready`}
+              </span>
+              {(needsCount > 0 || optimizing) && (
+                <button
+                  onClick={handleOptimize}
+                  disabled={optimizing || checking}
+                  className="flex items-center gap-1.5 rounded-lg border border-border px-2.5 py-1.5 font-sans text-xs font-medium text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground disabled:cursor-not-allowed disabled:opacity-50"
+                >
+                  <Lightning className="size-3.5" />
+                  {optimizing ? "Optimizing…" : "Optimize"}
+                </button>
+              )}
+            </div>
+          )}
+        </div>
 
         <div className="h-90 overflow-y-scroll rounded-xl border border-border bg-card px-3 py-2">
           <DndContext
@@ -742,6 +873,7 @@ function ConfigureStep({
                   sectionIndex={si}
                   lessonIds={structureIds.lessons[si] ?? []}
                   defaultOpen={course.sections.length <= 3}
+                  videoStatus={videoStatus}
                   onRenameSection={(t) => onRenameSection(si, t)}
                   onRenameLesson={(li, t) => onRenameLesson(si, li, t)}
                   onReorderLessons={(from, to) => onReorderLessons(si, from, to)}
@@ -906,6 +1038,7 @@ function SortableSection({
   sectionIndex,
   lessonIds,
   defaultOpen,
+  videoStatus,
   onRenameSection,
   onRenameLesson,
   onReorderLessons,
@@ -915,6 +1048,7 @@ function SortableSection({
   sectionIndex: number;
   lessonIds: string[];
   defaultOpen: boolean;
+  videoStatus: Record<string, VideoStatus>;
   onRenameSection: (newTitle: string) => void;
   onRenameLesson: (lessonIdx: number, newTitle: string) => void;
   onReorderLessons: (from: number, to: number) => void;
@@ -1002,6 +1136,7 @@ function SortableSection({
                     id={lessonIds[li]}
                     lesson={lesson}
                     index={li}
+                    status={videoStatus[lesson.videoPath]}
                     onRename={(t) => onRenameLesson(li, t)}
                   />
                 ))}
@@ -1018,11 +1153,13 @@ function SortableLesson({
   id,
   lesson,
   index,
+  status,
   onRename,
 }: {
   id: string;
   lesson: ParsedLesson;
   index: number;
+  status?: VideoStatus;
   onRename: (newTitle: string) => void;
 }) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } =
@@ -1066,6 +1203,25 @@ function SortableLesson({
           <span className="shrink-0 rounded bg-primary/10 px-1.5 py-0.5 font-mono text-[9px] font-medium text-primary">
             SUB
           </span>
+        )}
+        {status === "needs_optimize" && (
+          <span
+            className="shrink-0 rounded bg-amber-500/15 px-1.5 py-0.5 font-mono text-[9px] font-medium text-amber-500"
+            title="Needs optimization for faster playback"
+          >
+            OPT
+          </span>
+        )}
+        {status === "optimizing" && (
+          <span className="shrink-0 rounded bg-secondary px-1.5 py-0.5 font-mono text-[9px] font-medium text-muted-foreground">
+            …
+          </span>
+        )}
+        {status === "optimized" && (
+          <CheckCircle className="size-3.5 shrink-0 text-emerald-500" weight="fill" />
+        )}
+        {status === "failed" && (
+          <Warning className="size-3.5 shrink-0 text-destructive" />
         )}
       </div>
     </div>

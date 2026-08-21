@@ -7,4 +7,5 @@
 /gen/schemas
 
 # Bundled ffprobe binaries (downloaded by scripts/download-ffprobe.sh)
-#/binaries/
+# Bundled ffmpeg/)ffprobe binaries (synced from npm packages via predev/prebuild)
+/binaries/

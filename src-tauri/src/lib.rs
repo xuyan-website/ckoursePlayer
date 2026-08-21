@@ -46,6 +46,7 @@ pub fn run() {
         .invoke_handler(tauri::generate_handler![
             commands::parse_course_folder,
             video_optimize::optimize_video_faststart,
+            video_optimize::check_video_faststart,
             commands::import_course,
             commands::get_courses,
             commands::get_course,

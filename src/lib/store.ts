@@ -185,3 +185,15 @@ export async function optimizeVideoFaststart(
 ): Promise<OptimizeResult> {
   return invoke<OptimizeResult>("optimize_video_faststart", { videoPath });
 }
+
+export interface CheckResult {
+  needsOptimize: boolean;
+  status: "needs_optimize" | "already_optimized" | "skipped";
+  message: string;
+}
+
+export async function checkVideoFaststart(
+  videoPath: string,
+): Promise<CheckResult> {
+  return invoke<CheckResult>("check_video_faststart", { videoPath });
+}

@@ -68,7 +68,10 @@ fn moov_is_at_front(path: &Path) -> Option<bool> {
 
 fn temp_path_for(path: &Path) -> Option<PathBuf> {
     let file_name = path.file_name()?.to_str()?;
-    Some(path.with_file_name(format!("{file_name}.ckourse-faststart-tmp")))
+    // Keep the original extension so ffmpeg can infer the output container
+    // format from it (ffmpeg rejects unknown extensions like ".ckourse-tmp").
+    let ext = path.extension().and_then(|e| e.to_str()).unwrap_or("mp4");
+    Some(path.with_file_name(format!("{file_name}.ckourse-tmp.{ext}")))
 }
 
 fn backup_path_for(path: &Path) -> Option<PathBuf> {
@@ -183,6 +186,76 @@ pub fn optimize_faststart(path: &Path) -> OptimizeResult {
 pub async fn optimize_video_faststart(video_path: String) -> Result<OptimizeResult, String> {
     let path = PathBuf::from(&video_path);
     tauri::async_runtime::spawn_blocking(move || Ok(optimize_faststart(&path)))
+        .await
+        .map_err(|e| e.to_string())?
+}
+
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct CheckResult {
+    pub needs_optimize: bool,
+    pub status: String,
+    pub message: String,
+}
+
+// Inspect a video file's moov atom position without modifying it. Used to show
+// per-lesson status in the import preview before the user decides to optimize.
+pub fn check_faststart(path: &Path) -> CheckResult {
+    let ext = path
+        .extension()
+        .and_then(|e| e.to_str())
+        .map(|s| s.to_lowercase());
+
+    let ext = match ext {
+        Some(e) => e,
+        None => {
+            return CheckResult {
+                needs_optimize: false,
+                status: "skipped".into(),
+                message: "no extension".into(),
+            }
+        }
+    };
+
+    if !matches!(ext.as_str(), "mp4" | "m4v" | "mov") {
+        return CheckResult {
+            needs_optimize: false,
+            status: "skipped".into(),
+            message: format!(".{ext} not optimizable"),
+        };
+    }
+
+    if !path.is_file() {
+        return CheckResult {
+            needs_optimize: false,
+            status: "skipped".into(),
+            message: "file not found".into(),
+        };
+    }
+
+    match moov_is_at_front(path) {
+        Some(true) => CheckResult {
+            needs_optimize: false,
+            status: "already_optimized".into(),
+            message: "moov at front".into(),
+        },
+        Some(false) => CheckResult {
+            needs_optimize: true,
+            status: "needs_optimize".into(),
+            message: "moov at end".into(),
+        },
+        None => CheckResult {
+            needs_optimize: false,
+            status: "skipped".into(),
+            message: "could not parse mp4 structure".into(),
+        },
+    }
+}
+
+#[tauri::command]
+pub async fn check_video_faststart(video_path: String) -> Result<CheckResult, String> {
+    let path = PathBuf::from(&video_path);
+    tauri::async_runtime::spawn_blocking(move || Ok(check_faststart(&path)))
         .await
         .map_err(|e| e.to_string())?
 }
