@@ -48,13 +48,13 @@ const STEPS: GuideStep[] = [
     icon: <Sparkle className="size-5 text-primary" weight="fill" />,
     title: "Connect your Google Drive",
     blurb:
-      "To let Ckourse read your Drive, Google asks you to create your own free key. It's a one-time setup and your files stay private to you — nobody else can use this key.",
+      "To let ckoursePlayer read your Drive, Google asks you to create your own free key. It's a one-time setup and your files stay private to you — nobody else can use this key.",
     instructions: [
       <>Takes about 5 minutes, and you only do it once.</>,
       <>It's completely free — no credit card, no charges.</>,
       <>
         Along the way you'll copy <Pill>3 values</Pill> and paste them into
-        Ckourse at the end.
+        ckoursePlayer at the end.
       </>,
       <>
         First, make sure you're signed into your Google account in your web
@@ -75,7 +75,7 @@ const STEPS: GuideStep[] = [
     ],
     instructions: [
       <>
-        In <Pill>Project name</Pill> type anything, e.g. <Pill>Ckourse</Pill>.
+        In <Pill>Project name</Pill> type anything, e.g. <Pill>ckoursePlayer</Pill>.
       </>,
       <>
         Click <Pill>Create</Pill> and wait a few seconds.
@@ -127,7 +127,7 @@ const STEPS: GuideStep[] = [
         Click <Pill>Get started</Pill>.
       </>,
       <>
-        App name: type anything, e.g. <Pill>Ckourse</Pill>. Support email: pick
+        App name: type anything, e.g. <Pill>ckoursePlayer</Pill>. Support email: pick
         your own email.
       </>,
       <>

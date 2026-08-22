@@ -9,17 +9,17 @@ The desktop app uses [`tauri-plugin-updater`](https://v2.tauri.app/plugin/update
 Tauri signs every update so installed apps can verify it. You only do this **once** for the project.
 
 ```bash
-npm run tauri signer generate -- -w ~/.tauri/ckourse.key
+npm run tauri signer generate -- -w ~/.tauri/ckoursePlayer.key
 ```
 
 You'll be prompted for a password. This creates:
 
-- `~/.tauri/ckourse.key` — **private key** (keep secret, never commit)
-- `~/.tauri/ckourse.key.pub` — **public key**
+- `~/.tauri/ckoursePlayer.key` — **private key** (keep secret, never commit)
+- `~/.tauri/ckoursePlayer.key.pub` — **public key**
 
 ### 2. Wire the public key into the app
 
-Copy the contents of `~/.tauri/ckourse.key.pub` and paste it into `src-tauri/tauri.conf.json` under `plugins.updater.pubkey`, replacing the `REPLACE_WITH_PUBLIC_KEY_FROM_TAURI_SIGNER_GENERATE` placeholder.
+Copy the contents of `~/.tauri/ckoursePlayer.key.pub` and paste it into `src-tauri/tauri.conf.json` under `plugins.updater.pubkey`, replacing the `REPLACE_WITH_PUBLIC_KEY_FROM_TAURI_SIGNER_GENERATE` placeholder.
 
 Commit that change.
 
@@ -27,7 +27,7 @@ Commit that change.
 
 Add two secrets to the repo (Settings → Secrets and variables → Actions):
 
-- `TAURI_SIGNING_PRIVATE_KEY` — contents of `~/.tauri/ckourse.key`
+- `TAURI_SIGNING_PRIVATE_KEY` — contents of `~/.tauri/ckoursePlayer.key`
 - `TAURI_SIGNING_PRIVATE_KEY_PASSWORD` — the password you chose
 
 ## Cutting a release
@@ -43,7 +43,7 @@ Add two secrets to the repo (Settings → Secrets and variables → Actions):
    - platform installers (`.dmg`, `.msi`, `.exe`)
    - `latest.json` (the update manifest the app polls)
    - `.sig` signature files
-4. Review the draft release on GitHub, then **publish** it. Publishing makes `https://github.com/redaantar/ckourse/releases/latest/download/latest.json` resolve, which is the endpoint the app checks.
+4. Review the draft release on GitHub, then **publish** it. Publishing makes `https://github.com/zheng-yang-liu/ckoursePlayer/releases/latest/download/latest.json` resolve, which is the endpoint the app checks.
 
 ## How clients update
 

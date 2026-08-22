@@ -1,9 +1,6 @@
 name: Build & Release
 
 on:
-  push:
-    tags:
-      - 'v*'
   workflow_dispatch:
 
 permissions:
@@ -63,7 +60,7 @@ jobs:
           TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
         with:
           tagName: ${{ github.ref_name }}
-          releaseName: 'ckourse v__VERSION__'
+          releaseName: 'ckoursePlayer v__VERSION__'
           releaseBody: 'See the assets for download links.'
           releaseDraft: true
           prerelease: false

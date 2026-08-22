@@ -45,7 +45,7 @@ export const AnimatedThemeToggler = ({
       } else {
         document.documentElement.classList.add("light")
       }
-      localStorage.setItem("ckourse-theme", newTheme ? "dark" : "light")
+      localStorage.setItem("ckoursePlayer-theme", newTheme ? "dark" : "light")
     }
 
     if (

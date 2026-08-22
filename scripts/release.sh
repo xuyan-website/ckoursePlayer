@@ -63,7 +63,7 @@ perl -i -pe 'BEGIN{$n=0} if (!$n && /^version\s*=\s*"[^"]+"/) { s/"[^"]+"/"'"$VE
 
 # Refresh Cargo.lock so the new version is reflected.
 if command -v cargo >/dev/null 2>&1; then
-  (cd src-tauri && cargo update -p ckourse --precise "$VERSION" >/dev/null 2>&1 || cargo generate-lockfile >/dev/null 2>&1 || true)
+  (cd src-tauri && cargo update -p ckourse_player --precise "$VERSION" >/dev/null 2>&1 || cargo generate-lockfile >/dev/null 2>&1 || true)
 fi
 
 echo "==> committing and tagging $TAG"
@@ -71,14 +71,19 @@ git add package.json src-tauri/tauri.conf.json src-tauri/Cargo.toml src-tauri/Ca
 git commit -m "release $TAG"
 git tag "$TAG"
 
-echo "==> pushing to origin"
+echo "==> pushing to Gitee (origin)"
 git push origin "$BRANCH"
 git push origin "$TAG"
 
 cat <<EOF
 
-Release $TAG pushed. The Build & Release workflow will draft a GitHub
-Release with installers + latest.json. Review and publish it here:
+Release $TAG pushed to Gitee. Now build locally and upload installers
+manually to both platforms:
 
-  https://github.com/redaantar/ckourse/releases
+  Gitee:  https://gitee.com/xuyan-website/ckoursePlayer/releases/new
+  GitHub: https://github.com/zheng-yang-liu/ckoursePlayer/releases/new
+
+Local build:
+  \$env:TAURI_SIGNING_PRIVATE_KEY_PATH = ".tauri/signing-key"
+  npm run tauri build
 EOF

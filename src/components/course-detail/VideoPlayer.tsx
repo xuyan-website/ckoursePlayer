@@ -169,7 +169,7 @@ interface SubtitleStyle {
   bottomPct: number;
 }
 
-const SUB_STYLE_KEY = "ckourse:subtitle-style";
+const SUB_STYLE_KEY = "ckoursePlayer:subtitle-style";
 
 const DEFAULT_SUB_STYLE: SubtitleStyle = {
   fontSize: 18,

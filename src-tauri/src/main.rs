@@ -2,5 +2,5 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
 fn main() {
-    ckourse_lib::run()
+    ckourse_player_lib::run()
 }

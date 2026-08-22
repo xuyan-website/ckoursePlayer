@@ -31,3 +31,6 @@ dist-ssr
 
 # Specific files
 lemonsqueezy.txt
+
+# Tauri signing keys (never commit)
+.tauri/signing-key

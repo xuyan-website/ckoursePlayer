@@ -1,8 +1,8 @@
 {
   "$schema": "https://schema.tauri.app/config/2",
-  "productName": "ckourse",
-  "version": "1.1.0",
-  "identifier": "com.ckourse.app",
+  "productName": "ckoursePlayer",
+  "version": "1.1.1",
+  "identifier": "com.ckoursePlayer.desktop",
   "build": {
     "beforeDevCommand": "npm run dev",
     "devUrl": "http://localhost:1420",
@@ -58,9 +58,9 @@
   "plugins": {
     "updater": {
       "endpoints": [
-        "https://github.com/redaantar/ckourse/releases/latest/download/latest.json"
+        "https://github.com/zheng-yang-liu/ckoursePlayer/releases/latest/download/latest.json"
       ],
-      "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IEY1NDUzRkM0MUVENTREMTUKUldRVlRkVWV4RDlGOWMxdUF6eEZvZG9lK1Nwc3gwK1JwUXdhTmloOTd3OElNM1pCYjZzc0NpT3UK"
+      "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IDdEQ0JERDkxODY2OEM1NjYKUldSbXhXaUdrZDNMZmY5UW9pTmFnWllnNVcwZGlrbktKb1M0V1NjMnBsOGl3UVZnZXBvUmcrdGkK"
     }
   }
 }

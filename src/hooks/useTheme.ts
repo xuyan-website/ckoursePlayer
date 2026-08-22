@@ -9,7 +9,7 @@ function getTheme(): Theme {
 export function useTheme() {
   const [theme, setTheme] = useState<Theme>(() => {
     if (typeof document === "undefined") {
-      const stored = localStorage.getItem("ckourse-theme") as Theme | null;
+      const stored = localStorage.getItem("ckoursePlayer-theme") as Theme | null;
       return stored ?? "dark";
     }
     return getTheme();
@@ -29,7 +29,7 @@ export function useTheme() {
 
   // Apply initial theme from localStorage on mount
   useEffect(() => {
-    const stored = localStorage.getItem("ckourse-theme") as Theme | null;
+    const stored = localStorage.getItem("ckoursePlayer-theme") as Theme | null;
     if (stored === "light") {
       document.documentElement.classList.add("light");
     } else {

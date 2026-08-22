@@ -90,7 +90,7 @@ function AppShellInner({ children }: AppShellProps) {
         >
           {isSmallScreen ? (
             <div className="flex w-full items-center justify-center">
-              <img src={logo} alt="Ckourse logo" className="h-7" />
+              <img src={logo} alt="ckoursePlayer logo" className="h-7" />
             </div>
           ) : (
             <div className={cn(
@@ -105,7 +105,7 @@ function AppShellInner({ children }: AppShellProps) {
                   transition: `opacity ${spring()}, width ${spring()}`,
                 }}
               >
-                <img src={logo} alt="Ckourse logo" className="h-7 shrink-0" />
+                <img src={logo} alt="ckoursePlayer logo" className="h-7 shrink-0" />
                 <span className="shrink-0 font-heading text-lg font-bold tracking-wider text-sidebar-foreground">
                   <span className="text-sidebar-primary">CK</span>OURSE
                 </span>
@@ -117,7 +117,7 @@ function AppShellInner({ children }: AppShellProps) {
                 >
                   <img
                     src={logo}
-                    alt="Ckourse logo"
+                    alt="ckoursePlayer logo"
                     className="h-7 transition-opacity duration-200 group-hover:opacity-0"
                   />
                   <div className="absolute inset-0 flex items-center justify-center opacity-0 transition-opacity duration-200 group-hover:opacity-100">
