@@ -44,3 +44,10 @@ keyring = { version = "3", features = ["windows-native"] }
 [target.'cfg(target_os = "linux")'.dependencies]
 keyring = { version = "3", features = ["sync-secret-service", "crypto-rust"] }
 
+[profile.dev]
+debug = "line-tables-only"
+incremental = true
+
+[profile.release]
+incremental = false
+

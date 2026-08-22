@@ -83,7 +83,7 @@ npm install
 npm run tauri dev
 
 # Build for production (produces installers for the current OS)
-npm run tauri build
+npm run tauri:build
 ```
 
 #### Platform-specific build targets
@@ -100,7 +100,7 @@ Output: `.dmg` and `.app` under `src-tauri/target/universal-apple-darwin/release
 **Windows** — build an MSI and NSIS installer:
 
 ```powershell
-npm run tauri build
+npm run tauri:build
 ```
 
 Output: `.msi` and `.exe` under `src-tauri\target\release\bundle\`.

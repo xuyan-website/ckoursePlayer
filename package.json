@@ -11,6 +11,7 @@
     "preview": "vite preview",
     "tauri": "tauri",
     "tauri:build": "node scripts/build.mjs",
+    "clean:target": "node scripts/clean-target.mjs",
     "release": "bash scripts/release.sh"
   },
   "dependencies": {
