@@ -293,6 +293,12 @@ const SKIP_OPTIONS: SelectOption[] = [
   { value: "30", label: "30s" },
 ];
 
+const LONG_PRESS_SPEED_OPTIONS: SelectOption[] = [
+  { value: "1.5", label: "1.5×" },
+  { value: "2", label: "2×" },
+  { value: "3", label: "3×" },
+];
+
 interface SettingsProps {
   className?: string;
 }
@@ -771,6 +777,17 @@ export function Settings({ className }: SettingsProps) {
                 update("skip_backward_secs", v);
               }}
               options={SKIP_OPTIONS}
+            />
+          </SettingRow>
+          <SettingRow
+            icon={<FastForward className="size-4" />}
+            label="Long-press seek speed"
+            description="Playback rate when holding ← / → to seek"
+          >
+            <Select
+              value={String(settings.long_press_speed)}
+              onChange={(v) => update("long_press_speed", v)}
+              options={LONG_PRESS_SPEED_OPTIONS}
             />
           </SettingRow>
         </SectionCard>

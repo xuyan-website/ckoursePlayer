@@ -47,6 +47,7 @@ interface VideoPlayerProps {
   defaultSpeed?: number;
   defaultVolume?: number;
   skipSeconds?: number;
+  longPressSpeed?: number;
   onTimeUpdate?: (time: number) => void;
   onDurationChange?: (duration: number) => void;
   onPlayStateChange?: (playing: boolean) => void;
@@ -199,6 +200,7 @@ export const VideoPlayer = forwardRef<VideoPlayerHandle, VideoPlayerProps>(funct
   defaultSpeed = 1,
   defaultVolume = 100,
   skipSeconds = 10,
+  longPressSpeed = 1.5,
   onTimeUpdate,
   onDurationChange,
   onPlayStateChange,
@@ -257,9 +259,19 @@ export const VideoPlayer = forwardRef<VideoPlayerHandle, VideoPlayerProps>(funct
   );
   const [autoSkipRemaining, setAutoSkipRemaining] = useState(autoSkipSeconds);
   const [autoSkipCancelled, setAutoSkipCancelled] = useState(false);
+  const [longPressIndicator, setLongPressIndicator] = useState<{
+    speed: number;
+    direction: "forward" | "backward";
+  } | null>(null);
 
   // Auto-skip countdown when video ends
   const autoSkipFiredRef = useRef(false);
+  const longPressDirRef = useRef<"left" | "right" | null>(null);
+  const longPressTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const longPressActiveRef = useRef(false);
+  const savedPlaybackRateRef = useRef(1);
+  const longPressRewindRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const wasPlayingRef = useRef(false);
   useEffect(() => {
     if (!hasEnded || !hasNext || !autoSkipEnabled || autoSkipCancelled) {
       setAutoSkipRemaining(autoSkipSeconds);
@@ -474,12 +486,51 @@ export const VideoPlayer = forwardRef<VideoPlayerHandle, VideoPlayerProps>(funct
           break;
         case "ArrowLeft":
           e.preventDefault();
-          v.currentTime = Math.max(0, v.currentTime - skipSeconds);
+          if (!e.repeat && longPressDirRef.current === null) {
+            longPressDirRef.current = "left";
+            longPressActiveRef.current = false;
+            longPressTimerRef.current = setTimeout(() => {
+              longPressActiveRef.current = true;
+              wasPlayingRef.current = !videoRef.current?.paused;
+              videoRef.current?.pause();
+              setLongPressIndicator({
+                speed: longPressSpeed,
+                direction: "backward",
+              });
+              longPressRewindRef.current = setInterval(() => {
+                if (videoRef.current) {
+                  videoRef.current.currentTime = Math.max(
+                    0,
+                    videoRef.current.currentTime - 0.1 * longPressSpeed,
+                  );
+                }
+              }, 100);
+            }, 300);
+          }
           resetHideTimer();
           break;
         case "ArrowRight":
           e.preventDefault();
-          v.currentTime = Math.min(v.duration, v.currentTime + skipSeconds);
+          if (!e.repeat && longPressDirRef.current === null) {
+            longPressDirRef.current = "right";
+            longPressActiveRef.current = false;
+            savedPlaybackRateRef.current = v.playbackRate;
+            longPressTimerRef.current = setTimeout(() => {
+              longPressActiveRef.current = true;
+              v.playbackRate = longPressSpeed;
+              if (v.paused) {
+                safePlay(v, {
+                  trigger: "keyboard",
+                  lessonId: lesson?.id,
+                  videoPath: lesson?.videoPath,
+                });
+              }
+              setLongPressIndicator({
+                speed: longPressSpeed,
+                direction: "forward",
+              });
+            }, 300);
+          }
           resetHideTimer();
           break;
         case "ArrowUp":
@@ -544,9 +595,77 @@ export const VideoPlayer = forwardRef<VideoPlayerHandle, VideoPlayerProps>(funct
       }
     }
 
+    function handleKeyUp(e: KeyboardEvent) {
+      if (!videoRef.current) return;
+      const tag = (e.target as HTMLElement).tagName;
+      if (tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT") return;
+      if ((e.target as HTMLElement).isContentEditable) return;
+
+      const v = videoRef.current;
+
+      if (e.key === "ArrowRight" && longPressDirRef.current === "right") {
+        if (longPressActiveRef.current) {
+          v.playbackRate = savedPlaybackRateRef.current;
+          setLongPressIndicator(null);
+        } else {
+          v.currentTime = Math.min(v.duration, v.currentTime + skipSeconds);
+        }
+        if (longPressTimerRef.current !== null) {
+          clearTimeout(longPressTimerRef.current);
+          longPressTimerRef.current = null;
+        }
+        longPressDirRef.current = null;
+        longPressActiveRef.current = false;
+        resetHideTimer();
+      } else if (e.key === "ArrowLeft" && longPressDirRef.current === "left") {
+        if (longPressActiveRef.current) {
+          if (longPressRewindRef.current !== null) {
+            clearInterval(longPressRewindRef.current);
+            longPressRewindRef.current = null;
+          }
+          if (wasPlayingRef.current) {
+            safePlay(v, {
+              trigger: "keyboard",
+              lessonId: lesson?.id,
+              videoPath: lesson?.videoPath,
+            });
+          }
+          setLongPressIndicator(null);
+        } else {
+          v.currentTime = Math.max(0, v.currentTime - skipSeconds);
+        }
+        if (longPressTimerRef.current !== null) {
+          clearTimeout(longPressTimerRef.current);
+          longPressTimerRef.current = null;
+        }
+        longPressDirRef.current = null;
+        longPressActiveRef.current = false;
+        resetHideTimer();
+      }
+    }
+
     window.addEventListener("keydown", handleKeyDown);
-    return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [playbackSpeed, hasEnded, skipSeconds, resetHideTimer]);
+    window.addEventListener("keyup", handleKeyUp);
+    return () => {
+      window.removeEventListener("keydown", handleKeyDown);
+      window.removeEventListener("keyup", handleKeyUp);
+      if (longPressTimerRef.current !== null) {
+        clearTimeout(longPressTimerRef.current);
+        longPressTimerRef.current = null;
+      }
+      if (longPressRewindRef.current !== null) {
+        clearInterval(longPressRewindRef.current);
+        longPressRewindRef.current = null;
+      }
+      if (longPressActiveRef.current && videoRef.current) {
+        if (longPressDirRef.current === "right") {
+          videoRef.current.playbackRate = savedPlaybackRateRef.current;
+        }
+      }
+      longPressDirRef.current = null;
+      longPressActiveRef.current = false;
+    };
+  }, [playbackSpeed, hasEnded, skipSeconds, longPressSpeed, resetHideTimer]);
 
   const togglePlay = useCallback(() => {
     if (!videoRef.current) return;
@@ -899,7 +1018,10 @@ export const VideoPlayer = forwardRef<VideoPlayerHandle, VideoPlayerProps>(funct
   return (
     <div
       ref={containerRef}
-      className="group/player relative overflow-hidden rounded-xl border border-border bg-black"
+      className={cn(
+        "group/player relative overflow-hidden bg-black",
+        isFullscreen ? "h-full w-full" : "rounded-xl border border-border",
+      )}
       onMouseMove={handleMouseMove}
       onMouseLeave={handleMouseLeave}
       style={{ cursor: showControls ? "default" : "none" }}
@@ -907,7 +1029,12 @@ export const VideoPlayer = forwardRef<VideoPlayerHandle, VideoPlayerProps>(funct
       <video
         ref={videoRef}
         key={lesson?.id}
-        className="aspect-video w-full bg-black"
+        className={cn(
+          "bg-black",
+          isFullscreen
+            ? "h-full w-full object-contain"
+            : "aspect-video w-full",
+        )}
         src={videoSrc}
         muted={isMuted}
         onTimeUpdate={handleTimeUpdate}
@@ -976,6 +1103,24 @@ export const VideoPlayer = forwardRef<VideoPlayerHandle, VideoPlayerProps>(funct
             }}
             dangerouslySetInnerHTML={{ __html: activeCueText }}
           />
+        </div>
+      )}
+
+      {longPressIndicator && (
+        <div className="pointer-events-none absolute left-4 top-4 z-10">
+          <div className="flex items-center gap-1.5 rounded-lg bg-black/60 px-3 py-1.5 backdrop-blur-sm">
+            <SkipForward
+              className="size-4 text-white"
+              style={
+                longPressIndicator.direction === "backward"
+                  ? { transform: "scaleX(-1)" }
+                  : undefined
+              }
+            />
+            <span className="font-sans text-sm font-semibold text-white">
+              {longPressIndicator.speed}×
+            </span>
+          </div>
         </div>
       )}
 

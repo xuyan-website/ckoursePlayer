@@ -689,6 +689,7 @@ function CourseDetailInner({
             defaultSpeed={settings.default_speed}
             defaultVolume={settings.default_volume}
             skipSeconds={settings.skip_forward_secs}
+            longPressSpeed={settings.long_press_speed}
             onTimeUpdate={handleTimeUpdate}
             onDurationChange={handleDurationChange}
             onPlayStateChange={handlePlayStateChange}
