@@ -10,6 +10,7 @@
     "build": "tsc && vite build",
     "preview": "vite preview",
     "tauri": "tauri",
+    "tauri:build": "node scripts/build.mjs",
     "release": "bash scripts/release.sh"
   },
   "dependencies": {

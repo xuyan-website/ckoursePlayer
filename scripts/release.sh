@@ -84,6 +84,5 @@ manually to both platforms:
   GitHub: https://github.com/zheng-yang-liu/ckoursePlayer/releases/new
 
 Local build:
-  \$env:TAURI_SIGNING_PRIVATE_KEY_PATH = ".tauri/signing-key"
-  npm run tauri build
+  npm run tauri:build
 EOF

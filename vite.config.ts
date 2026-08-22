@@ -22,19 +22,16 @@ export default defineConfig(async () => ({
   build: {
     rollupOptions: {
       output: {
-        manualChunks: {
-          "react-vendor": ["react", "react-dom", "react-router-dom"],
-          "tauri-vendor": [
-            "@tauri-apps/api",
-            "@tauri-apps/plugin-dialog",
-            "@tauri-apps/plugin-opener",
-            "@tauri-apps/plugin-process",
-            "@tauri-apps/plugin-updater",
-          ],
-          "dnd-kit": ["@dnd-kit/core", "@dnd-kit/sortable", "@dnd-kit/utilities"],
-          charts: ["recharts"],
-          lottie: ["lottie-react"],
-          radix: ["radix-ui"],
+        manualChunks(id) {
+          if (id.includes("node_modules")) {
+            if (id.includes("react-router-dom")) return "react-vendor";
+            if (id.includes("/react/") || id.includes("/react-dom/")) return "react-vendor";
+            if (id.includes("@tauri-apps")) return "tauri-vendor";
+            if (id.includes("@dnd-kit")) return "dnd-kit";
+            if (id.includes("recharts")) return "charts";
+            if (id.includes("lottie")) return "lottie";
+            if (id.includes("radix-ui")) return "radix";
+          }
         },
       },
     },
