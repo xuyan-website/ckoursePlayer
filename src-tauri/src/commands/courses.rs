@@ -138,3 +138,23 @@ pub fn search_content(
     let conn = state.conn.lock().map_err(|e| e.to_string())?;
     db::search_content(&conn, &query).map_err(|e| e.to_string())
 }
+
+#[tauri::command]
+pub fn reorder_sections(
+    state: tauri::State<'_, DbState>,
+    course_id: i64,
+    section_ids: Vec<i64>,
+) -> Result<(), String> {
+    let conn = state.conn.lock().map_err(|e| e.to_string())?;
+    db::reorder_sections(&conn, course_id, &section_ids).map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+pub fn reorder_lessons(
+    state: tauri::State<'_, DbState>,
+    section_id: i64,
+    lesson_ids: Vec<i64>,
+) -> Result<(), String> {
+    let conn = state.conn.lock().map_err(|e| e.to_string())?;
+    db::reorder_lessons(&conn, section_id, &lesson_ids).map_err(|e| e.to_string())
+}

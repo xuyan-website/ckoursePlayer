@@ -53,6 +53,20 @@ export async function deleteCourse(courseId: number): Promise<void> {
   return invoke("delete_course", { courseId });
 }
 
+export async function reorderSections(
+  courseId: number,
+  sectionIds: number[],
+): Promise<void> {
+  return invoke("reorder_sections", { courseId, sectionIds });
+}
+
+export async function reorderLessons(
+  sectionId: number,
+  lessonIds: number[],
+): Promise<void> {
+  return invoke("reorder_lessons", { sectionId, lessonIds });
+}
+
 export async function toggleLessonCompleted(
   lessonId: number,
 ): Promise<boolean> {
@@ -93,8 +107,9 @@ export async function addNote(
   lessonId: number,
   lessonTitle: string,
   content: string,
+  videoTime: number,
 ): Promise<Note> {
-  return invoke<Note>("add_note", { courseId, lessonId, lessonTitle, content });
+  return invoke<Note>("add_note", { courseId, lessonId, lessonTitle, content, videoTime });
 }
 
 export async function updateNote(

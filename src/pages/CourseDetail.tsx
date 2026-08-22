@@ -100,6 +100,7 @@ export function CourseDetail({ className }: CourseDetailProps) {
   const isValidId = courseId != null && !isNaN(numericId) && numericId > 0;
   const lessonParam = searchParams.get("lesson");
   const fromParam = searchParams.get("from") || "/";
+  const timeParam = searchParams.get("time");
 
   const [course, setCourse] = useState<Course | null>(null);
   const [courseData, setCourseData] = useState<CourseDetailData | null>(null);
@@ -160,6 +161,7 @@ export function CourseDetail({ className }: CourseDetailProps) {
     return (
       <CourseEditPanel
         course={course}
+        sections={courseData?.sections ?? []}
         onSave={async (title, author, accentColor, category) => {
           await updateCourse(course.id, title, author, accentColor, category);
           await reload();
@@ -172,6 +174,7 @@ export function CourseDetail({ className }: CourseDetailProps) {
           await deleteCourse(course.id);
           navigate(fromParam);
         }}
+        onReorder={reload}
         onBack={() => setEditing(false)}
         className={className}
       />
@@ -183,6 +186,7 @@ export function CourseDetail({ className }: CourseDetailProps) {
       course={course}
       courseData={courseData}
       initialLessonId={lessonParam ? Number(lessonParam) : undefined}
+      noteReplayTime={timeParam ? Number(timeParam) : null}
       backTo={fromParam}
       isVisible={isVisible}
       onDataChange={reload}
@@ -200,6 +204,7 @@ function CourseDetailInner({
   course,
   courseData,
   initialLessonId,
+  noteReplayTime,
   backTo,
   isVisible,
   onDataChange,
@@ -210,6 +215,7 @@ function CourseDetailInner({
   course: Course;
   courseData: CourseDetailData;
   initialLessonId?: number;
+  noteReplayTime?: number | null;
   backTo: string;
   isVisible: boolean;
   onDataChange: () => Promise<void>;
@@ -258,6 +264,7 @@ function CourseDetailInner({
   const [videoTime, setVideoTime] = useState(0);
   const videoTimeRef = useRef(0);
   const videoPlayerRef = useRef<VideoPlayerHandle>(null);
+  const isNoteReplayRef = useRef(noteReplayTime != null);
   const [pendingTimestampNav, setPendingTimestampNav] = useState<{
     seconds: number;
     lessonId: number;
@@ -274,7 +281,7 @@ function CourseDetailInner({
   // Save position when leaving the page
   useEffect(() => {
     return () => {
-      if (activeLesson && videoTimeRef.current > 0) {
+      if (!isNoteReplayRef.current && activeLesson && videoTimeRef.current > 0) {
         saveLessonPosition(activeLesson.id, videoTimeRef.current).catch((err) =>
           reportError(err, "CourseDetail.saveOnUnmount", {
             lessonId: activeLesson.id,
@@ -289,7 +296,7 @@ function CourseDetailInner({
   useEffect(() => {
     if (!isVisible) {
       videoPlayerRef.current?.pause();
-      if (activeLesson && videoTimeRef.current > 0) {
+      if (!isNoteReplayRef.current && activeLesson && videoTimeRef.current > 0) {
         saveLessonPosition(activeLesson.id, videoTimeRef.current).catch((err) =>
           reportError(err, "CourseDetail.saveOnHide", {
             lessonId: activeLesson.id,
@@ -345,7 +352,7 @@ function CourseDetailInner({
   const handleSelectLesson = useCallback(
     async (lesson: Lesson) => {
       // Save position of current lesson before switching
-      if (activeLesson && videoTimeRef.current > 0) {
+      if (!isNoteReplayRef.current && activeLesson && videoTimeRef.current > 0) {
         saveLessonPosition(activeLesson.id, videoTimeRef.current).catch((err) =>
           reportError(err, "CourseDetail.handleSelectLesson", {
             lessonId: activeLesson.id,
@@ -369,7 +376,7 @@ function CourseDetailInner({
       if (playing) {
         setAutoPlay(false);
       }
-      if (!playing && activeLesson && videoTimeRef.current > 0) {
+      if (!isNoteReplayRef.current && !playing && activeLesson && videoTimeRef.current > 0) {
         saveLessonPosition(activeLesson.id, videoTimeRef.current).catch((err) =>
           reportError(err, "CourseDetail.handlePlayStateChange", {
             lessonId: activeLesson.id,
@@ -387,7 +394,7 @@ function CourseDetailInner({
     if (idx >= 0 && idx < allLessons.length - 1) {
       const next = allLessons[idx + 1];
       // Save position of current lesson before switching
-      if (videoTimeRef.current > 0) {
+      if (!isNoteReplayRef.current && videoTimeRef.current > 0) {
         saveLessonPosition(activeLesson.id, videoTimeRef.current).catch((err) =>
           reportError(err, "CourseDetail.handleNextLesson", {
             lessonId: activeLesson.id,
@@ -478,6 +485,7 @@ function CourseDetailInner({
         activeLesson.id,
         activeLesson.title,
         content,
+        videoTimeRef.current,
       );
       setNotes((prev) => [note, ...prev]);
       setShowEditor(false);
@@ -557,7 +565,7 @@ function CourseDetailInner({
     if (!targetLesson) return;
 
     // Save current position
-    if (activeLesson && videoTimeRef.current > 0) {
+    if (!isNoteReplayRef.current && activeLesson && videoTimeRef.current > 0) {
       saveLessonPosition(activeLesson.id, videoTimeRef.current).catch((err) =>
         reportError(err, "CourseDetail.confirmTimestampNav", {
           lessonId: activeLesson.id,
@@ -685,7 +693,11 @@ function CourseDetailInner({
             autoPlay={autoPlay}
             autoSkipEnabled={settings.autoplay_next}
             autoSkipSeconds={settings.autoplay_delay_secs}
-            initialTime={settingsLoaded ? (settings.resume_position ? activeLesson?.lastPosition : 0) : null}
+            initialTime={settingsLoaded
+              ? (noteReplayTime != null && activeLesson?.id === initialLessonId
+                ? noteReplayTime
+                : (settings.resume_position ? activeLesson?.lastPosition : 0))
+              : null}
             defaultSpeed={settings.default_speed}
             defaultVolume={settings.default_volume}
             skipSeconds={settings.skip_forward_secs}

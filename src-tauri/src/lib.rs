@@ -79,6 +79,8 @@ pub fn run() {
             commands::add_custom_category,
             commands::delete_custom_category,
             commands::search_content,
+            commands::reorder_sections,
+            commands::reorder_lessons,
             commands::drive_set_credentials,
             commands::drive_credentials_status,
             commands::drive_clear_credentials,

@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import {
   ArrowLeftIcon as ArrowLeft,
   PaletteIcon as Palette,
@@ -7,12 +7,39 @@ import {
   FloppyDiskIcon as FloppyDisk,
   WarningIcon as Warning,
   FolderOpenIcon as FolderOpen,
+  DotsSixVerticalIcon as DotsSixVertical,
+  CaretDownIcon as CaretDown,
+  CaretRightIcon as CaretRight,
 } from "@phosphor-icons/react";
+import {
+  DndContext,
+  PointerSensor,
+  KeyboardSensor,
+  useSensor,
+  useSensors,
+  closestCenter,
+  type DragEndEvent,
+} from "@dnd-kit/core";
+import {
+  SortableContext,
+  arrayMove,
+  sortableKeyboardCoordinates,
+  useSortable,
+  verticalListSortingStrategy,
+} from "@dnd-kit/sortable";
+import { CSS } from "@dnd-kit/utilities";
 import { cn } from "@/lib/utils";
+import { toast } from "sonner";
 import { SquircleButton } from "@/components/ui/SquircleButton";
 import { EASE_OUT, SNAPPY } from "@/lib/constants";
-import type { CourseCategory, Course } from "@/types";
-import { getCustomCategories, addCustomCategory, deleteCustomCategory } from "@/lib/store";
+import type { CourseCategory, Course, Section, Lesson } from "@/types";
+import {
+  getCustomCategories,
+  addCustomCategory,
+  deleteCustomCategory,
+  reorderSections as storeReorderSections,
+  reorderLessons as storeReorderLessons,
+} from "@/lib/store";
 
 const builtinCategories: { value: CourseCategory; label: string }[] = [
   { value: "frontend", label: "Frontend" },
@@ -40,18 +67,22 @@ const accentColors = [
 
 interface CourseEditPanelProps {
   course: Course;
+  sections: Section[];
   onSave: (title: string, author: string, accentColor: string, category: string) => Promise<void>;
   onResetProgress: () => Promise<void>;
   onDelete: () => Promise<void>;
+  onReorder: () => Promise<void>;
   onBack: () => void;
   className?: string;
 }
 
 export function CourseEditPanel({
   course,
+  sections,
   onSave,
   onResetProgress,
   onDelete,
+  onReorder,
   onBack,
   className,
 }: CourseEditPanelProps) {
@@ -65,9 +96,52 @@ export function CourseEditPanel({
     getCustomCategories().then(setCustomCategories).catch(() => {});
   }, []);
   const [saving, setSaving] = useState(false);
+  const [saved, setSaved] = useState(false);
+  const [saveError, setSaveError] = useState<string | null>(null);
   const [confirmReset, setConfirmReset] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [mounted, setMounted] = useState(false);
+  const [localSections, setLocalSections] = useState(sections);
+
+  const sectionSensors = useSensors(
+    useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),
+    useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }),
+  );
+
+  const handleSectionDragEnd = useCallback(
+    (event: DragEndEvent) => {
+      const { active, over } = event;
+      if (!over || active.id === over.id) return;
+      setLocalSections((prev) => {
+        const fromIdx = prev.findIndex((s) => String(s.id) === String(active.id));
+        const toIdx = prev.findIndex((s) => String(s.id) === String(over.id));
+        if (fromIdx === -1 || toIdx === -1) return prev;
+        const next = arrayMove(prev, fromIdx, toIdx);
+        storeReorderSections(course.id, next.map((s) => s.id)).then(onReorder).catch(() => {});
+        return next;
+      });
+    },
+    [course.id, onReorder],
+  );
+
+  const handleLessonDragEnd = useCallback(
+    (sectionId: number, event: DragEndEvent) => {
+      const { active, over } = event;
+      if (!over || active.id === over.id) return;
+      setLocalSections((prev) =>
+        prev.map((s) => {
+          if (s.id !== sectionId) return s;
+          const fromIdx = s.lessons.findIndex((l) => String(l.id) === String(active.id));
+          const toIdx = s.lessons.findIndex((l) => String(l.id) === String(over.id));
+          if (fromIdx === -1 || toIdx === -1) return s;
+          const nextLessons = arrayMove(s.lessons, fromIdx, toIdx);
+          storeReorderLessons(sectionId, nextLessons.map((l) => l.id)).then(onReorder).catch(() => {});
+          return { ...s, lessons: nextLessons };
+        }),
+      );
+    },
+    [onReorder],
+  );
 
   useState(() => {
     requestAnimationFrame(() => setMounted(true));
@@ -82,9 +156,16 @@ export function CourseEditPanel({
   const handleSave = async () => {
     if (!title.trim() || saving) return;
     setSaving(true);
+    setSaveError(null);
     try {
       await onSave(title.trim(), author.trim(), accentColor, category);
-      onBack();
+      setSaved(true);
+      toast.success("Course saved");
+      setTimeout(() => onBack(), 1200);
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : "Please try again.";
+      setSaveError(msg);
+      toast.error("Couldn't save course", { description: msg });
     } finally {
       setSaving(false);
     }
@@ -221,12 +302,22 @@ export function CourseEditPanel({
             <SquircleButton
               variant="primary"
               onClick={handleSave}
-              disabled={!title.trim() || !hasChanges || saving}
+              disabled={!title.trim() || !hasChanges || saving || saved}
             >
               <FloppyDisk className="size-4" weight="bold" />
-              {saving ? "Saving..." : "Save Changes"}
+              {saving ? "Saving..." : saved ? "Saved!" : "Save Changes"}
             </SquircleButton>
-            {hasChanges && (
+            {saved && (
+              <span className="font-sans text-xs font-medium text-primary">
+                Course updated successfully
+              </span>
+            )}
+            {saveError && (
+              <span className="font-sans text-xs font-medium text-destructive">
+                {saveError}
+              </span>
+            )}
+            {hasChanges && !saved && !saveError && (
               <span className="font-sans text-xs text-muted-foreground">
                 Unsaved changes
               </span>
@@ -342,6 +433,147 @@ export function CourseEditPanel({
           </div>
         </div>
       </div>
+
+      <div
+        className="mt-8"
+        style={{
+          opacity: mounted ? 1 : 0,
+          transform: mounted ? "translateY(0)" : "translateY(12px)",
+          transition: `opacity 600ms ${EASE_OUT} 200ms, transform 600ms ${EASE_OUT} 200ms`,
+        }}
+      >
+        <h3 className="mb-4 font-heading text-base font-bold text-foreground">
+          Course Structure
+        </h3>
+        <div className="h-80 overflow-y-scroll rounded-xl border border-border bg-card px-3 py-2">
+          <DndContext
+            sensors={sectionSensors}
+            collisionDetection={closestCenter}
+            onDragEnd={handleSectionDragEnd}
+          >
+            <SortableContext
+              items={localSections.map((s) => String(s.id))}
+              strategy={verticalListSortingStrategy}
+            >
+              {localSections.map((section) => (
+                <SortableSection
+                  key={section.id}
+                  section={section}
+                  onLessonDragEnd={handleLessonDragEnd}
+                />
+              ))}
+            </SortableContext>
+          </DndContext>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function SortableSection({
+  section,
+  onLessonDragEnd,
+}: {
+  section: Section;
+  onLessonDragEnd: (sectionId: number, event: DragEndEvent) => void;
+}) {
+  const [isOpen, setIsOpen] = useState(true);
+  const {
+    attributes,
+    listeners,
+    setNodeRef,
+    transform,
+    transition,
+    isDragging,
+  } = useSortable({ id: String(section.id) });
+
+  const style = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+    opacity: isDragging ? 0.5 : 1,
+  };
+
+  const lessonSensors = useSensors(
+    useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),
+    useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }),
+  );
+
+  return (
+    <div ref={setNodeRef} style={style}>
+      <div className="flex items-center gap-2 py-1.5">
+        <button
+          {...attributes}
+          {...listeners}
+          className="cursor-grab text-muted-foreground/40 hover:text-muted-foreground touch-none"
+        >
+          <DotsSixVertical className="size-3.5" />
+        </button>
+        <button
+          onClick={() => setIsOpen(!isOpen)}
+          className="text-muted-foreground/60 hover:text-foreground"
+        >
+          {isOpen ? <CaretDown className="size-3" /> : <CaretRight className="size-3" />}
+        </button>
+        <span className="flex-1 font-sans text-sm font-medium text-foreground">
+          {section.title}
+        </span>
+        <span className="font-sans text-xs text-muted-foreground">
+          {section.lessons.length} {section.lessons.length === 1 ? "lesson" : "lessons"}
+        </span>
+      </div>
+      {isOpen && (
+        <div className="ml-5 border-l border-border/50 pl-2">
+          <DndContext
+            sensors={lessonSensors}
+            collisionDetection={closestCenter}
+            onDragEnd={(e) => onLessonDragEnd(section.id, e)}
+          >
+            <SortableContext
+              items={section.lessons.map((l) => String(l.id))}
+              strategy={verticalListSortingStrategy}
+            >
+              {section.lessons.map((lesson, li) => (
+                <SortableLesson key={lesson.id} lesson={lesson} index={li} />
+              ))}
+            </SortableContext>
+          </DndContext>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function SortableLesson({ lesson, index }: { lesson: Lesson; index: number }) {
+  const {
+    attributes,
+    listeners,
+    setNodeRef,
+    transform,
+    transition,
+    isDragging,
+  } = useSortable({ id: String(lesson.id) });
+
+  const style = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+    opacity: isDragging ? 0.5 : 1,
+  };
+
+  return (
+    <div ref={setNodeRef} style={style} className="flex items-center gap-2 py-1">
+      <button
+        {...attributes}
+        {...listeners}
+        className="cursor-grab text-muted-foreground/40 hover:text-muted-foreground touch-none"
+      >
+        <DotsSixVertical className="size-3" />
+      </button>
+      <span className="flex size-4 items-center justify-center rounded-full bg-secondary font-mono text-[9px] text-muted-foreground">
+        {index + 1}
+      </span>
+      <span className="flex-1 font-sans text-xs text-foreground/80">
+        {lesson.title}
+      </span>
     </div>
   );
 }

@@ -79,6 +79,7 @@ pub struct Note {
     pub lesson_id: i64,
     pub lesson_title: String,
     pub content: String,
+    pub video_time: f64,
     pub created_at: String,
     pub updated_at: String,
 }
@@ -91,6 +92,7 @@ pub struct NoteWithCourse {
     pub lesson_id: i64,
     pub lesson_title: String,
     pub content: String,
+    pub video_time: f64,
     pub created_at: String,
     pub updated_at: String,
     pub course_title: String,
@@ -197,6 +199,7 @@ pub fn init_db(app_data_dir: &Path) -> SqlResult<Connection> {
             lesson_id INTEGER NOT NULL,
             lesson_title TEXT NOT NULL,
             content TEXT NOT NULL,
+            video_time REAL NOT NULL DEFAULT 0,
             created_at TEXT NOT NULL,
             updated_at TEXT NOT NULL
         );
@@ -274,6 +277,11 @@ pub fn init_db(app_data_dir: &Path) -> SqlResult<Connection> {
             lesson_id INTEGER NOT NULL UNIQUE REFERENCES lessons(id) ON DELETE CASCADE,
             created_at TEXT NOT NULL
         );",
+    );
+
+    // Notes: add video_time column for existing databases
+    let _ = conn.execute_batch(
+        "ALTER TABLE notes ADD COLUMN video_time REAL NOT NULL DEFAULT 0;",
     );
 
     // Custom categories table migration for existing databases
@@ -646,7 +654,7 @@ pub fn delete_course(conn: &Connection, course_id: i64) -> SqlResult<()> {
 pub fn get_all_notes(conn: &Connection) -> SqlResult<Vec<NoteWithCourse>> {
     let mut stmt = conn.prepare(
         "SELECT n.id, n.course_id, n.lesson_id, n.lesson_title, n.content,
-                n.created_at, n.updated_at, c.title, c.accent_color
+                n.video_time, n.created_at, n.updated_at, c.title, c.accent_color
          FROM notes n
          JOIN courses c ON c.id = n.course_id
          ORDER BY n.updated_at DESC",
@@ -660,10 +668,11 @@ pub fn get_all_notes(conn: &Connection) -> SqlResult<Vec<NoteWithCourse>> {
                 lesson_id: row.get(2)?,
                 lesson_title: row.get(3)?,
                 content: row.get(4)?,
-                created_at: row.get(5)?,
-                updated_at: row.get(6)?,
-                course_title: row.get(7)?,
-                accent_color: row.get(8)?,
+                video_time: row.get(5)?,
+                created_at: row.get(6)?,
+                updated_at: row.get(7)?,
+                course_title: row.get(8)?,
+                accent_color: row.get(9)?,
             })
         })?
         .collect::<SqlResult<Vec<_>>>()?;
@@ -673,7 +682,7 @@ pub fn get_all_notes(conn: &Connection) -> SqlResult<Vec<NoteWithCourse>> {
 
 pub fn get_course_notes(conn: &Connection, course_id: i64) -> SqlResult<Vec<Note>> {
     let mut stmt = conn.prepare(
-        "SELECT id, course_id, lesson_id, lesson_title, content, created_at, updated_at
+        "SELECT id, course_id, lesson_id, lesson_title, content, video_time, created_at, updated_at
          FROM notes WHERE course_id = ?1 ORDER BY created_at DESC",
     )?;
 
@@ -685,8 +694,9 @@ pub fn get_course_notes(conn: &Connection, course_id: i64) -> SqlResult<Vec<Note
                 lesson_id: row.get(2)?,
                 lesson_title: row.get(3)?,
                 content: row.get(4)?,
-                created_at: row.get(5)?,
-                updated_at: row.get(6)?,
+                video_time: row.get(5)?,
+                created_at: row.get(6)?,
+                updated_at: row.get(7)?,
             })
         })?
         .collect::<SqlResult<Vec<_>>>()?;
@@ -700,12 +710,13 @@ pub fn add_note(
     lesson_id: i64,
     lesson_title: &str,
     content: &str,
+    video_time: f64,
 ) -> SqlResult<Note> {
     let now = chrono_now();
     conn.execute(
-        "INSERT INTO notes (course_id, lesson_id, lesson_title, content, created_at, updated_at)
-         VALUES (?1, ?2, ?3, ?4, ?5, ?6)",
-        params![course_id, lesson_id, lesson_title, content, now, now],
+        "INSERT INTO notes (course_id, lesson_id, lesson_title, content, video_time, created_at, updated_at)
+         VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7)",
+        params![course_id, lesson_id, lesson_title, content, video_time, now, now],
     )?;
 
     let id = conn.last_insert_rowid();
@@ -715,6 +726,7 @@ pub fn add_note(
         lesson_id,
         lesson_title: lesson_title.to_string(),
         content: content.to_string(),
+        video_time,
         created_at: now.clone(),
         updated_at: now,
     })
@@ -747,6 +759,26 @@ pub fn update_lesson_duration(conn: &Connection, lesson_id: i64, duration: i64) 
         "UPDATE lessons SET duration = ?1 WHERE id = ?2 AND duration != ?1",
         params![duration, lesson_id],
     )?;
+    Ok(())
+}
+
+pub fn reorder_sections(conn: &Connection, course_id: i64, section_ids: &[i64]) -> SqlResult<()> {
+    for (i, sid) in section_ids.iter().enumerate() {
+        conn.execute(
+            "UPDATE sections SET sort_order = ?1 WHERE id = ?2 AND course_id = ?3",
+            params![i as i64, sid, course_id],
+        )?;
+    }
+    Ok(())
+}
+
+pub fn reorder_lessons(conn: &Connection, section_id: i64, lesson_ids: &[i64]) -> SqlResult<()> {
+    for (i, lid) in lesson_ids.iter().enumerate() {
+        conn.execute(
+            "UPDATE lessons SET sort_order = ?1 WHERE id = ?2 AND section_id = ?3",
+            params![i as i64, lid, section_id],
+        )?;
+    }
     Ok(())
 }
 
