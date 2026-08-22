@@ -177,6 +177,12 @@
     @apply bg-background text-foreground font-sans antialiased;
     font-weight: 400;
     }
+  button:not(:disabled) {
+    cursor: pointer;
+    }
+  [role="button"]:not([aria-disabled="true"]) {
+    cursor: pointer;
+    }
 }
 
 /* Squircle (iOS-style superellipse) */

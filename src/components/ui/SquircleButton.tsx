@@ -73,6 +73,7 @@ export function SquircleButton({
           className
         )}
         {...props}
+        role="button"
       >
         {children}
       </button>
