@@ -93,8 +93,9 @@ export async function addNote(
   lessonId: number,
   lessonTitle: string,
   content: string,
+  videoTime: number,
 ): Promise<Note> {
-  return invoke<Note>("add_note", { courseId, lessonId, lessonTitle, content });
+  return invoke<Note>("add_note", { courseId, lessonId, lessonTitle, content, videoTime });
 }
 
 export async function updateNote(

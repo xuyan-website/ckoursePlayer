@@ -54,6 +54,7 @@ export interface Note {
   lessonId: number;
   lessonTitle: string;
   content: string;
+  videoTime: number;
   createdAt: string;
   updatedAt: string;
 }
@@ -78,6 +79,7 @@ export interface NoteWithCourse {
   lessonId: number;
   lessonTitle: string;
   content: string;
+  videoTime: number;
   createdAt: string;
   updatedAt: string;
   courseTitle: string;

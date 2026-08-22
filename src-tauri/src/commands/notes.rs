@@ -22,9 +22,10 @@ pub fn add_note(
     lesson_id: i64,
     lesson_title: String,
     content: String,
+    video_time: f64,
 ) -> Result<db::Note, String> {
     let conn = state.conn.lock().map_err(|e| e.to_string())?;
-    db::add_note(&conn, course_id, lesson_id, &lesson_title, &content).map_err(|e| e.to_string())
+    db::add_note(&conn, course_id, lesson_id, &lesson_title, &content, video_time).map_err(|e| e.to_string())
 }
 
 #[tauri::command]

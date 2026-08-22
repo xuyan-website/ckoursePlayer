@@ -325,7 +325,7 @@ function NoteItem({
 
           <div className="mt-2 flex items-center gap-1.5">
             <Link
-              to={`/course/${note.courseId}?lesson=${note.lessonId}&from=/notes`}
+              to={`/course/${note.courseId}?lesson=${note.lessonId}&from=/notes${note.videoTime > 0 ? `&time=${note.videoTime}` : ""}`}
               className="flex items-center gap-1 font-sans text-[11px] text-muted-foreground transition-colors hover:text-foreground"
             >
               <span className="max-w-40 truncate">{note.courseTitle}</span>
@@ -342,7 +342,7 @@ function NoteItem({
 
         <div className="flex shrink-0 items-center gap-0.5 opacity-0 transition-opacity group-hover:opacity-100">
           <Link
-            to={`/course/${note.courseId}?lesson=${note.lessonId}&from=/notes`}
+            to={`/course/${note.courseId}?lesson=${note.lessonId}&from=/notes${note.videoTime > 0 ? `&time=${note.videoTime}` : ""}`}
             className="rounded-md p-1.5 text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground"
             title="Go to lesson"
           >
