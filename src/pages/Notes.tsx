@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useMemo } from "react";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import { usePageVisible } from "@/hooks/usePageVisible";
 import {
@@ -20,6 +20,7 @@ import type { NoteWithCourse } from "@/types";
 import { getAllNotes, updateNote, deleteNote } from "@/lib/store";
 import { NoteEditor } from "@/components/course-detail/NoteEditor";
 import { EASE_OUT, SNAPPY } from "@/lib/constants";
+import { extractFirstTimestamp } from "@/lib/format";
 
 type SortField = "updated" | "created" | "course";
 type SortDir = "desc" | "asc";
@@ -302,12 +303,22 @@ function NoteItem({
   onDelete: () => void;
 }) {
   const { t } = useTranslation();
+  const navigate = useNavigate();
   const updated = new Date(note.updatedAt);
   const formatted = updated.toLocaleDateString("zh-CN", {
     month: "numeric",
     day: "numeric",
     year: "numeric",
   });
+
+  // Compare the note's saved videoTime with the first timestamp embedded in
+  // its content. If they differ, jump to the first timestamp's position.
+  const firstTimestamp = extractFirstTimestamp(note.content);
+  const jumpTime =
+    firstTimestamp !== null && firstTimestamp !== note.videoTime
+      ? firstTimestamp
+      : note.videoTime;
+  const lessonUrl = `/course/${note.courseId}?lesson=${note.lessonId}&from=/notes${jumpTime > 0 ? `&time=${jumpTime}` : ""}`;
 
   return (
     <div
@@ -324,11 +335,22 @@ function NoteItem({
           <div
             className="note-content font-sans text-sm leading-relaxed text-foreground/90"
             dangerouslySetInnerHTML={{ __html: note.content }}
+            onClick={(e) => {
+              const target = e.target as HTMLElement;
+              if (target.classList.contains("note-timestamp")) {
+                const seconds = Number(target.dataset.timestamp);
+                if (!isNaN(seconds)) {
+                  navigate(
+                    `/course/${note.courseId}?lesson=${note.lessonId}&from=/notes&time=${seconds}`,
+                  );
+                }
+              }
+            }}
           />
 
           <div className="mt-2 flex items-center gap-1.5">
             <Link
-              to={`/course/${note.courseId}?lesson=${note.lessonId}&from=/notes${note.videoTime > 0 ? `&time=${note.videoTime}` : ""}`}
+              to={lessonUrl}
               className="flex items-center gap-1 font-sans text-[11px] text-muted-foreground transition-colors hover:text-foreground"
             >
               <span className="max-w-40 truncate">{note.courseTitle}</span>
@@ -345,7 +367,7 @@ function NoteItem({
 
         <div className="flex shrink-0 items-center gap-0.5 opacity-0 transition-opacity group-hover:opacity-100">
           <Link
-            to={`/course/${note.courseId}?lesson=${note.lessonId}&from=/notes${note.videoTime > 0 ? `&time=${note.videoTime}` : ""}`}
+            to={lessonUrl}
             className="rounded-md p-1.5 text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground"
             title={t("notes.goToLesson")}
           >

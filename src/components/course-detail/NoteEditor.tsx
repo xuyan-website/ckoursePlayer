@@ -66,12 +66,19 @@ export function NoteEditor({
     if (!el) return;
     if (initialContent) {
       el.innerHTML = initialContent;
+    } else {
+      // Auto-insert current video time timestamp when opening a new note
+      el.innerHTML = buildTimestampHtml(videoTimeRef.current) + "\u00A0";
     }
     el.focus();
+    // Place cursor at the end of the content
     const sel = window.getSelection();
-    if (sel && el.childNodes.length > 0) {
-      sel.selectAllChildren(el);
-      sel.collapseToEnd();
+    if (sel) {
+      const range = document.createRange();
+      range.selectNodeContents(el);
+      range.collapse(false);
+      sel.removeAllRanges();
+      sel.addRange(range);
     }
   }, []);
 

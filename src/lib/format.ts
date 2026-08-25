@@ -35,3 +35,10 @@ export function buildTimestampHtml(seconds: number): string {
   const label = formatTimestamp(seconds);
   return `<span data-timestamp="${seconds}" contenteditable="false" class="note-timestamp">${label}</span>`;
 }
+
+export function extractFirstTimestamp(html: string): number | null {
+  const match = /data-timestamp="(\d+(?:\.\d+)?)/.exec(html);
+  if (!match) return null;
+  const seconds = Number(match[1]);
+  return isNaN(seconds) ? null : seconds;
+}
