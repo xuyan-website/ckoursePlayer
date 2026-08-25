@@ -3,6 +3,7 @@ import { getAllSettings, setSetting } from "@/lib/store";
 import type { AppSettings } from "@/types";
 
 const DEFAULTS: AppSettings = {
+  language: "zh-CN",
   autoplay_next: true,
   autoplay_delay_secs: 5,
   resume_position: true,
@@ -23,6 +24,7 @@ function clampDelay(raw: string | undefined): number {
 
 function parse(raw: Record<string, string>): AppSettings {
   return {
+    language: raw.language || "zh-CN",
     autoplay_next: raw.autoplay_next !== "false",
     // 0 is a valid delay (instant skip), so coerce explicitly rather than
     // falling back through `|| 5`, which would turn 0 into the default.

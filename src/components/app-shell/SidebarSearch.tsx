@@ -10,6 +10,7 @@ import { cn } from "@/lib/utils";
 import { searchContent } from "@/lib/store";
 import type { SearchResult } from "@/types";
 import { spring } from "./constants";
+import { useTranslation } from "react-i18next";
 
 const EASE_OUT = "cubic-bezier(0.16, 1, 0.3, 1)";
 
@@ -18,6 +19,7 @@ interface SidebarSearchProps {
 }
 
 export function SidebarSearch({ collapsed }: SidebarSearchProps) {
+  const { t } = useTranslation();
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState("");
   const [results, setResults] = useState<SearchResult[]>([]);
@@ -129,7 +131,7 @@ export function SidebarSearch({ collapsed }: SidebarSearchProps) {
             transition: `opacity ${spring()}, max-width ${spring()}`,
           }}
         >
-          <span className="font-sans text-sm">Search</span>
+          <span className="font-sans text-sm">{t("common.search")}</span>
           <kbd className="ml-auto shrink-0 rounded border border-sidebar-border px-1.5 py-0.5 font-mono text-[10px] text-muted-foreground">
             /
           </kbd>
@@ -177,7 +179,7 @@ export function SidebarSearch({ collapsed }: SidebarSearchProps) {
                 value={query}
                 onChange={handleChange}
                 onKeyDown={handleKeyDown}
-                placeholder="Search courses and lessons…"
+                placeholder={t("common.searchCoursesAndLesson")}
                 className="flex-1 bg-transparent font-sans text-sm text-foreground placeholder:text-muted-foreground focus:outline-none"
               />
               {query ? (

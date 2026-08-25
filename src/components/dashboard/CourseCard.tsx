@@ -7,42 +7,45 @@ import { useState, useCallback, useEffect } from "react";
 import { cn } from "@/lib/utils";
 import type { Course } from "@/types";
 import { toggleBookmark } from "@/lib/store";
+import { useTranslation } from "react-i18next";
 
 function getStatusBadge(status: Course["status"]) {
+  const { t } = useTranslation();
   switch (status) {
     case "completed":
       return (
         <Badge variant="default">
-          Completed
+          {t("dashboard.status.completed")}
         </Badge>
       );
     case "in-progress":
       return (
         <Badge variant="info">
-          In Progress
+          {t("dashboard.status.inProgress")}
         </Badge>
       );
     case "not-started":
       return (
         <Badge variant="secondary">
-          Not Started
+          {t("dashboard.status.notStarted")}
         </Badge>
       );
   }
 }
 
 function formatLastWatched(dateStr: string | null): string {
-  if (!dateStr) return "Never";
+  const { t } = useTranslation();
+  if (!dateStr) return t("courseCard.formatLastWatched.Never");
   const date = new Date(dateStr);
   const now = new Date();
   const diffMs = now.getTime() - date.getTime();
   const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
 
-  if (diffDays === 0) return "Today";
-  if (diffDays === 1) return "Yesterday";
-  if (diffDays < 7) return `${diffDays}d ago`;
-  if (diffDays < 30) return `${Math.floor(diffDays / 7)}w ago`;
-  return date.toLocaleDateString("en-US", { month: "short", day: "numeric" });
+  if (diffDays === 0) return t("courseCard.formatLastWatched.Today");
+  if (diffDays === 1) return t("courseCard.formatLastWatched.Yesterday");
+  if (diffDays < 7) return `${diffDays}${t("courseCard.formatLastWatched.dAgo")}`;
+  if (diffDays < 30) return `${Math.floor(diffDays / 7)}${t("courseCard.formatLastWatched.wAgo")}`;
+  return date.toLocaleDateString("zh-CN", { year: "numeric",month: "numeric", day: "numeric" });
 }
 
 export function CourseCard({ course, onBookmarkChange }: { course: Course; onBookmarkChange?: () => void }) {
@@ -51,6 +54,7 @@ export function CourseCard({ course, onBookmarkChange }: { course: Course; onBoo
     (course.completedLessons / course.totalLessons) * 100
   );
   const isFromDrive = course.folderPath.startsWith("gdrive:");
+  const { t } = useTranslation();
 
   return (
     <Link to={`/course/${course.id}?from=${encodeURIComponent(location.pathname + location.search)}`} className="block h-full">
@@ -101,7 +105,7 @@ export function CourseCard({ course, onBookmarkChange }: { course: Course; onBoo
 
             <div className="flex items-center justify-between">
               <p className="font-sans text-xs text-muted-foreground">
-                {course.author || "Unknown author"}
+                {course.author || t("courseCard.UnknownAuthor")}
               </p>
               <span className="flex items-center gap-1 font-mono text-[11px] text-muted-foreground">
                 <Clock className="size-3" />
@@ -112,7 +116,7 @@ export function CourseCard({ course, onBookmarkChange }: { course: Course; onBoo
             <div className="flex flex-col gap-2">
               <div className="flex items-center justify-between">
                 <span className="font-mono text-xs font-medium text-muted-foreground">
-                  {course.completedLessons}/{course.totalLessons} lessons
+                  {course.completedLessons}/{course.totalLessons} {t("courseCard.lessons")}
                 </span>
                 <span className="font-mono text-xs font-medium text-muted-foreground">
                   {percentage}%
@@ -127,7 +131,7 @@ export function CourseCard({ course, onBookmarkChange }: { course: Course; onBoo
                 <div className="absolute inset-0 bg-linear-to-r from-transparent via-primary/50 to-transparent opacity-0 transition-opacity duration-150 group-hover:opacity-100" style={{ transitionTimingFunction: "cubic-bezier(0.2, 0, 0, 1)" }} />
               </div>
               <div className="flex items-center justify-center gap-1.5 font-sans text-xs font-semibold text-primary">
-                {course.status === "not-started" ? "Start Course" : course.status === "completed" ? "Review Course" : "Continue"}
+                {course.status === "not-started" ? t("courseCard.StartCourse") : course.status === "completed" ? t("courseCard.ReviewCourse") : t("courseCard.Continue")}
                 <ArrowRight
                   className="size-3.5 transition-transform duration-150 group-hover:translate-x-1"
                   style={{ transitionTimingFunction: "cubic-bezier(0.2, 0, 0, 1)" }}

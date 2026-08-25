@@ -14,21 +14,21 @@ export const spring = (extra = "") =>
   `${extra ? extra + " " : ""}${DUR} ${EASE}`.trim();
 
 export const navigationItems: NavItem[] = [
-  { icon: SquaresFour, label: "Dashboard", path: "/" },
-  { icon: BookmarkSimple, label: "Bookmarks", path: "/bookmarks" },
-  { icon: ChartBar, label: "Progress", path: "/progress" },
-  { icon: Notepad, label: "Notes", path: "/notes" },
+  { icon: SquaresFour, label: "nav.dashboard", path: "/" },
+  { icon: BookmarkSimple, label: "nav.bookmarks", path: "/bookmarks" },
+  { icon: ChartBar, label: "nav.progress", path: "/progress" },
+  { icon: Notepad, label: "nav.notes", path: "/notes" },
 ];
 
 export const appItems: NavItem[] = [
-  { icon: GearSix, label: "Settings", path: "/settings" },
+  { icon: GearSix, label: "nav.settings", path: "/settings" },
 ];
 
 export const routeTitles: Record<string, string> = {
-  "/": "Dashboard",
-  "/bookmarks": "Bookmarks",
-  "/progress": "Progress",
-  "/notes": "Notes",
-  "/settings": "Settings",
-  "/import": "Import Course",
+  "/": "nav.dashboard",
+  "/bookmarks": "nav.bookmarks",
+  "/progress": "nav.progress",
+  "/notes": "nav.notes",
+  "/settings": "nav.settings",
+  "/import": "nav.importCourse",
 };

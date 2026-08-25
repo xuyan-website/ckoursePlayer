@@ -1,10 +1,13 @@
 {
   "globalPaused": false,
-  "isSingle": false,
+  "isSingle": true,
   "isInitial": true,
-  "codebaseId": "1249680937067827200",
-  "codebaseBranchId": "1249680937189462016",
-  "taskId": "1249680937269153792",
+  "codebaseId": "1251339638824587264",
+  "codebaseBranchId": "1251339638925250560",
+  "taskId": "1251339638992359424",
   "branch": "main",
-  "isBaselineInitial": false
+  "isBaselineInitial": false,
+  "finishedCount": 0,
+  "taskStatus": "",
+  "taskProgress": ""
 }

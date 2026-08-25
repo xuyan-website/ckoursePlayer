@@ -1,4 +1,5 @@
 import { useNavigate, useLocation } from "react-router-dom";
+import { useTranslation } from "react-i18next";
 import { cn } from "@/lib/utils";
 import type { NavItem } from "@/types";
 import { spring } from "./constants";
@@ -13,6 +14,7 @@ export function SidebarButton({
   collapsed: boolean;
   index: number;
 }) {
+  const { t } = useTranslation();
   const location = useLocation();
   const navigate = useNavigate();
   const searchParams = new URLSearchParams(location.search);
@@ -71,12 +73,12 @@ export function SidebarButton({
           transition: `opacity ${spring()} ${delay}, max-width ${spring()}, transform ${spring()} ${delay}`,
         }}
       >
-        {item.label}
+        {t(item.label)}
       </span>
 
       {collapsed && (
         <span className="squircle pointer-events-none absolute left-full z-50 ml-3 whitespace-nowrap bg-popover px-3 py-1.5 font-sans text-xs font-medium text-popover-foreground opacity-0 shadow-lg transition-all duration-200 ease-out group-hover:opacity-100 group-hover:translate-x-0 -translate-x-1">
-          {item.label}
+          {t(item.label)}
         </span>
       )}
     </a>

@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { Routes, Route, useLocation } from "react-router-dom";
 import { AppShell } from "@/components/app-shell/AppShell";
 import { Dashboard } from "@/pages/Dashboard";
@@ -101,8 +102,16 @@ function KeepAliveRoutes() {
 
 function App() {
   const settingsCtx = useSettingsProvider();
+  console.log("App settingsCtx:", settingsCtx);
   const updaterCtx = useUpdaterProvider();
   useStartupUpdateCheck(updaterCtx);
+  const { i18n } = useTranslation();
+
+  useEffect(() => {
+    if (settingsCtx.loaded && settingsCtx.settings.language !== i18n.language) {
+      i18n.changeLanguage(settingsCtx.settings.language);
+    }
+  }, [settingsCtx.loaded, settingsCtx.settings.language, i18n]);
 
   return (
     <SettingsContext.Provider value={settingsCtx}>

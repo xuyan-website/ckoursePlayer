@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback, useMemo } from "react";
 import { Link } from "react-router-dom";
+import { useTranslation } from "react-i18next";
 import { usePageVisible } from "@/hooks/usePageVisible";
 import {
   NotepadIcon as Notepad,
@@ -28,6 +29,7 @@ interface NotesProps {
 }
 
 export function Notes({ className }: NotesProps) {
+  const { t } = useTranslation();
   const [notes, setNotes] = useState<NoteWithCourse[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
@@ -145,10 +147,10 @@ export function Notes({ className }: NotesProps) {
             <Notepad className="size-6 text-muted-foreground" />
           </div>
           <h2 className="font-heading text-lg font-bold text-foreground">
-            No notes yet
+            {t("notes.noNotesYet")}
           </h2>
           <p className="max-w-xs font-sans text-sm text-muted-foreground">
-            Start taking notes while watching your courses. Use @ to tag timestamps.
+            {t("notes.noNotesDesc")}
           </p>
         </div>
       </div>
@@ -166,10 +168,10 @@ export function Notes({ className }: NotesProps) {
         <div className="flex items-baseline justify-between">
           <div>
             <h2 className="font-heading text-2xl font-bold text-foreground">
-              Notes
+              {t("notes.title")}
             </h2>
             <p className="mt-1 font-sans text-sm text-muted-foreground">
-              {notes.length} {notes.length === 1 ? "note" : "notes"} across {courses.length} {courses.length === 1 ? "course" : "courses"}
+              {t("notes.countAcrossCourses", { noteCount: notes.length, courseCount: courses.length })}
             </p>
           </div>
         </div>
@@ -182,7 +184,7 @@ export function Notes({ className }: NotesProps) {
         <SquircleSearch
           value={search}
           onChange={setSearch}
-          placeholder="Search notes..."
+          placeholder={t("notes.searchPlaceholder")}
           className="flex-1"
         />
         <div className="flex items-center gap-1">
@@ -197,7 +199,7 @@ export function Notes({ className }: NotesProps) {
                   : "text-muted-foreground hover:text-foreground",
               )}
             >
-              {field === "updated" ? "Modified" : field === "created" ? "Created" : "Course"}
+              {field === "updated" ? t("notes.modified") : field === "created" ? t("notes.created") : t("notes.course")}
               {sortField === field && <SortIcon className="size-3" />}
             </button>
           ))}
@@ -219,7 +221,7 @@ export function Notes({ className }: NotesProps) {
                 : "text-muted-foreground hover:text-foreground",
             )}
           >
-            All
+            {t("common.all")}
             <span className="font-mono text-[9px] text-muted-foreground/60">
               {notes.length}
             </span>
@@ -254,9 +256,9 @@ export function Notes({ className }: NotesProps) {
           style={{ animation: `card-in 350ms ${EASE_OUT} both` }}
         >
           <MagnifyingGlass className="size-8 text-muted-foreground/40" />
-          <p className="font-sans text-sm font-medium text-muted-foreground">No matching notes</p>
+          <p className="font-sans text-sm font-medium text-muted-foreground">{t("notes.noMatching")}</p>
           <p className="font-sans text-xs text-muted-foreground/60">
-            Try a different search or filter.
+            {t("notes.noMatchingDesc")}
           </p>
         </div>
       ) : (
@@ -299,9 +301,10 @@ function NoteItem({
   onStartEdit: () => void;
   onDelete: () => void;
 }) {
+  const { t } = useTranslation();
   const updated = new Date(note.updatedAt);
-  const formatted = updated.toLocaleDateString("en-US", {
-    month: "short",
+  const formatted = updated.toLocaleDateString("zh-CN", {
+    month: "numeric",
     day: "numeric",
     year: "numeric",
   });
@@ -344,21 +347,21 @@ function NoteItem({
           <Link
             to={`/course/${note.courseId}?lesson=${note.lessonId}&from=/notes${note.videoTime > 0 ? `&time=${note.videoTime}` : ""}`}
             className="rounded-md p-1.5 text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground"
-            title="Go to lesson"
+            title={t("notes.goToLesson")}
           >
             <CaretRight className="size-3.5" />
           </Link>
           <button
             onClick={onStartEdit}
             className="rounded-md p-1.5 text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground"
-            title="Edit note"
+            title={t("notes.editNote")}
           >
             <PencilSimple className="size-3.5" />
           </button>
           <button
             onClick={onDelete}
             className="rounded-md p-1.5 text-muted-foreground transition-colors hover:bg-destructive/15 hover:text-destructive"
-            title="Delete note"
+            title={t("notes.deleteNote")}
           >
             <Trash className="size-3.5" />
           </button>

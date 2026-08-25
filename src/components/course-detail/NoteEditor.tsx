@@ -11,6 +11,7 @@ import {
 import { cn } from "@/lib/utils";
 import { buildTimestampHtml, formatTimestamp, parseTimeString } from "@/lib/format";
 import { SNAPPY, EASE_OUT } from "@/lib/constants";
+import { useTranslation } from "react-i18next";
 
 // Matches @current or @m:ss / @h:mm:ss followed by a word boundary (space, end, punctuation)
 const TIMESTAMP_COMMIT_RE = /@(current|\d{1,2}(?::\d{2}){1,2})(?=[\s,.\-!?;:]|$)/;
@@ -36,6 +37,7 @@ export function NoteEditor({
   onCancel,
   className,
 }: NoteEditorProps) {
+  const { t } = useTranslation();
   const editorRef = useRef<HTMLDivElement>(null);
   const videoTimeRef = useRef(videoTime);
   const [menu, setMenu] = useState<{
@@ -315,10 +317,10 @@ export function NoteEditor({
   const suggestions = menu ? getSuggestions(menu.query) : [];
 
   const toolbarButtons = [
-    { command: "bold", icon: TextBolder, label: "Bold" },
-    { command: "italic", icon: TextItalic, label: "Italic" },
-    { command: "underline", icon: TextUnderline, label: "Underline" },
-    { command: "strikeThrough", icon: TextStrikethrough, label: "Strikethrough" },
+    { command: "bold", icon: TextBolder, label: t("noteEditor.bold") },
+    { command: "italic", icon: TextItalic, label: t("noteEditor.italic") },
+    { command: "underline", icon: TextUnderline, label: t("noteEditor.underline") },
+    { command: "strikeThrough", icon: TextStrikethrough, label: t("noteEditor.strikethrough") },
   ];
 
   return (
@@ -344,7 +346,7 @@ export function NoteEditor({
         ))}
 
         <span className="ml-2 font-mono text-[10px] text-muted-foreground/40">
-          Type <span className="text-muted-foreground/60">@</span> to tag time
+          {t("noteEditor.type")} <span className="text-muted-foreground/60">@</span> {t("noteEditor.toTagTime")}
         </span>
       </div>
 
@@ -354,7 +356,7 @@ export function NoteEditor({
           contentEditable
           onInput={handleInput}
           onKeyDown={handleKeyDown}
-          data-placeholder="Write a note..."
+          data-placeholder={t("notesPanel.writeANote")}
           className="note-editable min-h-18 w-full px-3 pt-2.5 pb-2 font-sans text-xs leading-relaxed text-foreground focus:outline-none"
         />
 
@@ -415,7 +417,7 @@ export function NoteEditor({
           style={{ transitionTimingFunction: SNAPPY }}
         >
           <PaperPlaneTilt className="size-3.5" weight="fill" />
-          Save
+          {t("common.save")}
         </button>
       </div>
     </div>

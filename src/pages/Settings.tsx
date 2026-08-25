@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import { useNavigate } from "react-router-dom";
+import { useTranslation } from "react-i18next";
 import { usePageVisible } from "@/hooks/usePageVisible";
 import { useSettings, AUTOPLAY_DELAY_MAX } from "@/hooks/useSettings";
 import {
@@ -25,6 +26,7 @@ import {
   KeyIcon as Key,
   LinkSimpleIcon as Link,
   LinkBreakIcon as LinkBreak,
+  GlobeIcon as Globe,
 } from "@phosphor-icons/react";
 import { cn } from "@/lib/utils";
 import type { LibraryStats } from "@/types";
@@ -189,6 +191,7 @@ function DeleteConfirmDialog({
   onConfirm: () => void;
   onCancel: () => void;
 }) {
+  const { t } = useTranslation();
   const [input, setInput] = useState("");
   const matches = input.toLowerCase().trim() === CONFIRM_PHRASE;
 
@@ -215,22 +218,21 @@ function DeleteConfirmDialog({
           </div>
           <div>
             <h3 className="font-heading text-base font-bold text-foreground">
-              Delete all data
+              {t("settings.dangerZone.confirmTitle")}
             </h3>
             <p className="font-sans text-xs text-muted-foreground">
-              This action cannot be undone
+              {t("settings.dangerZone.confirmWarning")}
             </p>
           </div>
         </div>
 
         <p className="mb-4 font-sans text-sm text-muted-foreground">
-          This will permanently delete all your courses, progress, notes, bookmarks,
-          favorites, and settings. Your original course files on disk will not be affected.
+          {t("settings.dangerZone.confirmDetail")}
         </p>
 
         <div className="mb-4">
           <label className="mb-1.5 block font-sans text-xs font-medium text-muted-foreground">
-            Type <span className="font-mono font-bold text-foreground">{CONFIRM_PHRASE}</span> to confirm
+            {t("settings.dangerZone.typeToConfirm", { phrase: CONFIRM_PHRASE })}
           </label>
           <input
             type="text"
@@ -256,7 +258,7 @@ function DeleteConfirmDialog({
             onClick={onCancel}
             className="rounded-lg px-4 py-2 font-sans text-sm font-medium text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground"
           >
-            Cancel
+            {t("common.cancel")}
           </button>
           <button
             onClick={onConfirm}
@@ -268,7 +270,7 @@ function DeleteConfirmDialog({
                 : "cursor-not-allowed bg-secondary text-muted-foreground/40",
             )}
           >
-            Delete everything
+            {t("settings.dangerZone.deleteEverything")}
           </button>
         </div>
       </div>
@@ -304,6 +306,7 @@ interface SettingsProps {
 }
 
 function UpdatesSection({ index }: { index: number }) {
+  const { t } = useTranslation();
   const updater = useUpdater();
   const [appVersion, setAppVersion] = useState<string>("");
 
@@ -317,31 +320,31 @@ function UpdatesSection({ index }: { index: number }) {
   const hasUpdate = updater.status === "available" || isDownloading || isReady;
   const percent = Math.round(updater.progress * 100);
 
-  let buttonLabel = "Check for updates";
-  if (isChecking) buttonLabel = "Checking…";
-  else if (isReady) buttonLabel = "Restart to update";
-  else if (isDownloading) buttonLabel = `Downloading ${percent}%`;
-  else if (updater.status === "available") buttonLabel = `Install v${updater.version}`;
+  let buttonLabel = t("settings.updates.checkForUpdates");
+  if (isChecking) buttonLabel = t("settings.updates.checking");
+  else if (isReady) buttonLabel = t("settings.updates.restartToUpdate");
+  else if (isDownloading) buttonLabel = t("settings.updates.downloading", { percent });
+  else if (updater.status === "available") buttonLabel = t("settings.updates.installVersion", { version: updater.version });
 
   const onClick = () => {
     if (hasUpdate) updater.install();
     else updater.check();
   };
 
-  let description = appVersion ? `Current version v${appVersion}` : "Check for new versions";
-  if (updater.status === "up-to-date") description = `You're on the latest version (v${appVersion})`;
-  else if (updater.status === "available") description = `Version ${updater.version} is available`;
-  else if (updater.status === "error") description = updater.error ?? "Update check failed";
+  let description = appVersion ? t("settings.updates.currentVersion", { appVersion }) : t("settings.updates.checkForNewVersions");
+  if (updater.status === "up-to-date") description = t("settings.updates.latestVersion", { appVersion });
+  else if (updater.status === "available") description = t("settings.updates.versionAvailable", { version: updater.version });
+  else if (updater.status === "error") description = updater.error ?? t("settings.updates.updateCheckFailed");
 
   return (
     <SectionCard
-      title="Updates"
+      title={t("settings.updates.title")}
       icon={<ArrowsClockwise className="size-4 text-info" weight="bold" />}
       index={index}
     >
       <SettingRow
         icon={<ArrowsClockwise className={cn("size-4", isChecking && "animate-spin")} />}
-        label="App updates"
+        label={t("settings.updates.appUpdates")}
         description={description}
       >
         <button
@@ -421,6 +424,7 @@ function CredInput({
 }
 
 function GoogleDriveSection({ index }: { index: number }) {
+  const { t } = useTranslation();
   const [credsSet, setCredsSet] = useState(false);
   const [connected, setConnected] = useState(false);
   const [editing, setEditing] = useState(false);
@@ -496,7 +500,7 @@ function GoogleDriveSection({ index }: { index: number }) {
   const saveCreds = () =>
     run(async () => {
       if (!clientId.trim() || !clientSecret.trim() || !apiKey.trim()) {
-        throw new Error("All three fields are required");
+        throw new Error(t("settings.googleDrive.allFieldsRequired"));
       }
       await driveSetCredentials(clientId.trim(), clientSecret.trim(), apiKey.trim());
       setEditing(false);
@@ -507,33 +511,32 @@ function GoogleDriveSection({ index }: { index: number }) {
 
   return (
     <SectionCard
-      title="Google Drive"
+      title={t("settings.googleDrive.title")}
       icon={<Cloud className="size-4 text-info" weight="bold" />}
       index={index}
     >
       <p className="px-2 pb-2 font-sans text-xs text-muted-foreground">
-        Stream courses from a Google Drive folder. Uses your own Google Cloud OAuth
-        credentials (drive.readonly), stored securely in your system keychain.
+        {t("settings.googleDrive.description")}
       </p>
 
       {showForm ? (
         <div className="flex flex-col gap-3 py-1">
           <DriveSetupGuide />
           <CredInput
-            label="OAuth Client ID (Desktop app)"
+            label={t("settings.googleDrive.clientId")}
             value={clientId}
             onChange={setClientId}
             placeholder="xxxxx.apps.googleusercontent.com"
           />
           <CredInput
-            label="OAuth Client Secret"
+            label={t("settings.googleDrive.clientSecret")}
             value={clientSecret}
             onChange={setClientSecret}
             type="password"
             placeholder="GOCSPX-…"
           />
           <CredInput
-            label="API Key (Picker API)"
+            label={t("settings.googleDrive.apiKey")}
             value={apiKey}
             onChange={setApiKey}
             placeholder="AIza…"
@@ -547,7 +550,7 @@ function GoogleDriveSection({ index }: { index: number }) {
                 }}
                 className="rounded-lg px-4 py-2 font-sans text-sm font-medium text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground"
               >
-                Cancel
+                {t("common.cancel")}
               </button>
             )}
             <button
@@ -558,7 +561,7 @@ function GoogleDriveSection({ index }: { index: number }) {
                 "transition-colors hover:bg-primary/90 disabled:opacity-50",
               )}
             >
-              Save credentials
+              {t("settings.googleDrive.saveCredentials")}
             </button>
           </div>
         </div>
@@ -566,8 +569,8 @@ function GoogleDriveSection({ index }: { index: number }) {
         <>
           <SettingRow
             icon={<Key className="size-4" />}
-            label="Credentials"
-            description="Stored in your system keychain"
+            label={t("settings.googleDrive.credentials")}
+            description={t("settings.googleDrive.credentialsStoredIn")}
           >
             <div className="flex items-center gap-2">
               <button
@@ -575,25 +578,25 @@ function GoogleDriveSection({ index }: { index: number }) {
                 disabled={busy || connecting}
                 className="rounded-lg border border-border px-3 py-1.5 font-sans text-sm text-muted-foreground transition-colors hover:text-foreground disabled:opacity-50"
               >
-                Edit
+                {t("settings.googleDrive.edit")}
               </button>
               <button
                 onClick={() => run(driveClearCredentials)}
                 disabled={busy || connecting}
                 className="rounded-lg border border-destructive/30 px-3 py-1.5 font-sans text-sm text-destructive transition-colors hover:bg-destructive/10 disabled:opacity-50"
               >
-                Clear
+                {t("settings.googleDrive.clear")}
               </button>
             </div>
           </SettingRow>
 
           <SettingRow
             icon={connected ? <Link className="size-4" /> : <LinkBreak className="size-4" />}
-            label={connected ? "Connected" : "Not connected"}
+            label={connected ? t("settings.googleDrive.connected") : t("settings.googleDrive.notConnected")}
             description={
               connected
-                ? "Your Google account is linked"
-                : "Connect to sign in (opens your browser)"
+                ? t("settings.googleDrive.accountLinked")
+                : t("settings.googleDrive.connectToSignIn")
             }
           >
             {connected ? (
@@ -602,18 +605,18 @@ function GoogleDriveSection({ index }: { index: number }) {
                 disabled={busy}
                 className="rounded-lg border border-border px-4 py-2 font-sans text-sm font-medium text-muted-foreground transition-colors hover:text-foreground disabled:opacity-50"
               >
-                Disconnect
+                {t("settings.googleDrive.disconnect")}
               </button>
             ) : connecting ? (
               <div className="flex items-center gap-2">
                 <span className="font-sans text-sm text-muted-foreground">
-                  Check your browser…
+                  {t("settings.googleDrive.checkBrowser")}
                 </span>
                 <button
                   onClick={cancelConnect}
                   className="rounded-lg border border-border px-3 py-2 font-sans text-sm font-medium text-muted-foreground transition-colors hover:text-foreground"
                 >
-                  Cancel
+                  {t("common.cancel")}
                 </button>
               </div>
             ) : (
@@ -625,7 +628,7 @@ function GoogleDriveSection({ index }: { index: number }) {
                   "transition-colors hover:bg-primary/90 disabled:opacity-50",
                 )}
               >
-                Connect
+                {t("settings.googleDrive.connect")}
               </button>
             )}
           </SettingRow>
@@ -640,6 +643,7 @@ function GoogleDriveSection({ index }: { index: number }) {
 }
 
 export function Settings({ className }: SettingsProps) {
+  const { t } = useTranslation();
   const { settings, update } = useSettings();
   const navigate = useNavigate();
   const [stats, setStats] = useState<LibraryStats | null>(null);
@@ -681,23 +685,44 @@ export function Settings({ className }: SettingsProps) {
           <GearSix className="size-5 text-primary" weight="bold" />
         </div>
         <div>
-          <h2 className="font-heading text-2xl font-bold text-foreground">Settings</h2>
+          <h2 className="font-heading text-2xl font-bold text-foreground">{t("settings.title")}</h2>
           <p className="font-sans text-sm text-muted-foreground">
-            Configure your learning experience
+            {t("settings.subtitle")}
           </p>
         </div>
       </div>
 
       <div className="flex flex-col gap-4">
         <SectionCard
-          title="Playback"
-          icon={<Play className="size-4 text-primary" weight="bold" />}
+          title={t("settings.language.title")}
+          icon={<Globe className="size-4 text-primary" weight="bold" />}
           index={0}
         >
           <SettingRow
+            icon={<Globe className="size-4" />}
+            label={t("settings.language.label")}
+            description={t("settings.language.description")}
+          >
+            <Select
+              value={settings.language}
+              onChange={(v) => update("language", v)}
+              options={[
+                { value: "zh-CN", label: t("settings.language.zhCN") },
+                { value: "en", label: t("settings.language.en") },
+              ]}
+            />
+          </SettingRow>
+        </SectionCard>
+
+        <SectionCard
+          title={t("settings.playback.title")}
+          icon={<Play className="size-4 text-primary" weight="bold" />}
+          index={1}
+        >
+          <SettingRow
             icon={<SkipForward className="size-4" />}
-            label="Autoplay next lesson"
-            description="Automatically play the next lesson when one finishes"
+            label={t("settings.playback.autoplayNext")}
+            description={t("settings.playback.autoplayNextDesc")}
           >
             <Toggle
               checked={settings.autoplay_next}
@@ -707,8 +732,8 @@ export function Settings({ className }: SettingsProps) {
           {settings.autoplay_next && (
             <SettingRow
               icon={<Timer className="size-4" />}
-              label="Autoplay delay"
-              description="How long to wait before the next lesson starts"
+              label={t("settings.playback.autoplayDelay")}
+              description={t("settings.playback.autoplayDelayDesc")}
             >
               <div className="flex items-center gap-2.5">
                 <input
@@ -722,7 +747,7 @@ export function Settings({ className }: SettingsProps) {
                 />
                 <span className="w-12 font-mono text-xs text-muted-foreground">
                   {settings.autoplay_delay_secs === 0
-                    ? "Instant"
+                    ? t("settings.playback.instant")
                     : `${settings.autoplay_delay_secs}s`}
                 </span>
               </div>
@@ -730,8 +755,8 @@ export function Settings({ className }: SettingsProps) {
           )}
           <SettingRow
             icon={<ArrowsClockwise className="size-4" />}
-            label="Resume from last position"
-            description="Continue videos from where you left off"
+            label={t("settings.playback.resumePosition")}
+            description={t("settings.playback.resumePositionDesc")}
           >
             <Toggle
               checked={settings.resume_position}
@@ -740,7 +765,7 @@ export function Settings({ className }: SettingsProps) {
           </SettingRow>
           <SettingRow
             icon={<FastForward className="size-4" />}
-            label="Default playback speed"
+            label={t("settings.playback.defaultSpeed")}
           >
             <Select
               value={String(settings.default_speed)}
@@ -750,7 +775,7 @@ export function Settings({ className }: SettingsProps) {
           </SettingRow>
           <SettingRow
             icon={<SpeakerHigh className="size-4" />}
-            label="Default volume"
+            label={t("settings.playback.defaultVolume")}
           >
             <div className="flex items-center gap-2.5">
               <input
@@ -768,7 +793,7 @@ export function Settings({ className }: SettingsProps) {
           </SettingRow>
           <SettingRow
             icon={<MonitorPlay className="size-4" />}
-            label="Skip forward / backward"
+            label={t("settings.playback.skipForwardBackward")}
           >
             <Select
               value={String(settings.skip_forward_secs)}
@@ -781,8 +806,8 @@ export function Settings({ className }: SettingsProps) {
           </SettingRow>
           <SettingRow
             icon={<FastForward className="size-4" />}
-            label="Long-press seek speed"
-            description="Playback rate when holding ← / → to seek"
+            label={t("settings.playback.longPressSpeed")}
+            description={t("settings.playback.longPressSpeedDesc")}
           >
             <Select
               value={String(settings.long_press_speed)}
@@ -793,60 +818,60 @@ export function Settings({ className }: SettingsProps) {
         </SectionCard>
 
         <SectionCard
-          title="Library"
+          title={t("settings.library.title")}
           icon={<Database className="size-4 text-info" weight="bold" />}
-          index={1}
+          index={2}
         >
           {stats && (
             <div className="grid grid-cols-3 gap-2.5">
               <StatChip
                 icon={<Stack className="size-3.5" />}
-                label="Courses"
+                label={t("settings.library.courses")}
                 value={stats.totalCourses}
               />
               <StatChip
                 icon={<MonitorPlay className="size-3.5" />}
-                label="Lessons"
+                label={t("settings.library.lessons")}
                 value={stats.totalLessons}
               />
               <StatChip
                 icon={<Notepad className="size-3.5" />}
-                label="Notes"
+                label={t("settings.library.notes")}
                 value={stats.totalNotes}
               />
               <StatChip
                 icon={<BookmarkSimple className="size-3.5" />}
-                label="Bookmarks"
+                label={t("settings.library.bookmarks")}
                 value={stats.totalBookmarks}
               />
               <StatChip
                 icon={<Heart className="size-3.5" />}
-                label="Favorites"
+                label={t("settings.library.favorites")}
                 value={stats.totalFavorites}
               />
               <StatChip
                 icon={<Folder className="size-3.5" />}
-                label="Sections"
+                label={t("settings.library.sections")}
                 value={stats.totalSections}
               />
             </div>
           )}
           <div className="mt-3 rounded-lg bg-secondary/50 px-3 py-2.5">
-            <div className="font-sans text-xs text-muted-foreground">Database location</div>
+            <div className="font-sans text-xs text-muted-foreground">{t("settings.library.databaseLocation")}</div>
             <div className="mt-0.5 truncate font-mono text-xs text-foreground/70">
               {stats?.dbPath}
             </div>
           </div>
         </SectionCard>
 
-        <UpdatesSection index={2} />
+        <UpdatesSection index={3} />
 
-        <GoogleDriveSection index={3} />
+        <GoogleDriveSection index={4} />
 
         <SectionCard
-          title="Danger Zone"
+          title={t("settings.dangerZone.title")}
           icon={<WarningCircle className="size-4 text-destructive" weight="bold" />}
-          index={4}
+          index={5}
         >
           <div className="flex items-center justify-between gap-4 rounded-lg px-2 py-3">
             <div className="flex items-center gap-3">
@@ -855,10 +880,10 @@ export function Settings({ className }: SettingsProps) {
               </div>
               <div>
                 <div className="font-sans text-sm font-medium text-foreground">
-                  Delete all data
+                  {t("settings.dangerZone.deleteAllData")}
                 </div>
                 <div className="font-sans text-xs text-muted-foreground">
-                  Permanently remove all courses, progress, notes, and settings
+                  {t("settings.dangerZone.deleteAllDataDesc")}
                 </div>
               </div>
             </div>
@@ -870,7 +895,7 @@ export function Settings({ className }: SettingsProps) {
                 "transition-colors hover:bg-destructive/10",
               )}
             >
-              Delete all
+              {t("settings.dangerZone.deleteAll")}
             </button>
           </div>
         </SectionCard>

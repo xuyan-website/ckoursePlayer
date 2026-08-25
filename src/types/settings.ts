@@ -1,4 +1,5 @@
 export interface AppSettings {
+  language: string;
   autoplay_next: boolean;
   autoplay_delay_secs: number;
   resume_position: boolean;

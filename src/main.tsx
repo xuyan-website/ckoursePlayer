@@ -6,6 +6,7 @@ import App from "./App";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { Toaster } from "@/components/ui/sonner";
 import "./index.css";
+import "./i18n";
 
 
 const posthogOptions = {

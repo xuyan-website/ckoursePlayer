@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from "react";
 import { Link } from "react-router-dom";
+import { useTranslation } from "react-i18next";
 import { usePageVisible } from "@/hooks/usePageVisible";
 import {
   BookmarkSimpleIcon as BookmarkSimple,
@@ -20,6 +21,7 @@ interface BookmarksProps {
 }
 
 export function Bookmarks({ className }: BookmarksProps) {
+  const { t } = useTranslation();
   const [courses, setCourses] = useState<Course[]>([]);
   const [favorites, setFavorites] = useState<FavoriteLesson[]>([]);
   const [loading, setLoading] = useState(true);
@@ -70,10 +72,10 @@ export function Bookmarks({ className }: BookmarksProps) {
             <BookmarkSimple className="size-6 text-muted-foreground" />
           </div>
           <h2 className="font-heading text-lg font-bold text-foreground">
-            No bookmarks yet
+            {t("bookmarks.noBookmarksYet")}
           </h2>
           <p className="max-w-xs font-sans text-sm text-muted-foreground">
-            Bookmark courses and favorite videos to find them quickly here.
+            {t("bookmarks.noBookmarksDesc")}
           </p>
         </div>
       ) : (
@@ -89,7 +91,7 @@ export function Bookmarks({ className }: BookmarksProps) {
               )}
             >
               <BookmarkSimple className="size-3.5" />
-              Courses
+              {t("bookmarks.courses")}
               {courses.length > 0 && (
                 <span className="flex size-4 items-center justify-center rounded-full border border-border bg-muted font-mono text-[9px] font-medium text-muted-foreground">
                   {courses.length}
@@ -106,7 +108,7 @@ export function Bookmarks({ className }: BookmarksProps) {
               )}
             >
               <Heart className="size-3.5" />
-              Favorites
+              {t("bookmarks.favorites")}
               {favorites.length > 0 && (
                 <span className="flex size-4 items-center justify-center rounded-full border border-border bg-muted font-mono text-[9px] font-medium text-muted-foreground">
                   {favorites.length}
@@ -133,8 +135,8 @@ export function Bookmarks({ className }: BookmarksProps) {
               ) : (
                 <EmptySection
                   icon={BookmarkSimple}
-                  message="No bookmarked courses"
-                  description="Bookmark a course from your library or course detail page."
+                  message={t("bookmarks.noBookmarkedCourses")}
+                  description={t("bookmarks.noBookmarkedCoursesDesc")}
                 />
               )}
             </>
@@ -156,8 +158,8 @@ export function Bookmarks({ className }: BookmarksProps) {
               ) : (
                 <EmptySection
                   icon={Heart}
-                  message="No favorite videos"
-                  description="Favorite a video from the curriculum sidebar."
+                  message={t("bookmarks.noFavoriteVideos")}
+                  description={t("bookmarks.noFavoriteVideosDesc")}
                 />
               )}
             </>

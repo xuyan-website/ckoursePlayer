@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef, useMemo, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
+import { useTranslation } from "react-i18next";
 import LottieLib from "lottie-react";
 import { toast } from "sonner";
 
@@ -80,12 +81,12 @@ interface StructureIds {
 }
 
 const builtinCategories: { value: CourseCategory; label: string }[] = [
-  { value: "frontend", label: "Frontend" },
-  { value: "backend", label: "Backend" },
-  { value: "devops", label: "DevOps" },
-  { value: "database", label: "Database" },
-  { value: "design", label: "Design" },
-  { value: "other", label: "Other" },
+  { value: "frontend", label: "dashboard.categories.frontend" },
+  { value: "backend", label: "dashboard.categories.backend" },
+  { value: "devops", label: "dashboard.categories.devops" },
+  { value: "database", label: "dashboard.categories.database" },
+  { value: "design", label: "dashboard.categories.design" },
+  { value: "other", label: "dashboard.categories.other" },
 ];
 
 const accentColors = [
@@ -108,6 +109,7 @@ interface ImportCourseProps {
 }
 
 export function ImportCourse({ className }: ImportCourseProps) {
+  const { t } = useTranslation();
   const navigate = useNavigate();
   const [step, setStep] = useState<"select" | "configure">("select");
   const [isDragOver, setIsDragOver] = useState(false);
@@ -152,7 +154,7 @@ export function ImportCourse({ className }: ImportCourseProps) {
     try {
       applyParsed(await parseCourseFolder(folderPath));
     } catch (err) {
-      showError(typeof err === "string" ? err : "Failed to parse course folder");
+      showError(typeof err === "string" ? err : t("import.failedToParse"));
     } finally {
       setIsLoading(false);
     }
@@ -165,7 +167,7 @@ export function ImportCourse({ className }: ImportCourseProps) {
         await handleParseCourse(folderPath);
       }
     } catch (err) {
-      showError("Failed to open folder picker");
+      showError(t("import.failedToOpenPicker"));
     }
   };
 
@@ -173,7 +175,7 @@ export function ImportCourse({ className }: ImportCourseProps) {
     showError(null);
     try {
       if (!(await driveCredentialsStatus())) {
-        showError("Connect your Google Drive before importing.", true);
+        showError(t("import.connectDriveFirst"), true);
         return;
       }
       if (!(await driveAuthStatus()).connected) {
@@ -193,7 +195,7 @@ export function ImportCourse({ className }: ImportCourseProps) {
         showError(msg, true);
         return;
       }
-      showError(msg || "Failed to import from Google Drive");
+      showError(msg || t("import.failedFromDrive"));
     } finally {
       setIsLoading(false);
     }
@@ -215,7 +217,7 @@ export function ImportCourse({ className }: ImportCourseProps) {
           if (path) {
             await handleParseCourse(path);
           } else {
-            showError("Could not read the dropped folder path. Try using Browse instead.");
+            showError(t("import.couldNotReadDropped"));
           }
         }
       }
@@ -287,7 +289,7 @@ export function ImportCourse({ className }: ImportCourseProps) {
       });
       navigate(`/course/${courseId}`);
     } catch (err) {
-      showError(typeof err === "string" ? err : "Failed to import course");
+      showError(typeof err === "string" ? err : t("import.failedToImport"));
     } finally {
       setIsImporting(false);
     }
@@ -302,10 +304,10 @@ export function ImportCourse({ className }: ImportCourseProps) {
           className="size-40"
         />
         <p className="mt-2 font-sans text-sm font-semibold text-foreground">
-          Importing course...
+          {t("import.importing")}
         </p>
         <p className="mt-1.5 font-sans text-xs text-muted-foreground">
-          Setting up your library
+          {t("import.settingUp")}
         </p>
       </div>
     );
@@ -318,7 +320,7 @@ export function ImportCourse({ className }: ImportCourseProps) {
         className="mb-6 flex items-center gap-1.5 font-sans text-sm text-muted-foreground transition-colors hover:text-foreground"
       >
         <CaretLeft className="size-4" />
-        {step === "configure" ? "Change folder" : "Back to library"}
+        {step === "configure" ? t("import.changeFolder") : t("import.backToLibrary")}
       </button>
 
       <div
@@ -326,12 +328,12 @@ export function ImportCourse({ className }: ImportCourseProps) {
         style={{ animation: `card-in 350ms ${EASE_OUT} both` }}
       >
         <h2 className="font-heading text-2xl font-bold text-foreground">
-          Import Course
+          {t("import.title")}
         </h2>
         <p className="mt-2 font-sans text-sm text-muted-foreground">
           {step === "select"
-            ? "Select a folder containing your course videos to get started."
-            : "Review the detected structure and configure your course details."}
+            ? t("import.selectFolder")
+            : t("import.reviewStructure")}
         </p>
       </div>
 
@@ -399,6 +401,7 @@ function FolderSelectStep({
   onBrowse: () => void;
   onImportDrive: () => void;
 }) {
+  const { t } = useTranslation();
   return (
     <div style={{ animation: `card-in 350ms ${EASE_OUT} 50ms both` }}>
       <div
@@ -431,10 +434,10 @@ function FolderSelectStep({
               />
               <div className="text-center">
                 <p className="font-sans text-sm font-semibold text-foreground">
-                  Scanning folder...
+                  {t("import.scanning")}
                 </p>
                 <p className="mt-1.5 font-sans text-xs text-muted-foreground">
-                  Detecting videos, subtitles, and resources
+                  {t("import.detecting")}
                 </p>
               </div>
             </>
@@ -455,17 +458,17 @@ function FolderSelectStep({
 
               <div className="text-center">
                 <p className="font-sans text-sm font-semibold text-foreground">
-                  {isDragOver ? "Drop folder here" : "Drag & drop a course folder"}
+                  {isDragOver ? t("import.dropHere") : t("import.dragDrop")}
                 </p>
                 <p className="mt-1.5 font-sans text-xs text-muted-foreground">
-                  or click to browse your files
+                  {t("import.orClick")}
                 </p>
               </div>
 
               <div className="flex items-center gap-2 rounded-full border border-border/50 bg-secondary px-4 py-2">
                 <FolderOpen className="size-4 text-muted-foreground" />
                 <span className="font-sans text-xs font-medium text-muted-foreground">
-                  Browse Folder
+                  {t("import.browseFolder")}
                 </span>
               </div>
             </>
@@ -475,7 +478,7 @@ function FolderSelectStep({
 
       <div className="my-4 flex items-center gap-3">
         <div className="h-px flex-1 bg-border" />
-        <span className="font-sans text-xs text-muted-foreground/60">or</span>
+        <span className="font-sans text-xs text-muted-foreground/60">{t("common.or")}</span>
         <div className="h-px flex-1 bg-border" />
       </div>
 
@@ -490,7 +493,7 @@ function FolderSelectStep({
         )}
       >
         <Cloud className="size-4 text-muted-foreground" />
-        Import from Google Drive
+        {t("import.importFromDrive")}
       </button>
 
       {error && (
@@ -506,7 +509,7 @@ function FolderSelectStep({
                   onClick={onGoToSettings}
                   className="font-medium text-destructive underline underline-offset-2 transition-opacity hover:opacity-70"
                 >
-                  Go to Settings
+                  {t("import.goToSettings")}
                 </button>
               </>
             )}
@@ -517,7 +520,7 @@ function FolderSelectStep({
       <div className="mt-4 flex items-center justify-center gap-2">
         <FileVideo className="size-3.5 text-muted-foreground/50" />
         <p className="font-sans text-xs text-muted-foreground/50">
-          Supports .mp4, .mkv, .avi, .mov and other video formats
+          {t("import.supportsFormats")}
         </p>
       </div>
     </div>
@@ -561,6 +564,7 @@ function ConfigureStep({
   onAccentColorChange: (v: string) => void;
   onImport: () => void;
 }) {
+  const { t } = useTranslation();
   const totalLessons = course.sections.reduce((sum, s) => sum + s.lessons.length, 0);
 
   const [videoStatus, setVideoStatus] = useState<Record<string, VideoStatus>>({});
@@ -678,6 +682,9 @@ function ConfigureStep({
     if (fromIdx === -1 || toIdx === -1) return;
     onReorderSections(fromIdx, toIdx);
   };
+  const textConverter = (text:string):string=>{
+    return text.trim().split(' ').map(word => word.charAt(0).toUpperCase() + word.slice(1)).join('')
+  }
 
   return (
     <div className="flex flex-col gap-6">
@@ -706,8 +713,8 @@ function ConfigureStep({
               )}
             >
               {course.confidence === "low"
-                ? "Low confidence parse — review carefully"
-                : "Some structure was inferred"}
+                ? t("import.lowConfidence")
+                : t("import.someInferred")}
             </p>
             <ul className="mt-1 space-y-0.5">
               {course.confidenceReasons.map((reason, i) => (
@@ -715,7 +722,7 @@ function ConfigureStep({
                   key={i}
                   className="font-sans text-xs text-muted-foreground"
                 >
-                  {reason}
+                  {t("import.filesStateMessage." + textConverter(reason))}
                 </li>
               ))}
             </ul>
@@ -735,8 +742,12 @@ function ConfigureStep({
             <div className="ml-auto flex items-center gap-1.5">
               <CheckCircle className="size-4 text-primary" weight="fill" />
               <span className="font-sans text-xs font-medium text-primary">
-                {totalLessons} lessons in {course.sections.length}{" "}
-                {course.sections.length === 1 ? "section" : "sections"}
+                {t("import.courseOverview", {
+                  totalLessons,
+                  lessonWord: totalLessons === 1 ? "lesson" :"lessons",
+                  sectionCount: course.sections.length,
+                  sectionWord: course.sections.length === 1 ? "section" : "sections",
+                })}
               </span>
             </div>
           </div>
@@ -748,26 +759,26 @@ function ConfigureStep({
         style={{ animation: `card-in 350ms ${EASE_OUT} 100ms both` }}
       >
         <h3 className="font-heading text-base font-bold text-foreground">
-          Course Details
+          {t("import.courseDetails")}
         </h3>
 
           <div className="grid grid-cols-1 gap-5 sm:grid-cols-2">
-            <FieldGroup label="Title">
+            <FieldGroup label={t("import.courseTitle")}>
               <input
                 type="text"
                 value={title}
                 onChange={(e) => onTitleChange(e.target.value)}
-                placeholder="Course title"
+                placeholder={t("import.courseTitle")}
                 className="w-full bg-transparent font-sans text-sm text-foreground placeholder:text-muted-foreground/40 focus:outline-none"
               />
             </FieldGroup>
 
-            <FieldGroup label="Author">
+            <FieldGroup label={t("import.author")}>
               <input
                 type="text"
                 value={author}
                 onChange={(e) => onAuthorChange(e.target.value)}
-                placeholder="Instructor name"
+                placeholder={t("import.instructorName")}
                 className="w-full bg-transparent font-sans text-sm text-foreground placeholder:text-muted-foreground/40 focus:outline-none"
               />
             </FieldGroup>
@@ -784,7 +795,7 @@ function ConfigureStep({
             <div className="flex flex-col gap-2">
               <label className="flex items-center gap-1.5 font-sans text-xs font-medium text-muted-foreground">
                 <Palette className="size-3.5" />
-                Accent Color
+                {t("import.accentColor")}
               </label>
               <div className="flex flex-wrap gap-2">
                 {accentColors.map((color) => (
@@ -807,7 +818,7 @@ function ConfigureStep({
           {course.description && (
             <div className="flex flex-col gap-2">
               <label className="font-sans text-xs font-medium text-muted-foreground">
-                Description (from README)
+                {t("import.description")}
               </label>
               <p className="line-clamp-4 font-sans text-xs leading-relaxed text-muted-foreground">
                 {course.description}
@@ -818,7 +829,7 @@ function ConfigureStep({
         {course.resources.length > 0 && (
           <div className="flex flex-col gap-2">
             <label className="font-sans text-xs font-medium text-muted-foreground">
-              Course Resources
+              {t("import.courseResources")}
             </label>
             <div className="flex flex-wrap gap-1.5">
               {course.resources.map((r, i) => (
@@ -841,14 +852,14 @@ function ConfigureStep({
       >
         <div className="flex items-center justify-between gap-2">
           <h3 className="font-heading text-base font-bold text-foreground">
-            Course Structure
+            {t("import.courseStructure")}
           </h3>
           {Object.keys(videoStatus).length > 0 && (
             <div className="flex items-center gap-3">
               <span className="font-sans text-xs text-muted-foreground">
                 {checking
-                  ? "Checking videos…"
-                  : `${needsCount} need optimization · ${readyCount} ready`}
+                  ? t("import.checkingVideos")
+                  : `${needsCount} ${t("import.needOptimization")} · ${readyCount} ${t("import.ready")}`}
               </span>
               {(needsCount > 0 || optimizing) && (
                 <button
@@ -857,7 +868,7 @@ function ConfigureStep({
                   className="flex items-center gap-1.5 rounded-lg border border-border px-2.5 py-1.5 font-sans text-xs font-medium text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground disabled:cursor-not-allowed disabled:opacity-50"
                 >
                   <Lightning className="size-3.5" />
-                  {optimizing ? "Optimizing…" : "Optimize"}
+                  {optimizing ? t("import.optimizing") : t("import.optimize")}
                 </button>
               )}
             </div>
@@ -898,7 +909,7 @@ function ConfigureStep({
         style={{ animation: `card-in 350ms ${EASE_OUT} 200ms both` }}
       >
         <span className="font-sans text-xs text-muted-foreground">
-          {totalLessons} lessons will be imported
+          {t("import.lessonsWillBeImported", { count: totalLessons })}
         </span>
         <SquircleButton
           variant="primary"
@@ -906,7 +917,7 @@ function ConfigureStep({
           disabled={!title.trim()}
         >
           <UploadSimple className="size-4" weight="bold" />
-          Import Course
+          {t("import.title")}
         </SquircleButton>
       </div>
     </div>
@@ -924,6 +935,7 @@ function CategoryPicker({
   customCategories: string[];
   onCustomCategoriesChange: (v: string[]) => void;
 }) {
+  const { t } = useTranslation();
   const [adding, setAdding] = useState(false);
   const [newName, setNewName] = useState("");
   const inputRef = useRef<HTMLInputElement>(null);
@@ -958,7 +970,7 @@ function CategoryPicker({
   return (
     <div className="flex flex-col gap-2">
       <label className="font-sans text-xs font-medium text-muted-foreground">
-        Category
+        {t("import.category")}
       </label>
       <div className="flex flex-wrap gap-1.5">
         {builtinCategories.map((cat) => (
@@ -972,7 +984,7 @@ function CategoryPicker({
                 : "border-border/50 bg-secondary text-muted-foreground hover:text-foreground"
             )}
           >
-            {cat.label}
+            {t(cat.label)}
           </button>
         ))}
         {customCategories.map((name) => (
@@ -1006,7 +1018,7 @@ function CategoryPicker({
                 if (e.key === "Enter") handleAdd();
                 if (e.key === "Escape") { setAdding(false); setNewName(""); }
               }}
-              placeholder="Category name"
+              placeholder={t("import.categoryName")}
               className="w-24 bg-transparent font-sans text-xs text-primary placeholder:text-primary/50 focus:outline-none"
             />
             <button
@@ -1033,7 +1045,7 @@ function CategoryPicker({
             onClick={() => setAdding(true)}
             className="rounded-full border border-dashed border-border/50 px-3 py-1.5 font-sans text-xs font-medium text-muted-foreground transition-colors duration-150 hover:border-primary/25 hover:text-primary"
           >
-            + Custom
+            {t("import.custom")}
           </button>
         )}
       </div>
@@ -1062,6 +1074,7 @@ function SortableSection({
   onRenameLesson: (lessonIdx: number, newTitle: string) => void;
   onReorderLessons: (from: number, to: number) => void;
 }) {
+  const { t } = useTranslation();
   const [isOpen, setIsOpen] = useState(defaultOpen);
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } =
     useSortable({ id });
@@ -1109,7 +1122,7 @@ function SortableSection({
             type="button"
             {...listeners}
             onClick={(e) => e.stopPropagation()}
-            aria-label="Drag to reorder section"
+            aria-label={t("import.dragToReorderSection")}
             className="flex size-5 shrink-0 cursor-grab touch-none items-center justify-center rounded text-muted-foreground/40 transition-colors hover:text-foreground active:cursor-grabbing"
           >
             <DotsSixVertical className="size-4" weight="bold" />
@@ -1122,12 +1135,12 @@ function SortableSection({
           <EditableTitle
             value={section.title}
             onSave={onRenameSection}
-            ariaLabel="Edit section title"
+            ariaLabel={t("import.editSectionTitle")}
             className="flex-1 truncate text-left font-sans text-sm font-medium text-foreground"
             inputClassName="w-full min-w-0 flex-1 bg-transparent font-sans text-sm font-medium text-foreground focus:outline-none"
           />
           <span className="shrink-0 font-mono text-[10px] text-muted-foreground">
-            {section.lessons.length} {section.lessons.length === 1 ? "lesson" : "lessons"}
+            {section.lessons.length} {section.lessons.length === 1 ? t("common.lesson") : t("common.lessons")}
           </span>
         </div>
 
@@ -1171,6 +1184,7 @@ function SortableLesson({
   status?: VideoStatus;
   onRename: (newTitle: string) => void;
 }) {
+  const { t } = useTranslation();
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } =
     useSortable({ id });
 
@@ -1192,7 +1206,7 @@ function SortableLesson({
       <button
         type="button"
         {...listeners}
-        aria-label="Drag to reorder lesson"
+        aria-label={t("import.dragToReorderLesson")}
         className="flex size-5 shrink-0 cursor-grab touch-none items-center justify-center rounded text-muted-foreground/40 transition-colors hover:text-foreground active:cursor-grabbing"
       >
         <DotsSixVertical className="size-4" weight="bold" />
@@ -1204,7 +1218,7 @@ function SortableLesson({
         <EditableTitle
           value={lesson.title}
           onSave={onRename}
-          ariaLabel="Edit lesson title"
+          ariaLabel={t("import.editLessonTitle")}
           className="min-w-0 flex-1 truncate font-sans text-xs text-foreground"
           inputClassName="w-full min-w-0 flex-1 bg-transparent font-sans text-xs text-foreground focus:outline-none"
         />
@@ -1250,6 +1264,7 @@ function EditableTitle({
   className?: string;
   inputClassName?: string;
 }) {
+  const { t } = useTranslation();
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState(value);
   const inputRef = useRef<HTMLInputElement>(null);
@@ -1312,7 +1327,7 @@ function EditableTitle({
       <span
         onDoubleClick={startEditing}
         className={className}
-        title="Double-click to edit"
+        title={t("import.doubleClickToEdit")}
       >
         {value}
       </span>

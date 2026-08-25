@@ -6,6 +6,7 @@ import {
 import { NoteEditor } from "./NoteEditor";
 import { SNAPPY } from "@/lib/constants";
 import type { Note } from "@/types";
+import { useTranslation } from "react-i18next";
 
 interface NotesPanelProps {
   notes: Note[];
@@ -32,6 +33,7 @@ export function NotesPanel({
   onSetShowEditor,
   onTimestampClick,
 }: NotesPanelProps) {
+    const { t } = useTranslation();
   return (
     <div className="flex flex-col gap-3">
       {showEditor ? (
@@ -47,13 +49,13 @@ export function NotesPanel({
           style={{ transitionTimingFunction: SNAPPY }}
         >
           <NotePencil className="size-3.5" />
-          Add a note...
+          {t("notesPanel.addANote")}
         </button>
       )}
 
       {notes.length === 0 && !showEditor && (
         <p className="py-4 text-center font-sans text-xs text-muted-foreground/60">
-          No notes yet. Start capturing your thoughts.
+          {t("notesPanel.noNotes")}
         </p>
       )}
 
@@ -107,8 +109,9 @@ function NoteCard({
   }
 
   const date = new Date(note.updatedAt);
-  const formatted = date.toLocaleDateString("en-US", {
-    month: "short",
+  const formatted = date.toLocaleDateString("zh-CH", {
+    year: "numeric",
+    month: "numeric",
     day: "numeric",
   });
 

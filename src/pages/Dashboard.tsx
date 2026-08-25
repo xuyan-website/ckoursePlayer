@@ -1,5 +1,6 @@
 import { useState, useMemo, useRef, useEffect, useCallback } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
+import { useTranslation } from "react-i18next";
 import { usePageVisible } from "@/hooks/usePageVisible";
 import {
   MagnifyingGlassIcon as MagnifyingGlass,
@@ -22,13 +23,13 @@ import { EASE, EASE_OUT } from "@/lib/constants";
 type SortOption = "recent" | "progress" | "title";
 
 const builtinCategoryLabels: Record<CourseCategory | "all", string> = {
-  all: "All",
-  frontend: "Frontend",
-  backend: "Backend",
-  devops: "DevOps",
-  database: "Database",
-  design: "Design",
-  other: "Other",
+  all: "dashboard.categories.all",
+  frontend: "dashboard.categories.frontend",
+  backend: "dashboard.categories.backend",
+  devops: "dashboard.categories.devops",
+  database: "dashboard.categories.database",
+  design: "dashboard.categories.design",
+  other: "dashboard.categories.other",
 };
 
 function getCategoryLabel(cat: string): string {
@@ -36,16 +37,16 @@ function getCategoryLabel(cat: string): string {
 }
 
 const statusLabels: Record<CourseStatus | "all", string> = {
-  all: "All Status",
-  "in-progress": "In Progress",
-  completed: "Completed",
-  "not-started": "Not Started",
+  all: "dashboard.status.all",
+  "in-progress": "dashboard.status.inProgress",
+  completed: "dashboard.status.completed",
+  "not-started": "dashboard.status.notStarted",
 };
 
 const sortLabels: Record<SortOption, string> = {
-  recent: "Recently Watched",
-  progress: "Progress",
-  title: "Title A-Z",
+  recent: "dashboard.sort.recentlyWatched",
+  progress: "dashboard.sort.progress",
+  title: "dashboard.sort.titleAZ",
 };
 
 interface DashboardProps {
@@ -53,6 +54,7 @@ interface DashboardProps {
 }
 
 export function Dashboard({ className }: DashboardProps) {
+  const { t } = useTranslation();
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
   const [courses, setCourses] = useState<Course[]>([]);
@@ -86,6 +88,16 @@ export function Dashboard({ className }: DashboardProps) {
   );
 
   const setSearch = useCallback((v: string) => updateParam("q", v), [updateParam]);
+  const [searchInput, setSearchInput] = useState(search);
+
+  useEffect(() => {
+    setSearchInput(search);
+  }, [search]);
+
+  useEffect(() => {
+    const timer = setTimeout(() => setSearch(searchInput), 300);
+    return () => clearTimeout(timer);
+  }, [searchInput]);
   const setCategory = useCallback((v: CourseCategory | "all") => updateParam("cat", v), [updateParam]);
   const setStatus = useCallback((v: CourseStatus | "all") => updateParam("status", v), [updateParam]);
   const setSort = useCallback((v: SortOption) => updateParam("sort", v), [updateParam]);
@@ -196,12 +208,12 @@ export function Dashboard({ className }: DashboardProps) {
   if (loadError) {
     return (
       <div className={cn("mx-auto flex max-w-6xl flex-col items-center justify-center gap-3 py-32", className)}>
-        <p className="font-sans text-sm text-muted-foreground">Failed to load your library.</p>
+        <p className="font-sans text-sm text-muted-foreground">{t("dashboard.failedToLoad")}</p>
         <button
           onClick={() => loadCourses(true)}
           className="font-sans text-xs font-medium text-primary transition-colors hover:text-primary/80"
         >
-          Try again
+          {t("common.tryAgain")}
         </button>
       </div>
     );
@@ -221,9 +233,9 @@ export function Dashboard({ className }: DashboardProps) {
 
       <div className="mb-6 flex items-center gap-3">
         <SquircleSearch
-          value={search}
-          onChange={setSearch}
-          placeholder="Search courses..."
+          value={searchInput}
+          onChange={setSearchInput}
+          placeholder={t("dashboard.searchPlaceholder")}
           className="flex-1"
         />
 
@@ -239,12 +251,12 @@ export function Dashboard({ className }: DashboardProps) {
               transition: `transform 500ms ${EASE}`,
             }}
           />
-          Filters
+          {t("dashboard.filters")}
         </SquircleButton>
 
         <SquircleButton variant="primary" onClick={() => navigate("/import")}>
           <Plus className="size-4" weight="bold" />
-          Import Course
+          {t("dashboard.importCourse")}
         </SquircleButton>
       </div>
 
@@ -272,7 +284,7 @@ export function Dashboard({ className }: DashboardProps) {
                     : "border-border/50 bg-secondary text-muted-foreground hover:text-foreground"
                 )}
               >
-                {getCategoryLabel(cat)}
+                {t(getCategoryLabel(cat))}
               </button>
             ))}
           </div>
@@ -291,7 +303,7 @@ export function Dashboard({ className }: DashboardProps) {
                     : "border-border/50 bg-secondary text-muted-foreground hover:text-foreground"
                 )}
               >
-                {statusLabels[s]}
+                {t(statusLabels[s])}
               </button>
             ))}
           </div>
@@ -308,7 +320,7 @@ export function Dashboard({ className }: DashboardProps) {
             )}
           >
             <BookmarkSimple className="size-3" weight={bookmarkFilter ? "fill" : "regular"} />
-            Bookmarked
+            {t("dashboard.bookmarked")}
           </button>
 
           <div className="ml-auto flex items-center gap-2">
@@ -320,7 +332,7 @@ export function Dashboard({ className }: DashboardProps) {
             >
               {(Object.keys(sortLabels) as SortOption[]).map((s) => (
                 <option key={s} value={s}>
-                  {sortLabels[s]}
+                  {t(sortLabels[s])}
                 </option>
               ))}
             </select>
@@ -330,10 +342,10 @@ export function Dashboard({ className }: DashboardProps) {
 
       <div className="mb-6 flex items-baseline justify-between">
         <h2 className="font-heading text-2xl font-bold text-foreground">
-          Your Library
+          {t("dashboard.title")}
         </h2>
         <span className="font-mono text-sm font-medium text-muted-foreground">
-          {filteredCourses.length} {filteredCourses.length === 1 ? "course" : "courses"}
+          {filteredCourses.length} {filteredCourses.length === 1 ? t("common.course") : t("common.courses")}
         </span>
       </div>
 
@@ -359,7 +371,7 @@ export function Dashboard({ className }: DashboardProps) {
         >
           <MagnifyingGlass className="size-10 text-muted-foreground/50" />
           <p className="font-sans text-sm text-muted-foreground">
-            No courses match your filters.
+            {t("dashboard.noMatch")}
           </p>
           <button
             onClick={() => {
@@ -367,7 +379,7 @@ export function Dashboard({ className }: DashboardProps) {
             }}
             className="font-sans text-xs font-medium text-primary transition-colors hover:text-primary/80"
           >
-            Clear all filters
+            {t("dashboard.clearAllFilters")}
           </button>
         </div>
       )}

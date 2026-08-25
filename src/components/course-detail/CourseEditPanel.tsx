@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from "react";
+import { useTranslation } from "react-i18next";
 import {
   ArrowLeftIcon as ArrowLeft,
   PaletteIcon as Palette,
@@ -42,12 +43,12 @@ import {
 } from "@/lib/store";
 
 const builtinCategories: { value: CourseCategory; label: string }[] = [
-  { value: "frontend", label: "Frontend" },
-  { value: "backend", label: "Backend" },
-  { value: "devops", label: "DevOps" },
-  { value: "database", label: "Database" },
-  { value: "design", label: "Design" },
-  { value: "other", label: "Other" },
+  { value: "frontend", label: "dashboard.categories.frontend" },
+  { value: "backend", label: "dashboard.categories.backend" },
+  { value: "devops", label: "dashboard.categories.devops" },
+  { value: "database", label: "dashboard.categories.database" },
+  { value: "design", label: "dashboard.categories.design" },
+  { value: "other", label: "dashboard.categories.other" },
 ];
 
 const accentColors = [
@@ -86,6 +87,7 @@ export function CourseEditPanel({
   onBack,
   className,
 }: CourseEditPanelProps) {
+  const { t } = useTranslation();
   const [title, setTitle] = useState(course.title);
   const [author, setAuthor] = useState(course.author);
   const [category, setCategory] = useState<string>(course.category);
@@ -160,12 +162,12 @@ export function CourseEditPanel({
     try {
       await onSave(title.trim(), author.trim(), accentColor, category);
       setSaved(true);
-      toast.success("Course saved");
+      toast.success(t("courseEdit.courseSaved"));
       setTimeout(() => onBack(), 1200);
     } catch (err) {
-      const msg = err instanceof Error ? err.message : "Please try again.";
+      const msg = err instanceof Error ? err.message : t("courseEdit.pleaseTryAgain");
       setSaveError(msg);
-      toast.error("Couldn't save course", { description: msg });
+      toast.error(t("courseEdit.couldntSaveCourse"), { description: msg });
     } finally {
       setSaving(false);
     }
@@ -196,7 +198,7 @@ export function CourseEditPanel({
           className="inline-flex items-center gap-1.5 font-sans text-xs font-medium text-muted-foreground transition-colors hover:text-foreground"
         >
           <ArrowLeft className="size-3.5" />
-          Back to Course
+          {t("courseEdit.backToCourse")}
         </button>
       </div>
 
@@ -209,10 +211,10 @@ export function CourseEditPanel({
         }}
       >
         <h2 className="font-heading text-2xl font-bold text-foreground">
-          Edit Course
+          {t("courseEdit.editCourse")}
         </h2>
         <p className="mt-2 font-sans text-sm text-muted-foreground">
-          Update course details or manage progress and data.
+          {t("courseEdit.editCourseDesc")}
         </p>
       </div>
 
@@ -246,25 +248,25 @@ export function CourseEditPanel({
           }}
         >
           <h3 className="font-heading text-base font-bold text-foreground">
-            Course Details
+            {t("import.courseDetails")}
           </h3>
 
-          <FieldGroup label="Title">
+          <FieldGroup label={t("courseEdit.title")}>
             <input
               type="text"
               value={title}
               onChange={(e) => setTitle(e.target.value)}
-              placeholder="Course title"
+              placeholder={t("import.courseTitle")}
               className="w-full bg-transparent font-sans text-sm text-foreground placeholder:text-muted-foreground/40 focus:outline-none"
             />
           </FieldGroup>
 
-          <FieldGroup label="Author">
+          <FieldGroup label={t("courseEdit.author")}>
             <input
               type="text"
               value={author}
               onChange={(e) => setAuthor(e.target.value)}
-              placeholder="Instructor name"
+              placeholder={t("import.instructorName")}
               className="w-full bg-transparent font-sans text-sm text-foreground placeholder:text-muted-foreground/40 focus:outline-none"
             />
           </FieldGroup>
@@ -279,7 +281,7 @@ export function CourseEditPanel({
           <div className="flex flex-col gap-2">
             <label className="flex items-center gap-1.5 font-sans text-xs font-medium text-muted-foreground">
               <Palette className="size-3.5" />
-              Accent Color
+              {t("courseEdit.accentColor")}
             </label>
             <div className="flex flex-wrap gap-2">
               {accentColors.map((color) => (
@@ -305,11 +307,11 @@ export function CourseEditPanel({
               disabled={!title.trim() || !hasChanges || saving || saved}
             >
               <FloppyDisk className="size-4" weight="bold" />
-              {saving ? "Saving..." : saved ? "Saved!" : "Save Changes"}
+              {saving ? t("courseEdit.saving") : saved ? t("courseEdit.saved") : t("courseEdit.saveChanges")}
             </SquircleButton>
             {saved && (
               <span className="font-sans text-xs font-medium text-primary">
-                Course updated successfully
+                {t("courseEdit.courseUpdatedSuccessfully")}
               </span>
             )}
             {saveError && (
@@ -319,7 +321,7 @@ export function CourseEditPanel({
             )}
             {hasChanges && !saved && !saveError && (
               <span className="font-sans text-xs text-muted-foreground">
-                Unsaved changes
+                {t("courseEdit.unsavedChanges")}
               </span>
             )}
           </div>
@@ -334,7 +336,7 @@ export function CourseEditPanel({
           }}
         >
           <h3 className="font-heading text-base font-bold text-foreground">
-            Manage
+            {t("courseEdit.manage")}
           </h3>
 
           <div className="rounded-xl border border-border bg-card p-4">
@@ -344,10 +346,10 @@ export function CourseEditPanel({
               </div>
               <div className="flex-1">
                 <p className="font-sans text-sm font-medium text-foreground">
-                  Reset Progress
+                  {t("courseEdit.resetProgress")}
                 </p>
                 <p className="mt-0.5 font-sans text-xs text-muted-foreground">
-                  Mark all lessons as incomplete and clear watch history.
+                  {t("courseEdit.resetProgressDesc")}
                 </p>
                 {!confirmReset ? (
                   <button
@@ -355,7 +357,7 @@ export function CourseEditPanel({
                     className="mt-3 rounded-md border border-border px-3 py-1.5 font-sans text-xs font-medium text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground"
                     style={{ transitionTimingFunction: SNAPPY }}
                   >
-                    Reset Progress
+                    {t("courseEdit.resetProgress")}
                   </button>
                 ) : (
                   <div className="mt-3 flex items-center gap-2">
@@ -364,13 +366,13 @@ export function CourseEditPanel({
                       className="rounded-md bg-info/15 px-3 py-1.5 font-sans text-xs font-medium text-info transition-colors hover:bg-info/25"
                       style={{ transitionTimingFunction: SNAPPY }}
                     >
-                      Confirm Reset
+                      {t("courseEdit.confirmReset")}
                     </button>
                     <button
                       onClick={() => setConfirmReset(false)}
                       className="rounded-md px-3 py-1.5 font-sans text-xs font-medium text-muted-foreground transition-colors hover:text-foreground"
                     >
-                      Cancel
+                      {t("common.cancel")}
                     </button>
                   </div>
                 )}
@@ -385,11 +387,10 @@ export function CourseEditPanel({
               </div>
               <div className="flex-1">
                 <p className="font-sans text-sm font-medium text-foreground">
-                  Delete Course
+                  {t("courseEdit.deleteCourse")}
                 </p>
                 <p className="mt-0.5 font-sans text-xs text-muted-foreground">
-                  Remove this course from your library. Your files on disk won't
-                  be affected.
+                  {t("courseEdit.deleteCourseDesc")}
                 </p>
                 {!confirmDelete ? (
                   <button
@@ -397,7 +398,7 @@ export function CourseEditPanel({
                     className="mt-3 rounded-md border border-destructive/25 bg-destructive/10 px-3 py-1.5 font-sans text-xs font-medium text-destructive transition-colors hover:bg-destructive/20"
                     style={{ transitionTimingFunction: SNAPPY }}
                   >
-                    Delete Course
+                    {t("courseEdit.deleteCourse")}
                   </button>
                 ) : (
                   <div className="mt-3">
@@ -407,8 +408,7 @@ export function CourseEditPanel({
                         weight="bold"
                       />
                       <span className="font-sans text-xs text-destructive">
-                        This will delete all notes and progress. This cannot be
-                        undone.
+                        {t("courseEdit.deleteWarning")}
                       </span>
                     </div>
                     <div className="flex items-center gap-2">
@@ -417,13 +417,13 @@ export function CourseEditPanel({
                         className="rounded-md bg-destructive px-3 py-1.5 font-sans text-xs font-medium text-white transition-colors hover:bg-destructive/90"
                         style={{ transitionTimingFunction: SNAPPY }}
                       >
-                        Yes, Delete
+                        {t("courseEdit.yesDelete")}
                       </button>
                       <button
                         onClick={() => setConfirmDelete(false)}
                         className="rounded-md px-3 py-1.5 font-sans text-xs font-medium text-muted-foreground transition-colors hover:text-foreground"
                       >
-                        Cancel
+                        {t("common.cancel")}
                       </button>
                     </div>
                   </div>
@@ -443,7 +443,7 @@ export function CourseEditPanel({
         }}
       >
         <h3 className="mb-4 font-heading text-base font-bold text-foreground">
-          Course Structure
+          {t("import.courseStructure")}
         </h3>
         <div className="h-80 overflow-y-scroll rounded-xl border border-border bg-card px-3 py-2">
           <DndContext
@@ -477,6 +477,7 @@ function SortableSection({
   section: Section;
   onLessonDragEnd: (sectionId: number, event: DragEndEvent) => void;
 }) {
+  const { t } = useTranslation();
   const [isOpen, setIsOpen] = useState(true);
   const {
     attributes,
@@ -518,7 +519,7 @@ function SortableSection({
           {section.title}
         </span>
         <span className="font-sans text-xs text-muted-foreground">
-          {section.lessons.length} {section.lessons.length === 1 ? "lesson" : "lessons"}
+          {section.lessons.length} {section.lessons.length === 1 ? t("common.lesson") : t("common.lessons")}
         </span>
       </div>
       {isOpen && (
@@ -589,6 +590,7 @@ function CategoryPicker({
   customCategories: string[];
   onCustomCategoriesChange: (v: string[]) => void;
 }) {
+  const { t } = useTranslation();
   const [adding, setAdding] = useState(false);
   const [newName, setNewName] = useState("");
   const inputRef = useRef<HTMLInputElement>(null);
@@ -623,7 +625,7 @@ function CategoryPicker({
   return (
     <div className="flex flex-col gap-2">
       <label className="font-sans text-xs font-medium text-muted-foreground">
-        Category
+        {t("courseEdit.category")}
       </label>
       <div className="flex flex-wrap gap-1.5">
         {builtinCategories.map((cat) => (
@@ -638,7 +640,7 @@ function CategoryPicker({
             )}
             style={{ transitionTimingFunction: SNAPPY }}
           >
-            {cat.label}
+            {t(cat.label)}
           </button>
         ))}
         {customCategories.map((name) => (
@@ -673,7 +675,7 @@ function CategoryPicker({
                 if (e.key === "Enter") handleAdd();
                 if (e.key === "Escape") { setAdding(false); setNewName(""); }
               }}
-              placeholder="Category name"
+              placeholder={t("import.categoryName")}
               className="w-24 bg-transparent font-sans text-xs text-primary placeholder:text-primary/50 focus:outline-none"
             />
             <button
@@ -701,7 +703,7 @@ function CategoryPicker({
             className="rounded-full border border-dashed border-border/50 px-3 py-1.5 font-sans text-xs font-medium text-muted-foreground transition-colors duration-150 hover:border-primary/25 hover:text-primary"
             style={{ transitionTimingFunction: SNAPPY }}
           >
-            + Custom
+            {t("import.custom")}
           </button>
         )}
       </div>
