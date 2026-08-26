@@ -53,6 +53,12 @@
       "signingIdentity": null,
       "entitlements": null
     },
+    "windows": {
+      "nsis": {
+        "installerIcon": "icons/icon.ico",
+        "uninstallerIcon": "icons/icon.ico"
+      }
+    },
     "createUpdaterArtifacts": true
   },
   "plugins": {

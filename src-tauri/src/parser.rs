@@ -1065,7 +1065,7 @@ fn strip_leading_number(name: &str) -> String {
             let inner: String = chars[1..close_pos].iter().collect();
             if inner.chars().all(|c| c.is_ascii_digit()) {
                 let rest: String = chars[close_pos + 1..].iter().collect();
-                let rest = rest.trim_start_matches(|c: char| c == ' ' || c == '-' || c == '.' || c == '_');
+                let rest = rest.trim_start_matches(|c: char| c == ' ' || c == '-' || c == '.' || c == '_' || c == '、' || c == '，' || c == '。' || c == '：' || c == '；' || c == ':');
                 return rest.to_string();
             }
         }
@@ -1082,7 +1082,7 @@ fn strip_leading_number(name: &str) -> String {
             let digits: String = rest.chars().take_while(|c| c.is_ascii_digit() || *c == '.').collect();
             if !digits.is_empty() {
                 let after = &rest[digits.len()..];
-                let after = after.trim_start_matches(|c: char| c == ' ' || c == '-' || c == '.' || c == '_' || c == ':');
+                let after = after.trim_start_matches(|c: char| c == ' ' || c == '-' || c == '.' || c == '_' || c == ':' || c == '、' || c == '，' || c == '。' || c == '：' || c == '；');
                 if !after.is_empty() {
                     return after.to_string();
                 }
@@ -1094,7 +1094,7 @@ fn strip_leading_number(name: &str) -> String {
     let digits: String = chars.iter().take_while(|c| c.is_ascii_digit()).collect();
     if !digits.is_empty() {
         let rest: String = chars[digits.len()..].iter().collect();
-        let rest = rest.trim_start_matches(|c: char| c == ' ' || c == '-' || c == '.' || c == '_');
+        let rest = rest.trim_start_matches(|c: char| c == ' ' || c == '-' || c == '.' || c == '_' || c == '、' || c == '，' || c == '。' || c == '：' || c == '；' || c == ':');
         if !rest.is_empty() {
             return rest.to_string();
         }
