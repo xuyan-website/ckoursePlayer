@@ -235,6 +235,7 @@ export function ImportCourse({ className }: ImportCourseProps) {
       sections: arrayMove(prev.sections, fromIdx, toIdx),
       lessons: arrayMove(prev.lessons, fromIdx, toIdx),
     }));
+    toast.success(t("common.reorderSuccess"));
   };
 
   const reorderLessons = (sectionIdx: number, fromIdx: number, toIdx: number) => {
@@ -252,6 +253,7 @@ export function ImportCourse({ className }: ImportCourseProps) {
       sections: prev.sections,
       lessons: prev.lessons.map((arr, i) => (i === sectionIdx ? arrayMove(arr, fromIdx, toIdx) : arr)),
     }));
+    toast.success(t("common.reorderSuccess"));
   };
 
   const renameSection = (sectionIdx: number, newTitle: string) => {

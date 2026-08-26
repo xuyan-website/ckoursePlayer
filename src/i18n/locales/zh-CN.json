@@ -19,7 +19,9 @@
     "courses": "个课程",
     "course": "个课程",
     "notes": "条笔记",
-    "note": "条笔记"
+    "note": "条笔记",
+    "reorderSuccess": "更新排序成功",
+    "reorderFailed": "更新排序失败"
   },
   "nav": {
     "dashboard": "课程",

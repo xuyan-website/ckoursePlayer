@@ -19,7 +19,9 @@
     "courses": "courses",
     "course": "course",
     "notes": "notes",
-    "note": "note"
+    "note": "note",
+    "reorderSuccess": "Reorder succeeded",
+    "reorderFailed": "Reorder failed"
   },
   "nav": {
     "dashboard": "Dashboard",

@@ -114,22 +114,33 @@ export function CourseEditPanel({
     (event: DragEndEvent) => {
       const { active, over } = event;
       if (!over || active.id === over.id) return;
+      const computed: { sections: Section[] | null } = { sections: null };
       setLocalSections((prev) => {
         const fromIdx = prev.findIndex((s) => String(s.id) === String(active.id));
         const toIdx = prev.findIndex((s) => String(s.id) === String(over.id));
         if (fromIdx === -1 || toIdx === -1) return prev;
-        const next = arrayMove(prev, fromIdx, toIdx);
-        storeReorderSections(course.id, next.map((s) => s.id)).then(onReorder).catch(() => {});
-        return next;
+        computed.sections = arrayMove(prev, fromIdx, toIdx);
+        return computed.sections;
       });
+      if (computed.sections) {
+        storeReorderSections(course.id, computed.sections.map((s) => s.id))
+          .then(() => {
+            onReorder().catch(() => {});
+            toast.success(t("common.reorderSuccess"));
+          })
+          .catch(() => {
+            toast.error(t("common.reorderFailed"));
+          });
+      }
     },
-    [course.id, onReorder],
+    [course.id, onReorder, t],
   );
 
   const handleLessonDragEnd = useCallback(
     (sectionId: number, event: DragEndEvent) => {
       const { active, over } = event;
       if (!over || active.id === over.id) return;
+      const computed: { lessonIds: number[] | null } = { lessonIds: null };
       setLocalSections((prev) =>
         prev.map((s) => {
           if (s.id !== sectionId) return s;
@@ -137,12 +148,22 @@ export function CourseEditPanel({
           const toIdx = s.lessons.findIndex((l) => String(l.id) === String(over.id));
           if (fromIdx === -1 || toIdx === -1) return s;
           const nextLessons = arrayMove(s.lessons, fromIdx, toIdx);
-          storeReorderLessons(sectionId, nextLessons.map((l) => l.id)).then(onReorder).catch(() => {});
+          computed.lessonIds = nextLessons.map((l) => l.id);
           return { ...s, lessons: nextLessons };
         }),
       );
+      if (computed.lessonIds) {
+        storeReorderLessons(sectionId, computed.lessonIds)
+          .then(() => {
+            onReorder().catch(() => {});
+            toast.success(t("common.reorderSuccess"));
+          })
+          .catch(() => {
+            toast.error(t("common.reorderFailed"));
+          });
+      }
     },
-    [onReorder],
+    [onReorder, t],
   );
 
   useState(() => {
