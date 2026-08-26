@@ -228,95 +228,19 @@ pub fn parse_folder(folder_path: &Path) -> Result<ParsedCourse, String> {
             lessons,
         }];
     } else if !has_root_videos && has_subfolders && subfolders_have_videos {
-        // Pattern 2 or 3: Section folders
+        // Pattern 2 or 3: Section folders (recursively discovered)
         sections = Vec::new();
+        let mut order = 0usize;
         let mut sorted_folders: Vec<&FolderEntry> = content_folders.clone();
         sorted_folders.sort_by(|a, b| a.sort_key.cmp(&b.sort_key));
-
-        for (i, folder) in sorted_folders.iter().enumerate() {
-            let (sub_files, sub_folders) = match read_directory(&folder.path) {
-                Ok(r) => r,
-                Err(_) => continue,
-            };
-
-            let sub_videos: Vec<&FileEntry> = sub_files.iter().filter(|f| is_video(&f.extension) && !is_sample_video(&f.name)).collect();
-            let mut sub_subtitles: Vec<&FileEntry> = sub_files.iter().filter(|f| is_subtitle(&f.extension)).collect();
-            let sub_folder_subs = collect_subtitle_folder_files(&sub_folders);
-            let sub_folder_sub_refs: Vec<&FileEntry> = sub_folder_subs.iter().collect();
-            sub_subtitles.extend(sub_folder_sub_refs.iter().copied());
-            let sub_other: Vec<&FileEntry> = sub_files
-                .iter()
-                .filter(|f| !is_video(&f.extension) && !is_subtitle(&f.extension) && !is_hidden(&f.name) && !is_metadata_file(&f.extension))
-                .collect();
-
-            let content_sub_folders: Vec<&FolderEntry> = sub_folders.iter().filter(|f| !is_subtitle_folder(&f.name)).collect();
-
-            if sub_videos.is_empty() && !content_sub_folders.is_empty() {
-                // Pattern 3: Two levels — subsections contain videos
-                let mut sub_sorted = content_sub_folders;
-                sub_sorted.sort_by(|a, b| a.sort_key.cmp(&b.sort_key));
-
-                for (j, sub_folder) in sub_sorted.iter().enumerate() {
-                    let (ss_files, ss_folders) = match read_directory(&sub_folder.path) {
-                        Ok(r) => r,
-                        Err(_) => continue,
-                    };
-                    let ss_videos: Vec<&FileEntry> = ss_files.iter().filter(|f| is_video(&f.extension) && !is_sample_video(&f.name)).collect();
-                    let mut ss_subtitles: Vec<&FileEntry> = ss_files.iter().filter(|f| is_subtitle(&f.extension)).collect();
-                    let ss_folder_subs = collect_subtitle_folder_files(&ss_folders);
-                    let ss_folder_sub_refs: Vec<&FileEntry> = ss_folder_subs.iter().collect();
-                    ss_subtitles.extend(ss_folder_sub_refs.iter().copied());
-                    let ss_other: Vec<&FileEntry> = ss_files
-                        .iter()
-                        .filter(|f| !is_video(&f.extension) && !is_subtitle(&f.extension) && !is_hidden(&f.name) && !is_metadata_file(&f.extension))
-                        .collect();
-
-                    if ss_videos.is_empty() {
-                        continue;
-                    }
-
-                    let (lessons, positional) = build_lessons_from_files(&ss_videos, &ss_subtitles, &ss_other, &sub_folder.path);
-                    if positional {
-                        used_positional_subtitle = true;
-                    }
-
-                    let section_title = format!("{} — {}", clean_display_name(&folder.name), clean_display_name(&sub_folder.name));
-                    sections.push(ParsedSection {
-                        title: section_title,
-                        order: i * 100 + j,
-                        lessons,
-                    });
-                }
-            } else if !sub_videos.is_empty() {
-                // Pattern 2: Direct section with videos
-                let (lessons, positional) = build_lessons_from_files(&sub_videos, &sub_subtitles, &sub_other, &folder.path);
-                if positional {
-                    used_positional_subtitle = true;
-                }
-
-                // Collect resources from code/resource subfolders
-                for sub_folder in &sub_folders {
-                    if is_code_folder(&sub_folder.name) {
-                        if let Ok((code_files, _)) = read_directory(&sub_folder.path) {
-                            for file in &code_files {
-                                if !is_hidden(&file.name) {
-                                    course_resources.push(ParsedResource {
-                                        title: file.name.clone(),
-                                        path: file.path.to_string_lossy().to_string(),
-                                        resource_type: ResourceType::Code,
-                                    });
-                                }
-                            }
-                        }
-                    }
-                }
-
-                sections.push(ParsedSection {
-                    title: clean_display_name(&folder.name),
-                    order: i,
-                    lessons,
-                });
+        for folder in &sorted_folders {
+            let folder_title = clean_display_name(&folder.name);
+            let (sub_sections, positional) =
+                collect_sections_recursive(&folder.path, &folder_title, &mut order, &mut course_resources, 0);
+            if positional {
+                used_positional_subtitle = true;
             }
+            sections.extend(sub_sections);
         }
     } else if has_root_videos && has_subfolders {
         // Pattern 4: Mixed flat and nested
@@ -333,40 +257,18 @@ pub fn parse_folder(folder_path: &Path) -> Result<ParsedCourse, String> {
             lessons: root_lessons,
         });
 
-        // Subfolders become sections
+        // Subfolders become sections (recursively discovered)
+        let mut order = 1usize;
         let mut sorted_folders: Vec<&FolderEntry> = content_folders.clone();
         sorted_folders.sort_by(|a, b| a.sort_key.cmp(&b.sort_key));
-
-        for (i, folder) in sorted_folders.iter().enumerate() {
-            let (sub_files, sub_folders) = match read_directory(&folder.path) {
-                Ok(r) => r,
-                Err(_) => continue,
-            };
-
-            let sub_videos: Vec<&FileEntry> = sub_files.iter().filter(|f| is_video(&f.extension) && !is_sample_video(&f.name)).collect();
-            let mut sub_subtitles: Vec<&FileEntry> = sub_files.iter().filter(|f| is_subtitle(&f.extension)).collect();
-            let sub_folder_subs = collect_subtitle_folder_files(&sub_folders);
-            let sub_folder_sub_refs: Vec<&FileEntry> = sub_folder_subs.iter().collect();
-            sub_subtitles.extend(sub_folder_sub_refs.iter().copied());
-            let sub_other: Vec<&FileEntry> = sub_files
-                .iter()
-                .filter(|f| !is_video(&f.extension) && !is_subtitle(&f.extension) && !is_hidden(&f.name) && !is_metadata_file(&f.extension))
-                .collect();
-
-            if sub_videos.is_empty() {
-                continue;
-            }
-
-            let (lessons, positional) = build_lessons_from_files(&sub_videos, &sub_subtitles, &sub_other, &folder.path);
+        for folder in &sorted_folders {
+            let folder_title = clean_display_name(&folder.name);
+            let (sub_sections, positional) =
+                collect_sections_recursive(&folder.path, &folder_title, &mut order, &mut course_resources, 0);
             if positional {
                 used_positional_subtitle = true;
             }
-
-            sections.push(ParsedSection {
-                title: clean_display_name(&folder.name),
-                order: i + 1,
-                lessons,
-            });
+            sections.extend(sub_sections);
         }
 
         confidence_reasons.push("Mixed flat and nested structure detected".to_string());
@@ -727,31 +629,29 @@ fn collect_subtitle_folder_files(folders: &[FolderEntry]) -> Vec<FileEntry> {
 }
 
 fn folder_has_videos(path: &Path) -> bool {
+    folder_has_videos_depth(path, 0)
+}
+
+fn folder_has_videos_depth(path: &Path, depth: usize) -> bool {
+    if depth > 10 {
+        return false;
+    }
     if let Ok(entries) = fs::read_dir(path) {
         for entry in entries.flatten() {
             let p = entry.path();
             let name = entry.file_name().to_string_lossy().to_string();
+            if is_hidden(&name) {
+                continue;
+            }
             if p.is_file() {
                 if let Some(ext) = p.extension().and_then(|e| e.to_str()) {
                     if is_video(&ext.to_lowercase()) && !is_sample_video(&name) {
                         return true;
                     }
                 }
-            }
-            // Check one level deeper for Pattern 3
-            if p.is_dir() {
-                if let Ok(sub_entries) = fs::read_dir(&p) {
-                    for sub_entry in sub_entries.flatten() {
-                        let sp = sub_entry.path();
-                        let sname = sub_entry.file_name().to_string_lossy().to_string();
-                        if sp.is_file() {
-                            if let Some(ext) = sp.extension().and_then(|e| e.to_str()) {
-                                if is_video(&ext.to_lowercase()) && !is_sample_video(&sname) {
-                                    return true;
-                                }
-                            }
-                        }
-                    }
+            } else if p.is_dir() && !dir_is_empty(&p) {
+                if folder_has_videos_depth(&p, depth + 1) {
+                    return true;
                 }
             }
         }
@@ -763,6 +663,98 @@ fn dir_is_empty(path: &Path) -> bool {
     fs::read_dir(path)
         .map(|mut entries| entries.next().is_none())
         .unwrap_or(true)
+}
+
+/// Recursively discover sections by walking the folder tree.
+/// A folder that contains video files directly becomes a section; otherwise
+/// we descend into its sub-folders, accumulating the display title with " — ".
+/// Supports arbitrary nesting depth (capped at 10 levels).
+fn collect_sections_recursive(
+    folder: &Path,
+    title_prefix: &str,
+    order: &mut usize,
+    course_resources: &mut Vec<ParsedResource>,
+    depth: usize,
+) -> (Vec<ParsedSection>, bool) {
+    if depth > 10 {
+        return (vec![], false);
+    }
+
+    let (files, sub_folders) = match read_directory(folder) {
+        Ok(r) => r,
+        Err(_) => return (vec![], false),
+    };
+
+    let videos: Vec<&FileEntry> = files
+        .iter()
+        .filter(|f| is_video(&f.extension) && !is_sample_video(&f.name))
+        .collect();
+
+    let mut sections = vec![];
+    let mut used_positional = false;
+
+    if !videos.is_empty() {
+        let mut subtitles: Vec<&FileEntry> = files.iter().filter(|f| is_subtitle(&f.extension)).collect();
+        let sf_subs = collect_subtitle_folder_files(&sub_folders);
+        let sf_sub_refs: Vec<&FileEntry> = sf_subs.iter().collect();
+        subtitles.extend(sf_sub_refs.iter().copied());
+        let other: Vec<&FileEntry> = files
+            .iter()
+            .filter(|f| !is_video(&f.extension) && !is_subtitle(&f.extension) && !is_hidden(&f.name) && !is_metadata_file(&f.extension))
+            .collect();
+
+        let (lessons, positional) = build_lessons_from_files(&videos, &subtitles, &other, folder);
+        if positional {
+            used_positional = true;
+        }
+
+        for sf in &sub_folders {
+            if is_code_folder(&sf.name) {
+                if let Ok((code_files, _)) = read_directory(&sf.path) {
+                    for file in &code_files {
+                        if !is_hidden(&file.name) {
+                            course_resources.push(ParsedResource {
+                                title: file.name.clone(),
+                                path: file.path.to_string_lossy().to_string(),
+                                resource_type: ResourceType::Code,
+                            });
+                        }
+                    }
+                }
+            }
+        }
+
+        sections.push(ParsedSection {
+            title: title_prefix.to_string(),
+            order: *order,
+            lessons,
+        });
+        *order += 1;
+    }
+
+    // Always recurse into content sub-folders so nested videos are never missed
+    // even when this folder already contains direct videos.
+    let mut content_sub_folders: Vec<&FolderEntry> = sub_folders
+        .iter()
+        .filter(|f| !is_subtitle_folder(&f.name))
+        .collect();
+    content_sub_folders.sort_by(|a, b| a.sort_key.cmp(&b.sort_key));
+
+    for sub in content_sub_folders {
+        let sub_title = if title_prefix.is_empty() {
+            clean_display_name(&sub.name)
+        } else {
+            format!("{} — {}", title_prefix, clean_display_name(&sub.name))
+        };
+        let (sub_sections, sub_positional) =
+            collect_sections_recursive(&sub.path, &sub_title, order, course_resources, depth + 1);
+        sections.extend(sub_sections);
+        if sub_positional {
+            used_positional = true;
+        }
+    }
+
+    (sections, used_positional)
 }
 
 fn classify_resource(ext: &str, name: &str) -> ResourceType {

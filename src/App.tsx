@@ -102,7 +102,6 @@ function KeepAliveRoutes() {
 
 function App() {
   const settingsCtx = useSettingsProvider();
-  console.log("App settingsCtx:", settingsCtx);
   const updaterCtx = useUpdaterProvider();
   useStartupUpdateCheck(updaterCtx);
   const { i18n } = useTranslation();
