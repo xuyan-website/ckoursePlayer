@@ -798,6 +798,55 @@ fn extract_sort_key(name: &str) -> SortKey {
     }
 }
 
+/// Parse a Chinese number prefix (一 to 九十九).
+/// Returns (number, char_count_consumed).
+fn parse_chinese_number_prefix(s: &str) -> Option<(u32, usize)> {
+    let chars: Vec<char> = s.chars().collect();
+    if chars.is_empty() {
+        return None;
+    }
+
+    let digit = |c: char| -> Option<u32> {
+        match c {
+            '一' => Some(1), '二' => Some(2), '三' => Some(3), '四' => Some(4),
+            '五' => Some(5), '六' => Some(6), '七' => Some(7), '八' => Some(8),
+            '九' => Some(9),
+            _ => None,
+        }
+    };
+
+    let mut pos = 0;
+    let mut tens: u32 = 0;
+
+    if pos < chars.len() {
+        if let Some(d) = digit(chars[pos]) {
+            tens = d;
+            pos += 1;
+        }
+    }
+
+    if pos < chars.len() && chars[pos] == '十' {
+        if tens == 0 {
+            tens = 1;
+        }
+        let mut result = tens * 10;
+        pos += 1;
+        if pos < chars.len() {
+            if let Some(d) = digit(chars[pos]) {
+                result += d;
+                pos += 1;
+            }
+        }
+        return Some((result, pos));
+    }
+
+    if tens > 0 {
+        return Some((tens, pos));
+    }
+
+    None
+}
+
 fn extract_leading_number(name: &str) -> Option<u32> {
     let s = name.trim();
 
@@ -830,6 +879,11 @@ fn extract_leading_number(name: &str) -> Option<u32> {
     let digits: String = start.chars().take_while(|c| c.is_ascii_digit()).collect();
 
     if digits.is_empty() {
+        // Try Chinese number (e.g., "第一节", "第二课")
+        let after_di = start.strip_prefix('第').unwrap_or(start);
+        if let Some((num, _)) = parse_chinese_number_prefix(after_di) {
+            return Some(num);
+        }
         return None;
     }
 
