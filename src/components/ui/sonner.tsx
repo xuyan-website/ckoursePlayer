@@ -12,15 +12,15 @@ export function Toaster() {
           default:
             "!bg-card !border-border !text-foreground",
           success:
-            "!bg-success/10 !border-success/50 !text-success",
+            "!bg-card !border-success !text-success",
           error:
-            "!bg-destructive/10 !border-destructive/50 !text-destructive",
+            "!bg-card !border-destructive !text-destructive",
           info:
-            "!bg-info/10 !border-info/50 !text-info",
+            "!bg-card !border-info !text-info",
           warning:
-            "!bg-amber-500/10 !border-amber-500/50 !text-amber-500",
+            "!bg-card !border-amber-500 !text-amber-500",
           loading:
-            "!bg-info/10 !border-info/50 !text-info",
+            "!bg-card !border-info !text-info",
         },
       }}
     />
