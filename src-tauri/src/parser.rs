@@ -1090,16 +1090,28 @@ fn strip_leading_number(name: &str) -> String {
         }
     }
 
-    // Handle plain leading numbers
-    let digits: String = chars.iter().take_while(|c| c.is_ascii_digit()).collect();
-    if !digits.is_empty() {
-        let rest: String = chars[digits.len()..].iter().collect();
-        let rest = rest.trim_start_matches(|c: char| c == ' ' || c == '-' || c == '.' || c == '_' || c == '、' || c == '，' || c == '。' || c == '：' || c == '；' || c == ':');
-        if !rest.is_empty() {
-            return rest.to_string();
+    // Handle plain leading numbers — loop to strip patterns like "01-02."
+    let mut current = s.to_string();
+    let mut changed = false;
+    loop {
+        let c: Vec<char> = current.chars().collect();
+        let digits: String = c.iter().take_while(|ch| ch.is_ascii_digit()).collect();
+        if digits.is_empty() {
+            break;
         }
-        // If stripping the number leaves nothing, keep the original
-        return s.to_string();
+        let rest: String = c[digits.len()..].iter().collect();
+        let trimmed = rest.trim_start_matches(|ch: char| ch == ' ' || ch == '-' || ch == '.' || ch == '_' || ch == '、' || ch == '，' || ch == '。' || ch == '：' || ch == '；' || ch == ':');
+        if trimmed.is_empty() {
+            break;
+        }
+        if rest.len() == trimmed.len() {
+            break;
+        }
+        current = trimmed.to_string();
+        changed = true;
+    }
+    if changed {
+        return current;
     }
 
     s.to_string()
