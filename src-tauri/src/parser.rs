@@ -928,6 +928,14 @@ fn extract_embedded_number(name: &str) -> Option<u32> {
         }
     }
 
+    // 中文顺序词："第X"（如"第三节"、"第二课"），支持嵌入位置
+    if let Some(pos) = name.find('第') {
+        let after = &name[pos + '第'.len_utf8()..];
+        if let Some((num, _)) = parse_chinese_number_prefix(after) {
+            return Some(num);
+        }
+    }
+
     None
 }
 
