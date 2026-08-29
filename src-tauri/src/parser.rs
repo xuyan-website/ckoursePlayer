@@ -424,16 +424,7 @@ fn build_lessons_from_files(
     if has_numbers {
         // Two-tier sort: unnumbered files first (intro/overview content),
         // then numbered files in numeric order
-        sorted_videos.sort_by(|a, b| {
-            let na = extract_leading_number(&a.name).or_else(|| extract_embedded_number(&a.name));
-            let nb = extract_leading_number(&b.name).or_else(|| extract_embedded_number(&b.name));
-            match (na, nb) {
-                (Some(a_num), Some(b_num)) => a_num.cmp(&b_num).then_with(|| a.name.cmp(&b.name)),
-                (None, Some(_)) => std::cmp::Ordering::Less,    // unnumbered before numbered
-                (Some(_), None) => std::cmp::Ordering::Greater, // numbered after unnumbered
-                (None, None) => a.name.to_lowercase().cmp(&b.name.to_lowercase()),
-            }
-        });
+        sorted_videos.sort_by(|a, b| compare_numbered(&a.name, &b.name));
     } else {
         sorted_videos.sort_by(|a, b| a.name.to_lowercase().cmp(&b.name.to_lowercase()));
     }
@@ -448,16 +439,7 @@ fn build_lessons_from_files(
     // Sort subtitles the same way as videos for positional fallback
     let mut sorted_subtitles: Vec<&&FileEntry> = subtitles.iter().collect();
     if has_numbers {
-        sorted_subtitles.sort_by(|a, b| {
-            let na = extract_leading_number(&a.name).or_else(|| extract_embedded_number(&a.name));
-            let nb = extract_leading_number(&b.name).or_else(|| extract_embedded_number(&b.name));
-            match (na, nb) {
-                (Some(a_num), Some(b_num)) => a_num.cmp(&b_num).then_with(|| a.name.cmp(&b.name)),
-                (None, Some(_)) => std::cmp::Ordering::Less,
-                (Some(_), None) => std::cmp::Ordering::Greater,
-                (None, None) => a.name.to_lowercase().cmp(&b.name.to_lowercase()),
-            }
-        });
+        sorted_subtitles.sort_by(|a, b| compare_numbered(&a.name, &b.name));
     } else {
         sorted_subtitles.sort_by(|a, b| a.name.to_lowercase().cmp(&b.name.to_lowercase()));
     }
@@ -937,6 +919,81 @@ fn extract_embedded_number(name: &str) -> Option<u32> {
     }
 
     None
+}
+
+fn extract_number_sequence(name: &str) -> Vec<u32> {
+    let stem = match name.rfind('.') {
+        Some(pos) if pos > 0 => &name[..pos],
+        _ => name,
+    };
+    let mut tokens: Vec<(usize, u32)> = Vec::new();
+    let chars: Vec<(usize, char)> = stem.char_indices().collect();
+
+    let mut i = 0;
+    while i < chars.len() {
+        if chars[i].1.is_ascii_digit() {
+            let start_byte = chars[i].0;
+            let start_idx = i;
+            while i < chars.len() && chars[i].1.is_ascii_digit() {
+                i += 1;
+            }
+            let digits: String = chars[start_idx..i].iter().map(|(_, c)| *c).collect();
+            let is_platform_id = digits.len() >= 6 && i < chars.len() && chars[i].1 == '_';
+            if !is_platform_id {
+                if let Ok(num) = digits.parse::<u32>() {
+                    tokens.push((start_byte, num));
+                }
+            }
+        } else {
+            i += 1;
+        }
+    }
+
+    let mut search = 0;
+    while search < stem.len() {
+        if let Some(rel) = stem[search..].find('第') {
+            let abs = search + rel;
+            let after = &stem[abs + '第'.len_utf8()..];
+            match parse_chinese_number_prefix(after) {
+                Some((num, consumed_chars)) => {
+                    tokens.push((abs, num));
+                    let consumed_bytes = after
+                        .char_indices()
+                        .nth(consumed_chars)
+                        .map(|(b, _)| b)
+                        .unwrap_or(after.len());
+                    search = abs + '第'.len_utf8() + consumed_bytes;
+                }
+                None => {
+                    search = abs + '第'.len_utf8();
+                }
+            }
+        } else {
+            break;
+        }
+    }
+
+    tokens.sort_by_key(|(pos, _)| *pos);
+    tokens.into_iter().map(|(_, v)| v).collect()
+}
+
+fn compare_numbered(a_name: &str, b_name: &str) -> std::cmp::Ordering {
+    let na = extract_leading_number(a_name).or_else(|| extract_embedded_number(a_name));
+    let nb = extract_leading_number(b_name).or_else(|| extract_embedded_number(b_name));
+    match (na, nb) {
+        (Some(a_num), Some(b_num)) => {
+            if a_num == b_num {
+                extract_number_sequence(a_name)
+                    .cmp(&extract_number_sequence(b_name))
+                    .then_with(|| a_name.to_lowercase().cmp(&b_name.to_lowercase()))
+            } else {
+                a_num.cmp(&b_num)
+            }
+        }
+        (None, Some(_)) => std::cmp::Ordering::Less,
+        (Some(_), None) => std::cmp::Ordering::Greater,
+        (None, None) => a_name.to_lowercase().cmp(&b_name.to_lowercase()),
+    }
 }
 
 fn video_base_name(filename: &str) -> String {
@@ -1739,14 +1796,7 @@ fn drive_folder_has_videos(folder: &DriveEntry) -> bool {
 /// Numeric-aware comparator matching the local `build_lessons_from_files` sort.
 fn drive_name_cmp(a: &DriveEntry, b: &DriveEntry, has_numbers: bool) -> std::cmp::Ordering {
     if has_numbers {
-        let na = extract_leading_number(&a.name).or_else(|| extract_embedded_number(&a.name));
-        let nb = extract_leading_number(&b.name).or_else(|| extract_embedded_number(&b.name));
-        match (na, nb) {
-            (Some(x), Some(y)) => x.cmp(&y).then_with(|| a.name.cmp(&b.name)),
-            (None, Some(_)) => std::cmp::Ordering::Less,
-            (Some(_), None) => std::cmp::Ordering::Greater,
-            (None, None) => a.name.to_lowercase().cmp(&b.name.to_lowercase()),
-        }
+        compare_numbered(&a.name, &b.name)
     } else {
         a.name.to_lowercase().cmp(&b.name.to_lowercase())
     }
@@ -2144,6 +2194,55 @@ mod tests {
         // "02 - Lecture 5" should use leading 2, not embedded 5
         let key = extract_sort_key("02 - Lecture 5 - Something");
         assert!(matches!(key, SortKey::Numeric(2)));
+    }
+
+    #[test]
+    fn number_sequence_lesson_chinese() {
+        let seq = extract_number_sequence("lesson2 第一小节.mp4");
+        assert_eq!(seq, vec![2, 1]);
+    }
+
+    #[test]
+    fn number_sequence_skips_platform_id() {
+        let seq = extract_number_sequence("123456789_01 - Intro.mp4");
+        assert_eq!(seq, vec![1]);
+    }
+
+    #[test]
+    fn compare_same_primary_uses_secondary() {
+        assert_eq!(compare_numbered("lesson2 第一小节.mp4", "lesson2 第二小节.mp4"), std::cmp::Ordering::Less);
+        assert_eq!(compare_numbered("lesson2 第三小节.mp4", "lesson2 第二小节.mp4"), std::cmp::Ordering::Greater);
+        assert_eq!(compare_numbered("lesson2 第一小节.mp4", "lesson2 第一小节.mp4"), std::cmp::Ordering::Equal);
+    }
+
+    #[test]
+    fn sort_same_primary_by_secondary() {
+        let mut names = vec![
+            "lesson2 第三小节.mp4".to_string(),
+            "lesson2 第一小节.mp4".to_string(),
+            "lesson2 第二小节.mp4".to_string(),
+        ];
+        names.sort_by(|a, b| compare_numbered(a, b));
+        assert_eq!(names, vec![
+            "lesson2 第一小节.mp4".to_string(),
+            "lesson2 第二小节.mp4".to_string(),
+            "lesson2 第三小节.mp4".to_string(),
+        ]);
+    }
+
+    #[test]
+    fn sort_same_primary_arabic_secondary() {
+        let mut names = vec![
+            "lesson2 10.mp4".to_string(),
+            "lesson2 2.mp4".to_string(),
+            "lesson2 1.mp4".to_string(),
+        ];
+        names.sort_by(|a, b| compare_numbered(a, b));
+        assert_eq!(names, vec![
+            "lesson2 1.mp4".to_string(),
+            "lesson2 2.mp4".to_string(),
+            "lesson2 10.mp4".to_string(),
+        ]);
     }
 
     // --- strip_leading_number with lecture ---
