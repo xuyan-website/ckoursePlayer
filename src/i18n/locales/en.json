@@ -264,7 +264,8 @@
     "filesStateMessage": {
       "NoNumberedFiles—UsingAlphabeticalOrder": "No numbered files — using alphabetical order",
       "SomeSubtitlesMatchedByPosition(uncertain)": "Some subtitles matched by position (uncertain)",
-      "VeryFewVideoFilesFound": "Very few video files found"
+      "VeryFewVideoFilesFound": "Very few video files found",
+      "MoreThan30%OfFilesUnrecognized": "More than 30% of files unrecognized"
     },
     "courseOverview": "{{totalLessons}} {{lessonWord}} in {{sectionCount}} {{sectionWord}}"
   },

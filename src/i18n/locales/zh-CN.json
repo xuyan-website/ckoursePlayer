@@ -264,7 +264,8 @@
     "filesStateMessage": {
       "NoNumberedFiles—UsingAlphabeticalOrder": "没有编号文件 — 按字母顺序排列",
       "SomeSubtitlesMatchedByPosition(uncertain)": "一些字幕按位置匹配（不准确）",
-      "VeryFewVideoFilesFound": "找到的视频文件很少"
+      "VeryFewVideoFilesFound": "找到的视频文件很少",
+      "MoreThan30%OfFilesUnrecognized": "超过30%的文件无法识别"
     },
     "courseOverview": "{{sectionCount}}个章节，共{{totalLessons}}节课"
   },
