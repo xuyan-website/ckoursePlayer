@@ -1,0 +1,54 @@
+[package]
+name = "ckourse_player"
+version = "1.1.1"
+description = "Free, open-source desktop app to watch and organize downloaded courses. Progress tracking, smart folder parsing, 100% offline."
+authors = ["REDA ANTAR <mrredaantar@gmail.com>"]
+edition = "2021"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[lib]
+# The `_lib` suffix may seem redundant but it is necessary
+# to make the lib name unique and wouldn't conflict with the bin name.
+# This seems to be only an issue on Windows, see https://github.com/rust-lang/cargo/issues/8519
+name = "ckourse_player_lib"
+crate-type = ["staticlib", "cdylib", "rlib"]
+
+[build-dependencies]
+tauri-build = { version = "2", features = [] }
+
+[dependencies]
+tauri = { version = "2.11.5", features = ["protocol-asset", "macos-private-api"] }
+tauri-plugin-opener = "2.5.4"
+tauri-plugin-dialog = "2.7.2"
+tauri-plugin-updater = "2"
+tauri-plugin-process = "2"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+rusqlite = { version = "0.31", features = ["bundled"] }
+percent-encoding = "2"
+# Google Drive source: HTTP client (rustls to avoid OpenSSL), PKCE + token storage.
+reqwest = { version = "0.12", default-features = false, features = ["rustls-tls", "json", "stream"] }
+tokio = { version = "1", features = ["time"] }
+sha2 = "0.10"
+base64 = "0.22"
+getrandom = "0.2"
+zip = "2"
+
+# OS keychain for Google Drive OAuth tokens — backend differs per platform.
+[target.'cfg(target_os = "macos")'.dependencies]
+keyring = { version = "3", features = ["apple-native"] }
+
+[target.'cfg(target_os = "windows")'.dependencies]
+keyring = { version = "3", features = ["windows-native"] }
+
+[target.'cfg(target_os = "linux")'.dependencies]
+keyring = { version = "3", features = ["sync-secret-service", "crypto-rust"] }
+
+[profile.dev]
+debug = "line-tables-only"
+incremental = true
+
+[profile.release]
+incremental = false
+

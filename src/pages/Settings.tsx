@@ -1,0 +1,1139 @@
+import { useState, useEffect, useCallback, useRef } from "react";
+import { useNavigate } from "react-router-dom";
+import { useTranslation } from "react-i18next";
+import { usePageVisible } from "@/hooks/usePageVisible";
+import { useSettings, AUTOPLAY_DELAY_MAX } from "@/hooks/useSettings";
+import {
+  GearSixIcon as GearSix,
+  PlayIcon as Play,
+  DatabaseIcon as Database,
+  FolderIcon as Folder,
+  NotepadIcon as Notepad,
+  BookmarkSimpleIcon as BookmarkSimple,
+  HeartIcon as Heart,
+  SpinnerGapIcon as SpinnerGap,
+  StackIcon as Stack,
+  MonitorPlayIcon as MonitorPlay,
+  ArrowsClockwiseIcon as ArrowsClockwise,
+  FastForwardIcon as FastForward,
+  SpeakerHighIcon as SpeakerHigh,
+  SkipForwardIcon as SkipForward,
+  TimerIcon as Timer,
+  TrashIcon as Trash,
+  WarningCircleIcon as WarningCircle,
+  XIcon as X,
+  CloudIcon as Cloud,
+  KeyIcon as Key,
+  LinkSimpleIcon as Link,
+  LinkBreakIcon as LinkBreak,
+  GlobeIcon as Globe,
+  DownloadSimpleIcon as DownloadSimple,
+  UploadSimpleIcon as UploadSimple,
+} from "@phosphor-icons/react";
+import { cn } from "@/lib/utils";
+import type { LibraryStats } from "@/types";
+import { getLibraryStats, deleteAllData, exportToFile, importFromFile, type ImportMode } from "@/lib/store";
+import {
+  driveCredentialsStatus,
+  driveSetCredentials,
+  driveClearCredentials,
+  driveAuthStatus,
+  driveConnect,
+  driveDisconnect,
+} from "@/lib/drive";
+import { EASE_OUT } from "@/lib/constants";
+import { save, open } from "@tauri-apps/plugin-dialog";
+import { listen } from "@tauri-apps/api/event";
+import { toast } from "sonner";
+import { DriveSetupGuide } from "@/components/DriveSetupGuide";
+import { useUpdater } from "@/hooks/useUpdater";
+import { getVersion } from "@tauri-apps/api/app";
+
+interface ToggleProps {
+  checked: boolean;
+  onChange: (checked: boolean) => void;
+}
+
+function Toggle({ checked, onChange }: ToggleProps) {
+  return (
+    <button
+      type="button"
+      role="switch"
+      aria-checked={checked}
+      onClick={() => onChange(!checked)}
+      className={cn(
+        "relative flex h-6 w-11 shrink-0 cursor-pointer items-center rounded-full transition-colors duration-200",
+        checked ? "bg-primary" : "bg-border",
+      )}
+    >
+      <span
+        className={cn(
+          "block size-4.5 rounded-full bg-background shadow-sm transition-transform duration-200",
+          checked ? "translate-x-[22px]" : "translate-x-[2px]",
+        )}
+      />
+    </button>
+  );
+}
+
+interface SelectOption {
+  value: string;
+  label: string;
+}
+
+interface SelectProps {
+  value: string;
+  onChange: (value: string) => void;
+  options: SelectOption[];
+}
+
+function Select({ value, onChange, options }: SelectProps) {
+  return (
+    <div className="relative">
+      <select
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        className={cn(
+          "appearance-none rounded-lg border border-border bg-secondary px-3 py-1.5",
+          "font-sans text-sm text-foreground outline-none",
+          "cursor-pointer transition-colors hover:border-muted-foreground/30",
+          "pr-8",
+        )}
+      >
+        {options.map((opt) => (
+          <option key={opt.value} value={opt.value}>
+            {opt.label}
+          </option>
+        ))}
+      </select>
+      <div className="pointer-events-none absolute right-2.5 top-1/2 -translate-y-1/2 text-muted-foreground">
+        <svg width="10" height="6" viewBox="0 0 10 6" fill="none">
+          <path d="M1 1L5 5L9 1" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+        </svg>
+      </div>
+    </div>
+  );
+}
+
+interface SectionCardProps {
+  title: string;
+  icon: React.ReactNode;
+  children: React.ReactNode;
+  index: number;
+}
+
+function SectionCard({ title, icon, children, index }: SectionCardProps) {
+  return (
+    <div
+      className="relative"
+      style={{
+        animation: `card-in 350ms ${EASE_OUT} ${index * 60}ms both`,
+      }}
+    >
+      <div className="squircle-subtle absolute inset-0 bg-border/50" />
+      <div className="squircle-subtle absolute inset-px bg-card" />
+      <div className="relative p-5">
+        <div className="mb-4 flex items-center gap-2">
+          {icon}
+          <h3 className="font-heading text-sm font-bold text-foreground">{title}</h3>
+        </div>
+        <div className="flex flex-col gap-0.5">{children}</div>
+      </div>
+    </div>
+  );
+}
+
+interface SettingRowProps {
+  icon: React.ReactNode;
+  label: string;
+  description?: string;
+  children: React.ReactNode;
+}
+
+function SettingRow({ icon, label, description, children }: SettingRowProps) {
+  return (
+    <div className="flex items-center justify-between gap-4 rounded-lg px-2 py-3">
+      <div className="flex items-center gap-3">
+        <div className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-secondary text-muted-foreground">
+          {icon}
+        </div>
+        <div>
+          <div className="font-sans text-sm font-medium text-foreground">{label}</div>
+          {description && (
+            <div className="font-sans text-xs text-muted-foreground">{description}</div>
+          )}
+        </div>
+      </div>
+      <div className="shrink-0">{children}</div>
+    </div>
+  );
+}
+
+interface StatChipProps {
+  icon: React.ReactNode;
+  label: string;
+  value: string | number;
+}
+
+function StatChip({ icon, label, value }: StatChipProps) {
+  return (
+    <div className="flex items-center gap-2.5 rounded-lg bg-secondary/50 px-3 py-2.5">
+      <div className="text-muted-foreground">{icon}</div>
+      <div>
+        <div className="font-mono text-sm font-bold text-foreground">{value}</div>
+        <div className="font-sans text-[11px] text-muted-foreground">{label}</div>
+      </div>
+    </div>
+  );
+}
+
+const CONFIRM_PHRASE = "delete all";
+
+function DeleteConfirmDialog({
+  onConfirm,
+  onCancel,
+}: {
+  onConfirm: () => void;
+  onCancel: () => void;
+}) {
+  const { t } = useTranslation();
+  const [input, setInput] = useState("");
+  const matches = input.toLowerCase().trim() === CONFIRM_PHRASE;
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center">
+      <div
+        className="absolute inset-0 bg-background/80 backdrop-blur-sm"
+        onClick={onCancel}
+      />
+      <div
+        className="relative w-full max-w-md rounded-xl border border-border bg-card p-6 shadow-2xl"
+        style={{ animation: `card-in 250ms ${EASE_OUT} both` }}
+      >
+        <button
+          onClick={onCancel}
+          className="absolute right-4 top-4 text-muted-foreground transition-colors hover:text-foreground"
+        >
+          <X className="size-4" />
+        </button>
+
+        <div className="mb-4 flex items-center gap-3">
+          <div className="flex size-10 shrink-0 items-center justify-center rounded-full bg-destructive/15">
+            <WarningCircle className="size-5 text-destructive" weight="bold" />
+          </div>
+          <div>
+            <h3 className="font-heading text-base font-bold text-foreground">
+              {t("settings.dangerZone.confirmTitle")}
+            </h3>
+            <p className="font-sans text-xs text-muted-foreground">
+              {t("settings.dangerZone.confirmWarning")}
+            </p>
+          </div>
+        </div>
+
+        <p className="mb-4 font-sans text-sm text-muted-foreground">
+          {t("settings.dangerZone.confirmDetail")}
+        </p>
+
+        <div className="mb-4">
+          <label className="mb-1.5 block font-sans text-xs font-medium text-muted-foreground">
+            {t("settings.dangerZone.typeToConfirm", { phrase: CONFIRM_PHRASE })}
+          </label>
+          <input
+            type="text"
+            value={input}
+            onChange={(e) => setInput(e.target.value)}
+            placeholder={CONFIRM_PHRASE}
+            autoFocus
+            className={cn(
+              "w-full rounded-lg border bg-secondary px-3 py-2",
+              "font-mono text-sm text-foreground placeholder:text-muted-foreground/40",
+              "outline-none transition-colors",
+              matches ? "border-destructive" : "border-border",
+            )}
+            onKeyDown={(e) => {
+              if (e.key === "Enter" && matches) onConfirm();
+              if (e.key === "Escape") onCancel();
+            }}
+          />
+        </div>
+
+        <div className="flex justify-end gap-2">
+          <button
+            onClick={onCancel}
+            className="rounded-lg px-4 py-2 font-sans text-sm font-medium text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground"
+          >
+            {t("common.cancel")}
+          </button>
+          <button
+            onClick={onConfirm}
+            disabled={!matches}
+            className={cn(
+              "rounded-lg px-4 py-2 font-sans text-sm font-semibold transition-colors",
+              matches
+                ? "bg-destructive text-white hover:bg-destructive/90"
+                : "cursor-not-allowed bg-secondary text-muted-foreground/40",
+            )}
+          >
+            {t("settings.dangerZone.deleteEverything")}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function ImportModeDialog({
+  onConfirm,
+  onCancel,
+}: {
+  onConfirm: (mode: ImportMode) => void;
+  onCancel: () => void;
+}) {
+  const { t } = useTranslation();
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center">
+      <div
+        className="absolute inset-0 bg-background/80 backdrop-blur-sm"
+        onClick={onCancel}
+      />
+      <div
+        className="relative w-full max-w-md rounded-xl border border-border bg-card p-6 shadow-2xl"
+        style={{ animation: `card-in 250ms ${EASE_OUT} both` }}
+      >
+        <button
+          onClick={onCancel}
+          className="absolute right-4 top-4 text-muted-foreground transition-colors hover:text-foreground"
+        >
+          <X className="size-4" />
+        </button>
+
+        <div className="mb-4 flex items-center gap-3">
+          <div className="flex size-10 shrink-0 items-center justify-center rounded-full bg-info/15">
+            <Database className="size-5 text-info" weight="bold" />
+          </div>
+          <div>
+            <h3 className="font-heading text-base font-bold text-foreground">
+              {t("settings.library.importDialogTitle")}
+            </h3>
+            <p className="font-sans text-xs text-muted-foreground">
+              {t("settings.library.importDialogSubtitle")}
+            </p>
+          </div>
+        </div>
+
+        <div className="flex flex-col gap-2">
+          <button
+            onClick={() => onConfirm("merge")}
+            className={cn(
+              "flex items-center gap-3 rounded-lg border border-border px-4 py-3",
+              "text-left transition-colors hover:border-info/40 hover:bg-info/5",
+            )}
+          >
+            <DownloadSimple className="size-5 shrink-0 text-info" weight="bold" />
+            <div>
+              <div className="font-sans text-sm font-semibold text-foreground">
+                {t("settings.library.merge")}
+              </div>
+              <div className="font-sans text-xs text-muted-foreground">
+                {t("settings.library.mergeDesc")}
+              </div>
+            </div>
+          </button>
+          <button
+            onClick={() => onConfirm("replace")}
+            className={cn(
+              "flex items-center gap-3 rounded-lg border border-border px-4 py-3",
+              "text-left transition-colors hover:border-destructive/40 hover:bg-destructive/5",
+            )}
+          >
+            <UploadSimple className="size-5 shrink-0 text-destructive" weight="bold" />
+            <div>
+              <div className="font-sans text-sm font-semibold text-foreground">
+                {t("settings.library.replace")}
+              </div>
+              <div className="font-sans text-xs text-muted-foreground">
+                {t("settings.library.replaceDesc")}
+              </div>
+            </div>
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+const SPEED_OPTIONS: SelectOption[] = [
+  { value: "0.5", label: "0.5x" },
+  { value: "0.75", label: "0.75x" },
+  { value: "1", label: "1x" },
+  { value: "1.25", label: "1.25x" },
+  { value: "1.5", label: "1.5x" },
+  { value: "1.75", label: "1.75x" },
+  { value: "2", label: "2x" },
+];
+
+const SKIP_OPTIONS: SelectOption[] = [
+  { value: "5", label: "5s" },
+  { value: "10", label: "10s" },
+  { value: "15", label: "15s" },
+  { value: "30", label: "30s" },
+];
+
+const LONG_PRESS_SPEED_OPTIONS: SelectOption[] = [
+  { value: "1.5", label: "1.5×" },
+  { value: "2", label: "2×" },
+  { value: "3", label: "3×" },
+];
+
+interface SettingsProps {
+  className?: string;
+}
+
+function UpdatesSection({ index }: { index: number }) {
+  const { t } = useTranslation();
+  const updater = useUpdater();
+  const [appVersion, setAppVersion] = useState<string>("");
+
+  useEffect(() => {
+    getVersion().then(setAppVersion).catch(() => setAppVersion(""));
+  }, []);
+
+  const isChecking = updater.status === "checking";
+  const isDownloading = updater.status === "downloading";
+  const isReady = updater.status === "ready";
+  const hasUpdate = updater.status === "available" || isDownloading || isReady;
+  const percent = Math.round(updater.progress * 100);
+
+  let buttonLabel = t("settings.updates.checkForUpdates");
+  if (isChecking) buttonLabel = t("settings.updates.checking");
+  else if (isReady) buttonLabel = t("settings.updates.restartToUpdate");
+  else if (isDownloading) buttonLabel = t("settings.updates.downloading", { percent });
+  else if (updater.status === "available") buttonLabel = t("settings.updates.installVersion", { version: updater.version });
+
+  const onClick = () => {
+    if (hasUpdate) updater.install();
+    else updater.check();
+  };
+
+  let description = appVersion ? t("settings.updates.currentVersion", { appVersion }) : t("settings.updates.checkForNewVersions");
+  if (updater.status === "up-to-date") description = t("settings.updates.latestVersion", { appVersion });
+  else if (updater.status === "available") description = t("settings.updates.versionAvailable", { version: updater.version });
+  else if (updater.status === "error") description = updater.error ?? t("settings.updates.updateCheckFailed");
+
+  return (
+    <SectionCard
+      title={t("settings.updates.title")}
+      icon={<ArrowsClockwise className="size-4 text-info" weight="bold" />}
+      index={index}
+    >
+      <SettingRow
+        icon={<ArrowsClockwise className={cn("size-4", isChecking && "animate-spin")} />}
+        label={t("settings.updates.appUpdates")}
+        description={description}
+      >
+        <button
+          onClick={onClick}
+          disabled={isChecking || isDownloading}
+          className={cn(
+            "shrink-0 rounded-lg px-4 py-2",
+            "font-sans text-sm font-semibold transition-colors",
+            hasUpdate
+              ? "bg-primary text-primary-foreground hover:opacity-90"
+              : "border border-border bg-secondary text-foreground hover:bg-secondary/70",
+            (isChecking || isDownloading) && "cursor-not-allowed opacity-60",
+          )}
+        >
+          {buttonLabel}
+        </button>
+      </SettingRow>
+      {isDownloading && (
+        <div className="px-2 pb-2">
+          <div className="h-1 w-full overflow-hidden rounded-full bg-secondary">
+            <div
+              className="h-full bg-primary transition-[width] duration-200"
+              style={{ width: `${percent}%` }}
+            />
+          </div>
+        </div>
+      )}
+      {updater.status === "available" && updater.notes && (
+        <div className="mx-2 mb-2 max-h-32 overflow-y-auto rounded-lg bg-secondary/50 px-3 py-2 font-sans text-xs whitespace-pre-wrap text-muted-foreground">
+          {updater.notes}
+        </div>
+      )}
+    </SectionCard>
+  );
+}
+
+function errMsg(e: unknown): string {
+  if (typeof e === "string") return e;
+  if (e instanceof Error) return e.message;
+  return String(e);
+}
+
+function CredInput({
+  label,
+  value,
+  onChange,
+  type = "text",
+  placeholder,
+}: {
+  label: string;
+  value: string;
+  onChange: (v: string) => void;
+  type?: string;
+  placeholder?: string;
+}) {
+  return (
+    <label className="block px-2">
+      <span className="mb-1 block font-sans text-xs font-medium text-muted-foreground">
+        {label}
+      </span>
+      <input
+        type={type}
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        placeholder={placeholder}
+        spellCheck={false}
+        autoCapitalize="off"
+        autoCorrect="off"
+        className={cn(
+          "w-full rounded-lg border border-border bg-secondary px-3 py-2",
+          "font-mono text-xs text-foreground placeholder:text-muted-foreground/40",
+          "outline-none transition-colors focus:border-primary",
+        )}
+      />
+    </label>
+  );
+}
+
+function GoogleDriveSection({ index }: { index: number }) {
+  const { t } = useTranslation();
+  const [credsSet, setCredsSet] = useState(false);
+  const [connected, setConnected] = useState(false);
+  const [editing, setEditing] = useState(false);
+  const [clientId, setClientId] = useState("");
+  const [clientSecret, setClientSecret] = useState("");
+  const [apiKey, setApiKey] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const refresh = useCallback(async () => {
+    try {
+      const set = await driveCredentialsStatus();
+      setCredsSet(set);
+      setConnected(set ? (await driveAuthStatus()).connected : false);
+    } catch (e) {
+      setError(errMsg(e));
+    }
+  }, []);
+
+  useEffect(() => {
+    refresh();
+  }, [refresh]);
+
+  // The Settings page stays mounted (kept-alive), so re-check status whenever it
+  // becomes visible again — e.g. after reconnecting Drive from a course page.
+  usePageVisible("/settings", refresh);
+
+  const run = useCallback(
+    async (fn: () => Promise<unknown>) => {
+      setBusy(true);
+      setError(null);
+      try {
+        await fn();
+        await refresh();
+      } catch (e) {
+        setError(errMsg(e));
+      } finally {
+        setBusy(false);
+      }
+    },
+    [refresh],
+  );
+
+  // Connect is special: the Rust side blocks until the browser redirect arrives
+  // (or its long internal timeout fires), and closing the browser sends no
+  // signal. A generation token lets the user abort the "Check your browser…"
+  // state — a later-resolving stale attempt is then ignored.
+  const [connecting, setConnecting] = useState(false);
+  const connectGen = useRef(0);
+
+  const connect = useCallback(async () => {
+    const gen = ++connectGen.current;
+    setConnecting(true);
+    setError(null);
+    try {
+      await driveConnect();
+      if (gen !== connectGen.current) return; // aborted or superseded
+      await refresh();
+    } catch (e) {
+      if (gen !== connectGen.current) return;
+      setError(errMsg(e));
+    } finally {
+      if (gen === connectGen.current) setConnecting(false);
+    }
+  }, [refresh]);
+
+  const cancelConnect = useCallback(() => {
+    connectGen.current++; // invalidate the in-flight attempt
+    setConnecting(false);
+    setError(null);
+  }, []);
+
+  const saveCreds = () =>
+    run(async () => {
+      if (!clientId.trim() || !clientSecret.trim() || !apiKey.trim()) {
+        throw new Error(t("settings.googleDrive.allFieldsRequired"));
+      }
+      await driveSetCredentials(clientId.trim(), clientSecret.trim(), apiKey.trim());
+      setEditing(false);
+      setClientSecret("");
+    });
+
+  const showForm = !credsSet || editing;
+
+  return (
+    <SectionCard
+      title={t("settings.googleDrive.title")}
+      icon={<Cloud className="size-4 text-info" weight="bold" />}
+      index={index}
+    >
+      <p className="px-2 pb-2 font-sans text-xs text-muted-foreground">
+        {t("settings.googleDrive.description")}
+      </p>
+
+      {showForm ? (
+        <div className="flex flex-col gap-3 py-1">
+          <DriveSetupGuide />
+          <CredInput
+            label={t("settings.googleDrive.clientId")}
+            value={clientId}
+            onChange={setClientId}
+            placeholder="xxxxx.apps.googleusercontent.com"
+          />
+          <CredInput
+            label={t("settings.googleDrive.clientSecret")}
+            value={clientSecret}
+            onChange={setClientSecret}
+            type="password"
+            placeholder="GOCSPX-…"
+          />
+          <CredInput
+            label={t("settings.googleDrive.apiKey")}
+            value={apiKey}
+            onChange={setApiKey}
+            placeholder="AIza…"
+          />
+          <div className="flex justify-end gap-2 px-2">
+            {editing && (
+              <button
+                onClick={() => {
+                  setEditing(false);
+                  setError(null);
+                }}
+                className="rounded-lg px-4 py-2 font-sans text-sm font-medium text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground"
+              >
+                {t("common.cancel")}
+              </button>
+            )}
+            <button
+              onClick={saveCreds}
+              disabled={busy}
+              className={cn(
+                "rounded-lg bg-primary px-4 py-2 font-sans text-sm font-semibold text-primary-foreground",
+                "transition-colors hover:bg-primary/90 disabled:opacity-50",
+              )}
+            >
+              {t("settings.googleDrive.saveCredentials")}
+            </button>
+          </div>
+        </div>
+      ) : (
+        <>
+          <SettingRow
+            icon={<Key className="size-4" />}
+            label={t("settings.googleDrive.credentials")}
+            description={t("settings.googleDrive.credentialsStoredIn")}
+          >
+            <div className="flex items-center gap-2">
+              <button
+                onClick={() => setEditing(true)}
+                disabled={busy || connecting}
+                className="rounded-lg border border-border px-3 py-1.5 font-sans text-sm text-muted-foreground transition-colors hover:text-foreground disabled:opacity-50"
+              >
+                {t("settings.googleDrive.edit")}
+              </button>
+              <button
+                onClick={() => run(driveClearCredentials)}
+                disabled={busy || connecting}
+                className="rounded-lg border border-destructive/30 px-3 py-1.5 font-sans text-sm text-destructive transition-colors hover:bg-destructive/10 disabled:opacity-50"
+              >
+                {t("settings.googleDrive.clear")}
+              </button>
+            </div>
+          </SettingRow>
+
+          <SettingRow
+            icon={connected ? <Link className="size-4" /> : <LinkBreak className="size-4" />}
+            label={connected ? t("settings.googleDrive.connected") : t("settings.googleDrive.notConnected")}
+            description={
+              connected
+                ? t("settings.googleDrive.accountLinked")
+                : t("settings.googleDrive.connectToSignIn")
+            }
+          >
+            {connected ? (
+              <button
+                onClick={() => run(driveDisconnect)}
+                disabled={busy}
+                className="rounded-lg border border-border px-4 py-2 font-sans text-sm font-medium text-muted-foreground transition-colors hover:text-foreground disabled:opacity-50"
+              >
+                {t("settings.googleDrive.disconnect")}
+              </button>
+            ) : connecting ? (
+              <div className="flex items-center gap-2">
+                <span className="font-sans text-sm text-muted-foreground">
+                  {t("settings.googleDrive.checkBrowser")}
+                </span>
+                <button
+                  onClick={cancelConnect}
+                  className="rounded-lg border border-border px-3 py-2 font-sans text-sm font-medium text-muted-foreground transition-colors hover:text-foreground"
+                >
+                  {t("common.cancel")}
+                </button>
+              </div>
+            ) : (
+              <button
+                onClick={connect}
+                disabled={busy}
+                className={cn(
+                  "rounded-lg bg-primary px-4 py-2 font-sans text-sm font-semibold text-primary-foreground",
+                  "transition-colors hover:bg-primary/90 disabled:opacity-50",
+                )}
+              >
+                {t("settings.googleDrive.connect")}
+              </button>
+            )}
+          </SettingRow>
+        </>
+      )}
+
+      {error && (
+        <p className="px-2 pt-1 font-sans text-xs text-destructive">{error}</p>
+      )}
+    </SectionCard>
+  );
+}
+
+export function Settings({ className }: SettingsProps) {
+  const { t } = useTranslation();
+  const { settings, update } = useSettings();
+  const navigate = useNavigate();
+  const [stats, setStats] = useState<LibraryStats | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [showDeleteDialog, setShowDeleteDialog] = useState(false);
+  const [importPath, setImportPath] = useState<string | null>(null);
+  const [showExportDialog, setShowExportDialog] = useState(false);
+  const [exportProgress, setExportProgress] = useState<{ current: number; total: number } | null>(null);
+
+  const loadStats = useCallback(() => {
+    return getLibraryStats().then(setStats);
+  }, []);
+
+  useEffect(() => {
+    loadStats().finally(() => setLoading(false));
+  }, [loadStats]);
+
+  useEffect(() => {
+    const unlisten = listen<{ current: number; total: number }>("export-progress", (event) => {
+      setExportProgress(event.payload);
+    });
+    return () => {
+      unlisten.then((fn) => fn());
+    };
+  }, []);
+
+  usePageVisible("/settings", loadStats);
+
+  const handleDeleteAll = useCallback(async () => {
+    await deleteAllData();
+    setShowDeleteDialog(false);
+    navigate("/");
+    window.location.reload();
+  }, [navigate]);
+
+  const handleExport = useCallback(async () => {
+    try {
+      const now = new Date();
+      const dateStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
+      const path = await save({
+        defaultPath: `ckourse-backup-${dateStr}.zip`,
+        filters: [{ name: "ZIP", extensions: ["zip"] }],
+      });
+      if (!path) return;
+      setShowExportDialog(true);
+      setExportProgress(null);
+      await exportToFile(path);
+      setShowExportDialog(false);
+      toast.success(t("settings.library.exportSuccess"));
+    } catch (e) {
+      setShowExportDialog(false);
+      toast.error(t("settings.library.exportFailed"), {
+        description: e instanceof Error ? e.message : undefined,
+      });
+    }
+  }, [t]);
+
+  const handleImport = useCallback(async () => {
+    try {
+      const path = await open({
+        filters: [{ name: "ZIP", extensions: ["zip"] }],
+        multiple: false,
+      });
+      if (!path || typeof path !== "string") return;
+      setImportPath(path);
+    } catch (e) {
+      toast.error(t("settings.library.importFailed"), {
+        description: e instanceof Error ? e.message : undefined,
+      });
+    }
+  }, []);
+
+  const handleImportConfirm = useCallback(async (mode: ImportMode) => {
+    if (!importPath) return;
+    try {
+      await importFromFile(importPath, mode);
+      toast.success(t("settings.library.importSuccess"));
+      setImportPath(null);
+      navigate("/");
+      window.location.reload();
+    } catch (e) {
+      toast.error(t("settings.library.importFailed"), {
+        description: e instanceof Error ? e.message : undefined,
+      });
+    }
+  }, [importPath, navigate, t]);
+
+  if (loading) {
+    return (
+      <div className={cn("flex h-full items-center justify-center", className)}>
+        <SpinnerGap className="size-6 animate-spin text-muted-foreground" />
+      </div>
+    );
+  }
+
+  return (
+    <div className={cn("mx-auto max-w-3xl px-6 py-8", className)}>
+      <div
+        className="mb-8 flex items-center gap-3"
+        style={{ animation: `card-in 350ms ${EASE_OUT} both` }}
+      >
+        <div className="squircle flex size-10 items-center justify-center bg-primary/15">
+          <GearSix className="size-5 text-primary" weight="bold" />
+        </div>
+        <div>
+          <h2 className="font-heading text-2xl font-bold text-foreground">{t("settings.title")}</h2>
+          <p className="font-sans text-sm text-muted-foreground">
+            {t("settings.subtitle")}
+          </p>
+        </div>
+      </div>
+
+      <div className="flex flex-col gap-4">
+        <SectionCard
+          title={t("settings.language.title")}
+          icon={<Globe className="size-4 text-primary" weight="bold" />}
+          index={0}
+        >
+          <SettingRow
+            icon={<Globe className="size-4" />}
+            label={t("settings.language.label")}
+            description={t("settings.language.description")}
+          >
+            <Select
+              value={settings.language}
+              onChange={(v) => update("language", v)}
+              options={[
+                { value: "zh-CN", label: t("settings.language.zhCN") },
+                { value: "en", label: t("settings.language.en") },
+              ]}
+            />
+          </SettingRow>
+        </SectionCard>
+
+        <SectionCard
+          title={t("settings.playback.title")}
+          icon={<Play className="size-4 text-primary" weight="bold" />}
+          index={1}
+        >
+          <SettingRow
+            icon={<SkipForward className="size-4" />}
+            label={t("settings.playback.autoplayNext")}
+            description={t("settings.playback.autoplayNextDesc")}
+          >
+            <Toggle
+              checked={settings.autoplay_next}
+              onChange={(v) => update("autoplay_next", String(v))}
+            />
+          </SettingRow>
+          {settings.autoplay_next && (
+            <SettingRow
+              icon={<Timer className="size-4" />}
+              label={t("settings.playback.autoplayDelay")}
+              description={t("settings.playback.autoplayDelayDesc")}
+            >
+              <div className="flex items-center gap-2.5">
+                <input
+                  type="range"
+                  min={0}
+                  max={AUTOPLAY_DELAY_MAX}
+                  step={1}
+                  value={settings.autoplay_delay_secs}
+                  onChange={(e) => update("autoplay_delay_secs", e.target.value)}
+                  className="h-1.5 w-24 cursor-pointer accent-primary"
+                />
+                <span className="w-12 font-mono text-xs text-muted-foreground">
+                  {settings.autoplay_delay_secs === 0
+                    ? t("settings.playback.instant")
+                    : `${settings.autoplay_delay_secs}s`}
+                </span>
+              </div>
+            </SettingRow>
+          )}
+          <SettingRow
+            icon={<ArrowsClockwise className="size-4" />}
+            label={t("settings.playback.resumePosition")}
+            description={t("settings.playback.resumePositionDesc")}
+          >
+            <Toggle
+              checked={settings.resume_position}
+              onChange={(v) => update("resume_position", String(v))}
+            />
+          </SettingRow>
+          <SettingRow
+            icon={<FastForward className="size-4" />}
+            label={t("settings.playback.defaultSpeed")}
+          >
+            <Select
+              value={String(settings.default_speed)}
+              onChange={(v) => update("default_speed", v)}
+              options={SPEED_OPTIONS}
+            />
+          </SettingRow>
+          <SettingRow
+            icon={<SpeakerHigh className="size-4" />}
+            label={t("settings.playback.defaultVolume")}
+          >
+            <div className="flex items-center gap-2.5">
+              <input
+                type="range"
+                min={0}
+                max={100}
+                value={settings.default_volume}
+                onChange={(e) => update("default_volume", e.target.value)}
+                className="h-1.5 w-24 cursor-pointer accent-primary"
+              />
+              <span className="w-8 font-mono text-xs text-muted-foreground">
+                {settings.default_volume}%
+              </span>
+            </div>
+          </SettingRow>
+          <SettingRow
+            icon={<MonitorPlay className="size-4" />}
+            label={t("settings.playback.skipForwardBackward")}
+          >
+            <Select
+              value={String(settings.skip_forward_secs)}
+              onChange={(v) => {
+                update("skip_forward_secs", v);
+                update("skip_backward_secs", v);
+              }}
+              options={SKIP_OPTIONS}
+            />
+          </SettingRow>
+          <SettingRow
+            icon={<FastForward className="size-4" />}
+            label={t("settings.playback.longPressSpeed")}
+            description={t("settings.playback.longPressSpeedDesc")}
+          >
+            <Select
+              value={String(settings.long_press_speed)}
+              onChange={(v) => update("long_press_speed", v)}
+              options={LONG_PRESS_SPEED_OPTIONS}
+            />
+          </SettingRow>
+        </SectionCard>
+
+        <SectionCard
+          title={t("settings.library.title")}
+          icon={<Database className="size-4 text-info" weight="bold" />}
+          index={2}
+        >
+          {stats && (
+            <div className="grid grid-cols-3 gap-2.5">
+              <StatChip
+                icon={<Stack className="size-3.5" />}
+                label={t("settings.library.courses")}
+                value={stats.totalCourses}
+              />
+              <StatChip
+                icon={<MonitorPlay className="size-3.5" />}
+                label={t("settings.library.lessons")}
+                value={stats.totalLessons}
+              />
+              <StatChip
+                icon={<Notepad className="size-3.5" />}
+                label={t("settings.library.notes")}
+                value={stats.totalNotes}
+              />
+              <StatChip
+                icon={<BookmarkSimple className="size-3.5" />}
+                label={t("settings.library.bookmarks")}
+                value={stats.totalBookmarks}
+              />
+              <StatChip
+                icon={<Heart className="size-3.5" />}
+                label={t("settings.library.favorites")}
+                value={stats.totalFavorites}
+              />
+              <StatChip
+                icon={<Folder className="size-3.5" />}
+                label={t("settings.library.sections")}
+                value={stats.totalSections}
+              />
+            </div>
+          )}
+          <div className="mt-3 rounded-lg bg-secondary/50 px-3 py-2.5">
+            <div className="font-sans text-xs text-muted-foreground">{t("settings.library.databaseLocation")}</div>
+            <div className="mt-0.5 truncate font-mono text-xs text-foreground/70">
+              {stats?.dbPath}
+            </div>
+          </div>
+          <div className="mt-3 flex gap-2">
+            <button
+              onClick={handleExport}
+              className={cn(
+                "flex flex-1 items-center justify-center gap-2 rounded-lg border border-border px-4 py-2.5",
+                "font-sans text-sm font-medium text-foreground transition-colors hover:bg-secondary",
+              )}
+            >
+              <DownloadSimple className="size-4" weight="bold" />
+              {t("settings.library.export")}
+            </button>
+            <button
+              onClick={handleImport}
+              className={cn(
+                "flex flex-1 items-center justify-center gap-2 rounded-lg border border-border px-4 py-2.5",
+                "font-sans text-sm font-medium text-foreground transition-colors hover:bg-secondary",
+              )}
+            >
+              <UploadSimple className="size-4" weight="bold" />
+              {t("settings.library.import")}
+            </button>
+          </div>
+        </SectionCard>
+
+        <UpdatesSection index={3} />
+
+        <GoogleDriveSection index={4} />
+
+        <SectionCard
+          title={t("settings.dangerZone.title")}
+          icon={<WarningCircle className="size-4 text-destructive" weight="bold" />}
+          index={5}
+        >
+          <div className="flex items-center justify-between gap-4 rounded-lg px-2 py-3">
+            <div className="flex items-center gap-3">
+              <div className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-destructive/10 text-destructive">
+                <Trash className="size-4" />
+              </div>
+              <div>
+                <div className="font-sans text-sm font-medium text-foreground">
+                  {t("settings.dangerZone.deleteAllData")}
+                </div>
+                <div className="font-sans text-xs text-muted-foreground">
+                  {t("settings.dangerZone.deleteAllDataDesc")}
+                </div>
+              </div>
+            </div>
+            <button
+              onClick={() => setShowDeleteDialog(true)}
+              className={cn(
+                "shrink-0 rounded-lg border border-destructive/30 px-4 py-2",
+                "font-sans text-sm font-semibold text-destructive",
+                "transition-colors hover:bg-destructive/10",
+              )}
+            >
+              {t("settings.dangerZone.deleteAll")}
+            </button>
+          </div>
+        </SectionCard>
+      </div>
+
+      {showDeleteDialog && (
+        <DeleteConfirmDialog
+          onConfirm={handleDeleteAll}
+          onCancel={() => setShowDeleteDialog(false)}
+        />
+      )}
+
+      {importPath && (
+        <ImportModeDialog
+          onConfirm={handleImportConfirm}
+          onCancel={() => setImportPath(null)}
+        />
+      )}
+
+      {showExportDialog && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center">
+          <div className="absolute inset-0 bg-background/80 backdrop-blur-sm" />
+          <div
+            className="relative w-full max-w-md rounded-xl border border-border bg-card p-6 shadow-2xl"
+            style={{ animation: `card-in 250ms ${EASE_OUT} both` }}
+          >
+            <div className="mb-4 flex items-center gap-3">
+              <div className="flex size-10 shrink-0 items-center justify-center rounded-full bg-info/15">
+                <DownloadSimple className="size-5 text-info" weight="bold" />
+              </div>
+              <div>
+                <h3 className="font-heading text-base font-bold text-foreground">
+                  {t("settings.library.exporting")}
+                </h3>
+                <p className="font-sans text-xs text-muted-foreground">
+                  {t("settings.library.exportingDesc")}
+                </p>
+              </div>
+            </div>
+
+            {exportProgress && exportProgress.total > 0 ? (
+              <div>
+                <p className="mb-2 font-sans text-xs text-muted-foreground">
+                  {t("settings.library.exportProgress", {
+                    current: exportProgress.current,
+                    total: exportProgress.total,
+                  })}
+                </p>
+                <div className="h-1 w-full overflow-hidden rounded-full bg-secondary">
+                  <div
+                    className="h-full bg-primary transition-[width] duration-200"
+                    style={{ width: `${(exportProgress.current / exportProgress.total) * 100}%` }}
+                  />
+                </div>
+              </div>
+            ) : (
+              <div className="flex items-center gap-2 py-2">
+                <SpinnerGap className="size-4 animate-spin text-muted-foreground" />
+                <p className="font-sans text-xs text-muted-foreground">
+                  {t("settings.library.preparingExport")}
+                </p>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}

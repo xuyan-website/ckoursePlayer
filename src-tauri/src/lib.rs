@@ -1,0 +1,116 @@
+mod commands;
+mod db;
+mod drive_protocol;
+mod google;
+mod parser;
+mod subtitle;
+mod video_optimize;
+
+use db::DbState;
+use tauri::Manager;
+
+#[cfg_attr(mobile, tauri::mobile_entry_point)]
+pub fn run() {
+    tauri::Builder::default()
+        .register_asynchronous_uri_scheme_protocol(drive_protocol::SCHEME, drive_protocol::handle)
+        .plugin(tauri_plugin_opener::init())
+        .plugin(tauri_plugin_dialog::init())
+        .plugin(tauri_plugin_updater::Builder::new().build())
+        .plugin(tauri_plugin_process::init())
+        .setup(|app| {
+            let app_data_dir = app
+                .path()
+                .app_data_dir()
+                .expect("failed to resolve app data dir");
+
+            let conn = db::init_db(&app_data_dir).expect("failed to initialize database");
+
+            // Warm the Google credentials cache from SQLite so auth works without
+            // touching the keychain.
+            if let (Ok(Some(id)), Ok(Some(secret)), Ok(Some(key))) = (
+                db::get_setting(&conn, "google_drive_client_id"),
+                db::get_setting(&conn, "google_drive_client_secret"),
+                db::get_setting(&conn, "google_drive_api_key"),
+            ) {
+                if !id.is_empty() && !secret.is_empty() && !key.is_empty() {
+                    google::init_credentials(id, secret, key);
+                }
+            }
+
+            app.manage(DbState {
+                conn: std::sync::Mutex::new(conn),
+            });
+
+            Ok(())
+        })
+        .invoke_handler(tauri::generate_handler![
+            commands::parse_course_folder,
+            video_optimize::optimize_video_faststart,
+            video_optimize::check_video_faststart,
+            commands::import_course,
+            commands::get_courses,
+            commands::get_course,
+            commands::get_course_detail,
+            commands::toggle_lesson_completed,
+            commands::set_last_watched,
+            commands::save_lesson_position,
+            commands::update_course,
+            commands::reset_course_progress,
+            commands::delete_course,
+            commands::get_all_notes,
+            commands::get_course_notes,
+            commands::add_note,
+            commands::update_note,
+            commands::delete_note,
+            commands::export_notes_to_zip,
+            commands::save_screenshot,
+            commands::capture_video_frame,
+            commands::copy_image_to_screenshot,
+            commands::update_lesson_duration,
+            commands::update_lesson_title,
+            commands::update_lesson_video_path,
+            commands::delete_lesson,
+            commands::get_lesson_subtitles,
+            commands::get_subtitle_vtt,
+            commands::toggle_bookmark,
+            commands::toggle_favorite,
+            commands::get_bookmarked_courses,
+            commands::get_all_favorites,
+            commands::get_dashboard_stats,
+            commands::get_progress_data,
+            commands::delete_all_data,
+            commands::get_all_settings,
+            commands::set_setting,
+            commands::get_library_stats,
+            commands::export_to_file,
+            commands::import_from_file,
+            commands::get_custom_categories,
+            commands::add_custom_category,
+            commands::delete_custom_category,
+            commands::search_content,
+            commands::reorder_sections,
+            commands::reorder_lessons,
+            commands::update_section_title,
+            commands::delete_section,
+            commands::batch_replace_section_videos,
+            commands::drive_set_credentials,
+            commands::drive_credentials_status,
+            commands::drive_clear_credentials,
+            commands::drive_connect,
+            commands::drive_access_token,
+            commands::drive_pick_folder,
+            commands::parse_drive_folder,
+            commands::drive_auth_status,
+            commands::drive_disconnect,
+            commands::reveal_in_explorer,
+            commands::list_directory,
+            commands::open_file,
+            commands::delete_file,
+            commands::get_lesson_resources,
+            commands::add_lesson_resource,
+            commands::delete_resource,
+            commands::update_resource_path,
+        ])
+        .run(tauri::generate_context!())
+        .expect("error while running tauri application");
+}

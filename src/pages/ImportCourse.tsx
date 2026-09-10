@@ -1,0 +1,1405 @@
+import { useState, useEffect, useRef, useMemo, useCallback } from "react";
+import { useNavigate } from "react-router-dom";
+import { useTranslation } from "react-i18next";
+import LottieLib from "lottie-react";
+import { toast } from "sonner";
+import { listen } from "@tauri-apps/api/event";
+
+// Handle CJS/ESM default export interop: in some Vite/Rollup build modes
+// lottie-react resolves to the module namespace object rather than the component
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+const Lottie: React.ComponentType<{ animationData: unknown; loop?: boolean; className?: string }> = (LottieLib as any).default ?? LottieLib;
+import {
+  FolderOpenIcon as FolderOpen,
+  UploadSimpleIcon as UploadSimple,
+  FileVideoIcon as FileVideo,
+  CaretLeftIcon as CaretLeft,
+  CheckCircleIcon as CheckCircle,
+  PaletteIcon as Palette,
+  WarningIcon as Warning,
+  CaretDownIcon as CaretDown,
+  CaretRightIcon as CaretRight,
+  FileIcon as File,
+  DotsSixVerticalIcon as DotsSixVertical,
+  PencilSimpleIcon as PencilSimple,
+  CloudIcon as Cloud,
+  LightningIcon as Lightning,
+} from "@phosphor-icons/react";
+import {
+  DndContext,
+  PointerSensor,
+  KeyboardSensor,
+  useSensor,
+  useSensors,
+  closestCenter,
+  type DragEndEvent,
+} from "@dnd-kit/core";
+import {
+  SortableContext,
+  arrayMove,
+  sortableKeyboardCoordinates,
+  useSortable,
+  verticalListSortingStrategy,
+} from "@dnd-kit/sortable";
+import { CSS } from "@dnd-kit/utilities";
+import loadingAnimation from "@/assets/lotties/loading.json";
+import { cn } from "@/lib/utils";
+import { SquircleButton } from "@/components/ui/SquircleButton";
+// import { ProgressBar } from "@/components/ui/ProgressBar";
+import type { CourseCategory, ParsedCourse, ParsedSection, ParsedLesson } from "@/types";
+import { selectCourseFolder, parseCourseFolder } from "@/lib/courseParser";
+import {
+  driveCredentialsStatus,
+  driveAuthStatus,
+  driveConnect,
+  drivePickFolder,
+  parseDriveFolder,
+} from "@/lib/drive";
+import {
+  importCourse,
+  getCustomCategories,
+  addCustomCategory,
+  deleteCustomCategory,
+  optimizeVideoFaststart,
+  checkVideoFaststart,
+} from "@/lib/store";
+import { EASE_OUT } from "@/lib/constants";
+
+type VideoStatus =
+  | "needs_optimize"
+  | "already_optimized"
+  | "skipped"
+  | "optimizing"
+  | "optimized"
+  | "failed";
+
+function makeId() {
+  return Math.random().toString(36).slice(2, 11);
+}
+
+interface StructureIds {
+  sections: string[];
+  lessons: string[][];
+}
+
+const builtinCategories: { value: CourseCategory; label: string }[] = [
+  { value: "frontend", label: "dashboard.categories.frontend" },
+  { value: "backend", label: "dashboard.categories.backend" },
+  { value: "devops", label: "dashboard.categories.devops" },
+  { value: "database", label: "dashboard.categories.database" },
+  { value: "design", label: "dashboard.categories.design" },
+  { value: "other", label: "dashboard.categories.other" },
+];
+
+const accentColors = [
+  "#61DAFB",
+  "#F74C00",
+  "#8B5CF6",
+  "#3178C6",
+  "#2496ED",
+  "#336791",
+  "#E44D26",
+  "#38BDF8",
+  "#10B981",
+  "#F59E0B",
+  "#EC4899",
+  "#C8F135",
+];
+
+interface ImportCourseProps {
+  className?: string;
+}
+
+export function ImportCourse({ className }: ImportCourseProps) {
+  const { t } = useTranslation();
+  const navigate = useNavigate();
+  const [step, setStep] = useState<"select" | "configure">("select");
+  const [isDragOver, setIsDragOver] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
+  const [parseError, setParseError] = useState<string | null>(null);
+  const [errorNeedsSettings, setErrorNeedsSettings] = useState(false);
+  const [parseProgress, setParseProgress] = useState<{ current: number; total: number } | null>(null);
+
+  // Single entry point for surfacing/clearing the parse error so the
+  // "needs settings" flag never drifts out of sync with the message.
+  const showError = (msg: string | null, needsSettings = false) => {
+    setParseError(msg);
+    setErrorNeedsSettings(needsSettings);
+  };
+  const [parsedCourse, setParsedCourse] = useState<ParsedCourse | null>(null);
+  const [structureIds, setStructureIds] = useState<StructureIds>({ sections: [], lessons: [] });
+  const [isImporting, setIsImporting] = useState(false);
+
+  const [title, setTitle] = useState("");
+  const [author, setAuthor] = useState("");
+  const [category, setCategory] = useState<string>("other");
+  const [accentColor, setAccentColor] = useState(accentColors[0]);
+  const [customCategories, setCustomCategories] = useState<string[]>([]);
+
+  useEffect(() => {
+    getCustomCategories().then(setCustomCategories).catch(() => {});
+  }, []);
+
+  useEffect(() => {
+    const unlisten = listen<{ current: number; total: number }>("parse-progress", (event) => {
+      setParseProgress(event.payload);
+    });
+    return () => {
+      unlisten.then((fn) => fn());
+    };
+  }, []);
+
+  const applyParsed = (result: ParsedCourse) => {
+    setParsedCourse(result);
+    setStructureIds({
+      sections: result.sections.map(() => makeId()),
+      lessons: result.sections.map((s) => s.lessons.map(() => makeId())),
+    });
+    setTitle(result.title);
+    setStep("configure");
+  };
+
+  const handleParseCourse = async (folderPath: string) => {
+    setIsLoading(true);
+    showError(null);
+    setParseProgress(null);
+    try {
+      applyParsed(await parseCourseFolder(folderPath));
+    } catch (err) {
+      showError(typeof err === "string" ? err : t("import.failedToParse"));
+    } finally {
+      setIsLoading(false);
+      setParseProgress(null);
+    }
+  };
+
+  const handleFolderSelect = async () => {
+    try {
+      const folderPath = await selectCourseFolder();
+      if (folderPath) {
+        await handleParseCourse(folderPath);
+      }
+    } catch (err) {
+      showError(t("import.failedToOpenPicker"));
+    }
+  };
+
+  const handleDriveImport = async () => {
+    showError(null);
+    try {
+      if (!(await driveCredentialsStatus())) {
+        showError(t("import.connectDriveFirst"), true);
+        return;
+      }
+      if (!(await driveAuthStatus()).connected) {
+        await driveConnect();
+      }
+      // Folder picker opens in the system browser; user picks one course folder.
+      const folder = await drivePickFolder();
+      setIsLoading(true);
+      applyParsed(await parseDriveFolder(folder.id, folder.name));
+    } catch (err) {
+      const msg = typeof err === "string" ? err : "";
+      // Cancelling the picker is a deliberate action, not an error.
+      if (/cancel/i.test(msg)) return;
+      // Missing credentials can also surface here (not just the pre-check above);
+      // point the user at Settings so they can add them.
+      if (/credentials? (not set|not configured)/i.test(msg)) {
+        showError(msg, true);
+        return;
+      }
+      showError(msg || t("import.failedFromDrive"));
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleDrop = async (e: React.DragEvent) => {
+    e.preventDefault();
+    setIsDragOver(false);
+
+    const items = e.dataTransfer.items;
+    if (items.length > 0) {
+      const item = items[0];
+      if (item.kind === "file") {
+        const file = item.getAsFile();
+        if (file) {
+          // In Tauri, dropped folders/files expose a native path
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          const path = (file as any).path as string | undefined;
+          if (path) {
+            await handleParseCourse(path);
+          } else {
+            showError(t("import.couldNotReadDropped"));
+          }
+        }
+      }
+    }
+  };
+
+  const reorderSections = (fromIdx: number, toIdx: number) => {
+    if (fromIdx === toIdx) return;
+    setParsedCourse((prev) => {
+      if (!prev) return prev;
+      const sections = arrayMove(prev.sections, fromIdx, toIdx).map((s, i) => ({ ...s, order: i }));
+      return { ...prev, sections };
+    });
+    setStructureIds((prev) => ({
+      sections: arrayMove(prev.sections, fromIdx, toIdx),
+      lessons: arrayMove(prev.lessons, fromIdx, toIdx),
+    }));
+    toast.success(t("common.reorderSuccess"));
+  };
+
+  const reorderLessons = (sectionIdx: number, fromIdx: number, toIdx: number) => {
+    if (fromIdx === toIdx) return;
+    setParsedCourse((prev) => {
+      if (!prev) return prev;
+      const sections = prev.sections.map((s, i) => {
+        if (i !== sectionIdx) return s;
+        const lessons = arrayMove(s.lessons, fromIdx, toIdx).map((l, j) => ({ ...l, order: j }));
+        return { ...s, lessons };
+      });
+      return { ...prev, sections };
+    });
+    setStructureIds((prev) => ({
+      sections: prev.sections,
+      lessons: prev.lessons.map((arr, i) => (i === sectionIdx ? arrayMove(arr, fromIdx, toIdx) : arr)),
+    }));
+    toast.success(t("common.reorderSuccess"));
+  };
+
+  const renameSection = (sectionIdx: number, newTitle: string) => {
+    setParsedCourse((prev) => {
+      if (!prev) return prev;
+      const sections = prev.sections.map((s, i) => (i === sectionIdx ? { ...s, title: newTitle } : s));
+      return { ...prev, sections };
+    });
+  };
+
+  const renameLesson = (sectionIdx: number, lessonIdx: number, newTitle: string) => {
+    setParsedCourse((prev) => {
+      if (!prev) return prev;
+      const sections = prev.sections.map((s, i) => {
+        if (i !== sectionIdx) return s;
+        const lessons = s.lessons.map((l, j) => (j === lessonIdx ? { ...l, title: newTitle } : l));
+        return { ...s, lessons };
+      });
+      return { ...prev, sections };
+    });
+  };
+
+  const handleImport = async () => {
+    if (!parsedCourse) return;
+    const trimmedTitle = title.trim();
+    if (!trimmedTitle) return;
+    setIsImporting(true);
+
+    try {
+      const courseId = await importCourse(parsedCourse, {
+        title: trimmedTitle,
+        author: author.trim(),
+        accentColor,
+        category,
+      });
+      navigate(`/course/${courseId}`);
+    } catch (err) {
+      showError(typeof err === "string" ? err : t("import.failedToImport"));
+    } finally {
+      setIsImporting(false);
+    }
+  };
+
+  if (isImporting) {
+    return (
+      <div className="fixed inset-0 z-50 flex flex-col items-center justify-center bg-background/80 backdrop-blur-sm">
+        <Lottie
+          animationData={loadingAnimation}
+          loop
+          className="size-40"
+        />
+        <p className="mt-2 font-sans text-sm font-semibold text-foreground">
+          {t("import.importing")}
+        </p>
+        <p className="mt-1.5 font-sans text-xs text-muted-foreground">
+          {t("import.settingUp")}
+        </p>
+      </div>
+    );
+  }
+
+  return (
+    <div className={cn("mx-auto max-w-5xl", className)}>
+      <button
+        onClick={() => (step === "configure" ? setStep("select") : navigate("/"))}
+        className="mb-6 flex items-center gap-1.5 font-sans text-sm text-muted-foreground transition-colors hover:text-foreground"
+      >
+        <CaretLeft className="size-4" />
+        {step === "configure" ? t("import.changeFolder") : t("import.backToLibrary")}
+      </button>
+
+      <div
+        className="mb-8"
+        style={{ animation: `card-in 350ms ${EASE_OUT} both` }}
+      >
+        <h2 className="font-heading text-2xl font-bold text-foreground">
+          {t("import.title")}
+        </h2>
+        <p className="mt-2 font-sans text-sm text-muted-foreground">
+          {step === "select"
+            ? t("import.selectFolder")
+            : t("import.reviewStructure")}
+        </p>
+      </div>
+
+      {step === "select" ? (
+        <FolderSelectStep
+          isDragOver={isDragOver}
+          isLoading={isLoading}
+          parseProgress={parseProgress}
+          error={parseError}
+          errorNeedsSettings={errorNeedsSettings}
+          onGoToSettings={() => navigate("/settings")}
+          onDragOver={(e) => {
+            e.preventDefault();
+            setIsDragOver(true);
+          }}
+          onDragLeave={() => setIsDragOver(false)}
+          onDrop={handleDrop}
+          onBrowse={handleFolderSelect}
+          onImportDrive={handleDriveImport}
+        />
+      ) : parsedCourse ? (
+        <ConfigureStep
+          course={parsedCourse}
+          structureIds={structureIds}
+          onReorderSections={reorderSections}
+          onReorderLessons={reorderLessons}
+          onRenameSection={renameSection}
+          onRenameLesson={renameLesson}
+          title={title}
+          onTitleChange={setTitle}
+          author={author}
+          onAuthorChange={setAuthor}
+          category={category}
+          onCategoryChange={setCategory}
+          customCategories={customCategories}
+          onCustomCategoriesChange={setCustomCategories}
+          accentColor={accentColor}
+          onAccentColorChange={setAccentColor}
+          onImport={handleImport}
+        />
+      ) : null}
+    </div>
+  );
+}
+
+function FolderSelectStep({
+  isDragOver,
+  isLoading,
+  parseProgress,
+  error,
+  errorNeedsSettings,
+  onGoToSettings,
+  onDragOver,
+  onDragLeave,
+  onDrop,
+  onBrowse,
+  onImportDrive,
+}: {
+  isDragOver: boolean;
+  isLoading: boolean;
+  parseProgress: { current: number; total: number } | null;
+  error: string | null;
+  errorNeedsSettings: boolean;
+  onGoToSettings: () => void;
+  onDragOver: (e: React.DragEvent) => void;
+  onDragLeave: () => void;
+  onDrop: (e: React.DragEvent) => void;
+  onBrowse: () => void;
+  onImportDrive: () => void;
+}) {
+  const { t } = useTranslation();
+  return (
+    <div style={{ animation: `card-in 350ms ${EASE_OUT} 50ms both` }}>
+      <div
+        onDragOver={onDragOver}
+        onDragLeave={onDragLeave}
+        onDrop={onDrop}
+        className="group relative cursor-pointer transition-colors"
+        onClick={isLoading ? undefined : onBrowse}
+      >
+        <div
+          className={cn(
+            "squircle-subtle absolute inset-0 transition-colors",
+            isDragOver ? "bg-primary" : "bg-border"
+          )}
+        />
+        <div
+          className={cn(
+            "squircle-subtle absolute inset-px transition-colors",
+            isDragOver ? "bg-primary/10" : "bg-card group-hover:bg-secondary"
+          )}
+        />
+
+        <div className="relative flex flex-col items-center gap-4 px-6 py-16">
+          {isLoading ? (
+            <>
+              <Lottie
+                animationData={loadingAnimation}
+                loop
+                className="size-28"
+              />
+              <div className="w-full max-w-xs text-center">
+                <p className="font-sans text-sm font-semibold text-foreground">
+                  {t("import.scanning")}
+                </p>
+                {parseProgress && parseProgress.total > 0 ? (
+                  <>
+                    <p className="mt-1.5 font-sans text-xs text-muted-foreground">
+                      {t("import.analyzingVideos", { current: parseProgress.current, total: parseProgress.total })}
+                    </p>
+                    {/*<div className="mt-3">*/}
+                    {/*  <ProgressBar value={(parseProgress.current / parseProgress.total) * 100} />*/}
+                    {/*</div>*/}
+                  </>
+                ) : (
+                  <p className="mt-1.5 font-sans text-xs text-muted-foreground">
+                    {t("import.detecting")}
+                  </p>
+                )}
+              </div>
+            </>
+          ) : (
+            <>
+              <div
+                className={cn(
+                  "flex size-16 items-center justify-center rounded-2xl transition-colors",
+                  isDragOver ? "bg-primary/20 text-primary" : "bg-secondary text-muted-foreground"
+                )}
+              >
+                {isDragOver ? (
+                  <UploadSimple className="size-7" weight="bold" />
+                ) : (
+                  <FolderOpen className="size-7" />
+                )}
+              </div>
+
+              <div className="text-center">
+                <p className="font-sans text-sm font-semibold text-foreground">
+                  {isDragOver ? t("import.dropHere") : t("import.dragDrop")}
+                </p>
+                <p className="mt-1.5 font-sans text-xs text-muted-foreground">
+                  {t("import.orClick")}
+                </p>
+              </div>
+
+              <div className="flex items-center gap-2 rounded-full border border-border/50 bg-secondary px-4 py-2">
+                <FolderOpen className="size-4 text-muted-foreground" />
+                <span className="font-sans text-xs font-medium text-muted-foreground">
+                  {t("import.browseFolder")}
+                </span>
+              </div>
+            </>
+          )}
+        </div>
+      </div>
+
+      <div className="my-4 flex items-center gap-3">
+        <div className="h-px flex-1 bg-border" />
+        <span className="font-sans text-xs text-muted-foreground/60">{t("common.or")}</span>
+        <div className="h-px flex-1 bg-border" />
+      </div>
+
+      <button
+        type="button"
+        onClick={isLoading ? undefined : onImportDrive}
+        disabled={isLoading}
+        className={cn(
+          "flex w-full items-center justify-center gap-2 rounded-xl border border-border bg-card px-4 py-3",
+          "font-sans text-sm font-medium text-foreground transition-colors",
+          "hover:bg-secondary disabled:opacity-50",
+        )}
+      >
+        <Cloud className="size-4 text-muted-foreground" />
+        {t("import.importFromDrive")}
+      </button>
+
+      {error && (
+        <div className="mt-4 flex items-center gap-2 rounded-lg bg-destructive/10 px-4 py-3">
+          <Warning className="size-4 shrink-0 text-destructive" weight="bold" />
+          <p className="font-sans text-sm text-destructive">
+            {error}
+            {errorNeedsSettings && (
+              <>
+                {" "}
+                <button
+                  type="button"
+                  onClick={onGoToSettings}
+                  className="font-medium text-destructive underline underline-offset-2 transition-opacity hover:opacity-70"
+                >
+                  {t("import.goToSettings")}
+                </button>
+              </>
+            )}
+          </p>
+        </div>
+      )}
+
+      <div className="mt-4 flex items-center justify-center gap-2">
+        <FileVideo className="size-3.5 text-muted-foreground/50" />
+        <p className="font-sans text-xs text-muted-foreground/50">
+          {t("import.supportsFormats")}
+        </p>
+      </div>
+    </div>
+  );
+}
+
+function ConfigureStep({
+  course,
+  structureIds,
+  onReorderSections,
+  onReorderLessons,
+  onRenameSection,
+  onRenameLesson,
+  title,
+  onTitleChange,
+  author,
+  onAuthorChange,
+  category,
+  onCategoryChange,
+  customCategories,
+  onCustomCategoriesChange,
+  accentColor,
+  onAccentColorChange,
+  onImport,
+}: {
+  course: ParsedCourse;
+  structureIds: StructureIds;
+  onReorderSections: (from: number, to: number) => void;
+  onReorderLessons: (sectionIdx: number, from: number, to: number) => void;
+  onRenameSection: (sectionIdx: number, newTitle: string) => void;
+  onRenameLesson: (sectionIdx: number, lessonIdx: number, newTitle: string) => void;
+  title: string;
+  onTitleChange: (v: string) => void;
+  author: string;
+  onAuthorChange: (v: string) => void;
+  category: string;
+  onCategoryChange: (v: string) => void;
+  customCategories: string[];
+  onCustomCategoriesChange: (v: string[]) => void;
+  accentColor: string;
+  onAccentColorChange: (v: string) => void;
+  onImport: () => void;
+}) {
+  const { t } = useTranslation();
+  const totalLessons = course.sections.reduce((sum, s) => sum + s.lessons.length, 0);
+
+  const [videoStatus, setVideoStatus] = useState<Record<string, VideoStatus>>({});
+  const [checking, setChecking] = useState(false);
+  const [optimizing, setOptimizing] = useState(false);
+
+  // Check every local MP4's moov position once the parsed course is available.
+  useEffect(() => {
+    let cancelled = false;
+    const lessons = course.sections.flatMap((s) => s.lessons);
+    const localMp4s = lessons.filter((l) => /\.(mp4|m4v|mov)$/i.test(l.videoPath));
+    setVideoStatus({});
+    if (localMp4s.length === 0) return;
+    setChecking(true);
+    (async () => {
+      const CONCURRENCY = 8;
+      let next = 0;
+      const worker = async () => {
+        while (next < localMp4s.length) {
+          const l = localMp4s[next++];
+          try {
+            const r = await checkVideoFaststart(l.videoPath);
+            if (!cancelled) {
+              setVideoStatus((prev) => ({ ...prev, [l.videoPath]: r.status as VideoStatus }));
+            }
+          } catch {
+            if (!cancelled) {
+              setVideoStatus((prev) => ({ ...prev, [l.videoPath]: "skipped" as VideoStatus }));
+            }
+          }
+        }
+      };
+      await Promise.all(
+        Array.from({ length: Math.min(CONCURRENCY, localMp4s.length) }, () => worker()),
+      );
+      if (!cancelled) {
+        setChecking(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [course]);
+
+  const needsCount = useMemo(
+    () => Object.values(videoStatus).filter((s) => s === "needs_optimize").length,
+    [videoStatus],
+  );
+  const readyCount = useMemo(
+    () =>
+      Object.values(videoStatus).filter((s) =>
+        s === "already_optimized" || s === "optimized"
+      ).length,
+    [videoStatus],
+  );
+
+  const handleOptimize = useCallback(async () => {
+    const targets = course.sections
+      .flatMap((s) => s.lessons)
+      .filter((l) => videoStatus[l.videoPath] === "needs_optimize");
+    if (targets.length === 0) return;
+    setOptimizing(true);
+    const toastId = toast.loading(`Optimizing… (0/${targets.length})`);
+    let done = 0;
+    let failed = 0;
+    let next = 0;
+    const failMessages: string[] = [];
+    const CONCURRENCY = 4;
+    const worker = async () => {
+      while (next < targets.length) {
+        const lesson = targets[next++];
+        setVideoStatus((prev) => ({ ...prev, [lesson.videoPath]: "optimizing" }));
+        try {
+          const r = await optimizeVideoFaststart(lesson.videoPath);
+          setVideoStatus((prev) => ({
+            ...prev,
+            [lesson.videoPath]:
+              r.status === "optimized"
+                ? "optimized"
+                : r.status === "failed"
+                  ? "failed"
+                  : "already_optimized",
+          }));
+          if (r.status === "optimized") done++;
+          else if (r.status === "failed") {
+            failed++;
+            failMessages.push(r.message);
+          }
+        } catch (e) {
+          setVideoStatus((prev) => ({ ...prev, [lesson.videoPath]: "failed" }));
+          failed++;
+          failMessages.push(String(e));
+        }
+        toast.loading(`Optimizing… (${done + failed}/${targets.length})`, {
+          id: toastId,
+        });
+      }
+    };
+    await Promise.all(
+      Array.from({ length: Math.min(CONCURRENCY, targets.length) }, () => worker()),
+    );
+    toast.dismiss(toastId);
+    if (failed > 0) {
+      const detail = failMessages[0] ?? "unknown error";
+      toast.error(`Optimized ${done}, ${failed} failed — ${detail}`, {
+        duration: 8000,
+      });
+    } else {
+      toast.success(`Optimized ${done} video${done === 1 ? "" : "s"} for faster startup`);
+    }
+    setOptimizing(false);
+  }, [course, videoStatus]);
+
+  const sectionSensors = useSensors(
+    useSensor(PointerSensor, { activationConstraint: { distance: 4 } }),
+    useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }),
+  );
+
+  const handleSectionDragEnd = (event: DragEndEvent) => {
+    const { active, over } = event;
+    if (!over || active.id === over.id) return;
+    const fromIdx = structureIds.sections.indexOf(String(active.id));
+    const toIdx = structureIds.sections.indexOf(String(over.id));
+    if (fromIdx === -1 || toIdx === -1) return;
+    onReorderSections(fromIdx, toIdx);
+  };
+  const textConverter = (text:string):string=>{
+    return text.trim().split(' ').map(word => word.charAt(0).toUpperCase() + word.slice(1)).join('')
+  }
+
+  return (
+    <div className="flex flex-col gap-6">
+      {course.confidence !== "high" && (
+        <div
+          className={cn(
+            "flex items-start gap-3 rounded-lg px-4 py-3",
+            course.confidence === "low"
+              ? "bg-destructive/10"
+              : "bg-info/10"
+          )}
+          style={{ animation: `card-in 350ms ${EASE_OUT} 50ms both` }}
+        >
+          <Warning
+            className={cn(
+              "mt-0.5 size-4 shrink-0",
+              course.confidence === "low" ? "text-destructive" : "text-info"
+            )}
+            weight="bold"
+          />
+          <div>
+            <p
+              className={cn(
+                "font-sans text-sm font-medium",
+                course.confidence === "low" ? "text-destructive" : "text-info"
+              )}
+            >
+              {course.confidence === "low"
+                ? t("import.lowConfidence")
+                : t("import.someInferred")}
+            </p>
+            <ul className="mt-1 space-y-0.5">
+              {course.confidenceReasons.map((reason, i) => (
+                <li
+                  key={i}
+                  className="font-sans text-xs text-muted-foreground"
+                >
+                  {t("import.filesStateMessage." + textConverter(reason))}
+                </li>
+              ))}
+            </ul>
+          </div>
+        </div>
+      )}
+
+      <div style={{ animation: `card-in 350ms ${EASE_OUT} 50ms both` }}>
+        <div className="group relative">
+          <div className="squircle-subtle absolute inset-0 bg-border" />
+          <div className="squircle-subtle absolute inset-px bg-card" />
+          <div className="relative flex items-center gap-3 px-4 py-3">
+            <FolderOpen className="size-4 shrink-0 text-primary" />
+            <span className="truncate font-mono text-xs text-muted-foreground">
+              {course.folderPath}
+            </span>
+            <div className="ml-auto flex items-center gap-1.5">
+              <CheckCircle className="size-4 text-primary" weight="fill" />
+              <span className="font-sans text-xs font-medium text-primary">
+                {t("import.courseOverview", {
+                  totalLessons,
+                  lessonWord: totalLessons === 1 ? "lesson" :"lessons",
+                  sectionCount: course.sections.length,
+                  sectionWord: course.sections.length === 1 ? "section" : "sections",
+                })}
+              </span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div
+        className="flex flex-col gap-5"
+        style={{ animation: `card-in 350ms ${EASE_OUT} 100ms both` }}
+      >
+        <h3 className="font-heading text-base font-bold text-foreground">
+          {t("import.courseDetails")}
+        </h3>
+
+          <div className="grid grid-cols-1 gap-5 sm:grid-cols-2">
+            <FieldGroup label={t("import.courseTitle")}>
+              <input
+                type="text"
+                value={title}
+                onChange={(e) => onTitleChange(e.target.value)}
+                placeholder={t("import.courseTitle")}
+                className="w-full bg-transparent font-sans text-sm text-foreground placeholder:text-muted-foreground/40 focus:outline-none"
+              />
+            </FieldGroup>
+
+            <FieldGroup label={t("import.author")}>
+              <input
+                type="text"
+                value={author}
+                onChange={(e) => onAuthorChange(e.target.value)}
+                placeholder={t("import.instructorName")}
+                className="w-full bg-transparent font-sans text-sm text-foreground placeholder:text-muted-foreground/40 focus:outline-none"
+              />
+            </FieldGroup>
+          </div>
+
+          <div className="grid grid-cols-1 gap-5 sm:grid-cols-2">
+            <CategoryPicker
+              category={category}
+              onCategoryChange={onCategoryChange}
+              customCategories={customCategories}
+              onCustomCategoriesChange={onCustomCategoriesChange}
+            />
+
+            <div className="flex flex-col gap-2">
+              <label className="flex items-center gap-1.5 font-sans text-xs font-medium text-muted-foreground">
+                <Palette className="size-3.5" />
+                {t("import.accentColor")}
+              </label>
+              <div className="flex flex-wrap gap-2">
+                {accentColors.map((color) => (
+                  <button
+                    key={color}
+                    onClick={() => onAccentColorChange(color)}
+                    className={cn(
+                      "size-7 rounded-full border-2 transition-transform duration-150",
+                      accentColor === color
+                        ? "scale-110 border-foreground"
+                        : "border-transparent hover:scale-105"
+                    )}
+                    style={{ backgroundColor: color }}
+                  />
+                ))}
+              </div>
+            </div>
+          </div>
+
+          {course.description && (
+            <div className="flex flex-col gap-2">
+              <label className="font-sans text-xs font-medium text-muted-foreground">
+                {t("import.description")}
+              </label>
+              <p className="line-clamp-4 font-sans text-xs leading-relaxed text-muted-foreground">
+                {course.description}
+              </p>
+            </div>
+          )}
+
+        {course.resources.length > 0 && (
+          <div className="flex flex-col gap-2">
+            <label className="font-sans text-xs font-medium text-muted-foreground">
+              {t("import.courseResources")}
+            </label>
+            <div className="flex flex-wrap gap-1.5">
+              {course.resources.map((r, i) => (
+                <span
+                  key={i}
+                  className="inline-flex items-center gap-1 rounded-full border border-border/50 bg-secondary px-2.5 py-1 font-sans text-xs text-muted-foreground"
+                >
+                  <File className="size-3" />
+                  {r.title}
+                </span>
+              ))}
+            </div>
+          </div>
+        )}
+      </div>
+
+      <div
+        className="flex flex-col gap-3"
+        style={{ animation: `card-in 350ms ${EASE_OUT} 150ms both` }}
+      >
+        <div className="flex items-center justify-between gap-2">
+          <h3 className="font-heading text-base font-bold text-foreground">
+            {t("import.courseStructure")}
+          </h3>
+          {Object.keys(videoStatus).length > 0 && (
+            <div className="flex items-center gap-3">
+              <span className="font-sans text-xs text-muted-foreground">
+                {checking
+                  ? t("import.checkingVideos")
+                  : `${needsCount} ${t("import.needOptimization")} · ${readyCount} ${t("import.ready")}`}
+              </span>
+              {(needsCount > 0 || optimizing) && (
+                <button
+                  onClick={handleOptimize}
+                  disabled={optimizing || checking}
+                  className="flex items-center gap-1.5 rounded-lg border border-border px-2.5 py-1.5 font-sans text-xs font-medium text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground disabled:cursor-not-allowed disabled:opacity-50"
+                >
+                  <Lightning className="size-3.5" />
+                  {optimizing ? t("import.optimizing") : t("import.optimize")}
+                </button>
+              )}
+            </div>
+          )}
+        </div>
+
+        <div className="h-90 overflow-y-scroll rounded-xl border border-border bg-card px-3 py-2">
+          <DndContext
+            sensors={sectionSensors}
+            collisionDetection={closestCenter}
+            onDragEnd={handleSectionDragEnd}
+          >
+            <SortableContext
+              items={structureIds.sections}
+              strategy={verticalListSortingStrategy}
+            >
+              {course.sections.map((section, si) => (
+                <SortableSection
+                  key={structureIds.sections[si]}
+                  id={structureIds.sections[si]}
+                  section={section}
+                  sectionIndex={si}
+                  lessonIds={structureIds.lessons[si] ?? []}
+                  defaultOpen={course.sections.length <= 3}
+                  videoStatus={videoStatus}
+                  onRenameSection={(t) => onRenameSection(si, t)}
+                  onRenameLesson={(li, t) => onRenameLesson(si, li, t)}
+                  onReorderLessons={(from, to) => onReorderLessons(si, from, to)}
+                />
+              ))}
+            </SortableContext>
+          </DndContext>
+        </div>
+      </div>
+
+      <div
+        className="flex items-center justify-end gap-3 border-t border-border pt-6"
+        style={{ animation: `card-in 350ms ${EASE_OUT} 200ms both` }}
+      >
+        <span className="font-sans text-xs text-muted-foreground">
+          {t("import.lessonsWillBeImported", { count: totalLessons })}
+        </span>
+        <SquircleButton
+          variant="primary"
+          onClick={onImport}
+          disabled={!title.trim()}
+        >
+          <UploadSimple className="size-4" weight="bold" />
+          {t("import.title")}
+        </SquircleButton>
+      </div>
+    </div>
+  );
+}
+
+function CategoryPicker({
+  category,
+  onCategoryChange,
+  customCategories,
+  onCustomCategoriesChange,
+}: {
+  category: string;
+  onCategoryChange: (v: string) => void;
+  customCategories: string[];
+  onCustomCategoriesChange: (v: string[]) => void;
+}) {
+  const { t } = useTranslation();
+  const [adding, setAdding] = useState(false);
+  const [newName, setNewName] = useState("");
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    if (adding) inputRef.current?.focus();
+  }, [adding]);
+
+  const handleAdd = async () => {
+    const trimmed = newName.trim();
+    if (!trimmed) {
+      setAdding(false);
+      return;
+    }
+    const isBuiltin = builtinCategories.some((c) => c.value === trimmed.toLowerCase());
+    const isDuplicate = customCategories.includes(trimmed);
+    if (!isBuiltin && !isDuplicate) {
+      await addCustomCategory(trimmed);
+      onCustomCategoriesChange([...customCategories, trimmed]);
+    }
+    onCategoryChange(trimmed);
+    setNewName("");
+    setAdding(false);
+  };
+
+  const handleDelete = async (name: string) => {
+    await deleteCustomCategory(name);
+    onCustomCategoriesChange(customCategories.filter((c) => c !== name));
+    if (category === name) onCategoryChange("other");
+  };
+
+  return (
+    <div className="flex flex-col gap-2">
+      <label className="font-sans text-xs font-medium text-muted-foreground">
+        {t("import.category")}
+      </label>
+      <div className="flex flex-wrap gap-1.5">
+        {builtinCategories.map((cat) => (
+          <button
+            key={cat.value}
+            onClick={() => onCategoryChange(cat.value)}
+            className={cn(
+              "rounded-full border px-3 py-1.5 font-sans text-xs font-medium transition-colors duration-150",
+              category === cat.value
+                ? "border-primary/25 bg-primary/15 text-primary"
+                : "border-border/50 bg-secondary text-muted-foreground hover:text-foreground"
+            )}
+          >
+            {t(cat.label)}
+          </button>
+        ))}
+        {customCategories.map((name) => (
+          <div
+            key={name}
+            className={cn(
+              "group flex items-center gap-1 rounded-full border pl-3 pr-1.5 py-1.5 font-sans text-xs font-medium transition-colors duration-150",
+              category === name
+                ? "border-primary/25 bg-primary/15 text-primary"
+                : "border-border/50 bg-secondary text-muted-foreground hover:text-foreground"
+            )}
+          >
+            <button onClick={() => onCategoryChange(name)}>{name}</button>
+            <button
+              onClick={() => handleDelete(name)}
+              className="flex items-center justify-center rounded-full p-0.5 opacity-0 transition-opacity hover:bg-black/10 group-hover:opacity-100"
+            >
+              <svg width="8" height="8" viewBox="0 0 8 8" fill="currentColor">
+                <path d="M1 1l6 6M7 1L1 7" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
+              </svg>
+            </button>
+          </div>
+        ))}
+        {adding ? (
+          <div className="flex items-center gap-1 rounded-full border border-primary/25 bg-primary/10 pl-3 pr-1.5 py-1.5">
+            <input
+              ref={inputRef}
+              value={newName}
+              onChange={(e) => setNewName(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") handleAdd();
+                if (e.key === "Escape") { setAdding(false); setNewName(""); }
+              }}
+              placeholder={t("import.categoryName")}
+              className="w-24 bg-transparent font-sans text-xs text-primary placeholder:text-primary/50 focus:outline-none"
+            />
+            <button
+              onMouseDown={(e) => e.preventDefault()}
+              onClick={handleAdd}
+              className="flex items-center justify-center rounded-full p-1 text-primary transition-colors hover:bg-primary/20"
+            >
+              <svg width="10" height="10" viewBox="0 0 10 10" fill="none">
+                <path d="M1.5 5l2.5 2.5 4.5-4.5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+              </svg>
+            </button>
+            <button
+              onMouseDown={(e) => e.preventDefault()}
+              onClick={() => { setAdding(false); setNewName(""); }}
+              className="flex items-center justify-center rounded-full p-1 text-muted-foreground transition-colors hover:bg-black/10"
+            >
+              <svg width="8" height="8" viewBox="0 0 8 8" fill="none">
+                <path d="M1 1l6 6M7 1L1 7" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
+              </svg>
+            </button>
+          </div>
+        ) : (
+          <button
+            onClick={() => setAdding(true)}
+            className="rounded-full border border-dashed border-border/50 px-3 py-1.5 font-sans text-xs font-medium text-muted-foreground transition-colors duration-150 hover:border-primary/25 hover:text-primary"
+          >
+            {t("import.custom")}
+          </button>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function SortableSection({
+  id,
+  section,
+  sectionIndex,
+  lessonIds,
+  defaultOpen,
+  videoStatus,
+  onRenameSection,
+  onRenameLesson,
+  onReorderLessons,
+}: {
+  id: string;
+  section: ParsedSection;
+  sectionIndex: number;
+  lessonIds: string[];
+  defaultOpen: boolean;
+  videoStatus: Record<string, VideoStatus>;
+  onRenameSection: (newTitle: string) => void;
+  onRenameLesson: (lessonIdx: number, newTitle: string) => void;
+  onReorderLessons: (from: number, to: number) => void;
+}) {
+  const { t } = useTranslation();
+  const [isOpen, setIsOpen] = useState(defaultOpen);
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } =
+    useSortable({ id });
+
+  const lessonSensors = useSensors(
+    useSensor(PointerSensor, { activationConstraint: { distance: 4 } }),
+    useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }),
+  );
+
+  const handleLessonDragEnd = (event: DragEndEvent) => {
+    const { active, over } = event;
+    if (!over || active.id === over.id) return;
+    const fromIdx = lessonIds.indexOf(String(active.id));
+    const toIdx = lessonIds.indexOf(String(over.id));
+    if (fromIdx === -1 || toIdx === -1) return;
+    onReorderLessons(fromIdx, toIdx);
+  };
+
+  const dragStyle: React.CSSProperties = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+    opacity: isDragging ? 0.6 : 1,
+    position: "relative",
+    zIndex: isDragging ? 10 : undefined,
+  };
+
+  return (
+    <div
+      ref={setNodeRef}
+      style={dragStyle}
+      {...attributes}
+    >
+      <div
+        style={{
+          animation: isDragging
+            ? undefined
+            : `card-in 250ms ${EASE_OUT} ${(sectionIndex + 2) * 40}ms both`,
+        }}
+      >
+        <div
+          onClick={() => setIsOpen(!isOpen)}
+          className="group/section flex w-full cursor-pointer items-center gap-2 rounded-lg px-2 py-2.5 transition-colors hover:bg-secondary"
+        >
+          <button
+            type="button"
+            {...listeners}
+            onClick={(e) => e.stopPropagation()}
+            aria-label={t("import.dragToReorderSection")}
+            className="flex size-5 shrink-0 cursor-grab touch-none items-center justify-center rounded text-muted-foreground/40 transition-colors hover:text-foreground active:cursor-grabbing"
+          >
+            <DotsSixVertical className="size-4" weight="bold" />
+          </button>
+          {isOpen ? (
+            <CaretDown className="size-3.5 shrink-0 text-muted-foreground" />
+          ) : (
+            <CaretRight className="size-3.5 shrink-0 text-muted-foreground" />
+          )}
+          <EditableTitle
+            value={section.title}
+            onSave={onRenameSection}
+            ariaLabel={t("import.editSectionTitle")}
+            className="flex-1 truncate text-left font-sans text-sm font-medium text-foreground"
+            inputClassName="w-full min-w-0 flex-1 bg-transparent font-sans text-sm font-medium text-foreground focus:outline-none"
+          />
+          <span className="shrink-0 font-mono text-[10px] text-muted-foreground">
+            {section.lessons.length} {section.lessons.length === 1 ? t("common.lesson") : t("common.lessons")}
+          </span>
+        </div>
+
+        {isOpen && (
+          <div className="ml-5 border-l border-border/50 pl-2">
+            <DndContext
+              sensors={lessonSensors}
+              collisionDetection={closestCenter}
+              onDragEnd={handleLessonDragEnd}
+            >
+              <SortableContext items={lessonIds} strategy={verticalListSortingStrategy}>
+                {section.lessons.map((lesson, li) => (
+                  <SortableLesson
+                    key={lessonIds[li]}
+                    id={lessonIds[li]}
+                    lesson={lesson}
+                    index={li}
+                    status={videoStatus[lesson.videoPath]}
+                    onRename={(t) => onRenameLesson(li, t)}
+                  />
+                ))}
+              </SortableContext>
+            </DndContext>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function SortableLesson({
+  id,
+  lesson,
+  index,
+  status,
+  onRename,
+}: {
+  id: string;
+  lesson: ParsedLesson;
+  index: number;
+  status?: VideoStatus;
+  onRename: (newTitle: string) => void;
+}) {
+  const { t } = useTranslation();
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } =
+    useSortable({ id });
+
+  const dragStyle: React.CSSProperties = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+    opacity: isDragging ? 0.6 : 1,
+    position: "relative",
+    zIndex: isDragging ? 10 : undefined,
+  };
+
+  return (
+    <div
+      ref={setNodeRef}
+      style={dragStyle}
+      {...attributes}
+      className="group flex items-center gap-2 rounded-lg px-2 py-2 transition-colors hover:bg-secondary"
+    >
+      <button
+        type="button"
+        {...listeners}
+        aria-label={t("import.dragToReorderLesson")}
+        className="flex size-5 shrink-0 cursor-grab touch-none items-center justify-center rounded text-muted-foreground/40 transition-colors hover:text-foreground active:cursor-grabbing"
+      >
+        <DotsSixVertical className="size-4" weight="bold" />
+      </button>
+      <span className="flex size-5 shrink-0 items-center justify-center rounded bg-secondary font-mono text-[10px] font-medium text-muted-foreground group-hover:bg-muted">
+        {index + 1}
+      </span>
+      <div className="flex min-w-0 flex-1 items-center gap-2">
+        <EditableTitle
+          value={lesson.title}
+          onSave={onRename}
+          ariaLabel={t("import.editLessonTitle")}
+          className="min-w-0 flex-1 truncate font-sans text-xs text-foreground"
+          inputClassName="w-full min-w-0 flex-1 bg-transparent font-sans text-xs text-foreground focus:outline-none"
+        />
+        {lesson.subtitles.length > 0 && (
+          <span className="shrink-0 rounded bg-primary/10 px-1.5 py-0.5 font-mono text-[9px] font-medium text-primary">
+            SUB
+          </span>
+        )}
+        {status === "needs_optimize" && (
+          <span
+            className="shrink-0 rounded bg-amber-500/15 px-1.5 py-0.5 font-mono text-[9px] font-medium text-amber-500"
+            title="Needs optimization for faster playback"
+          >
+            OPT
+          </span>
+        )}
+        {status === "optimizing" && (
+          <span className="shrink-0 rounded bg-secondary px-1.5 py-0.5 font-mono text-[9px] font-medium text-muted-foreground">
+            …
+          </span>
+        )}
+        {status === "optimized" && (
+          <CheckCircle className="size-3.5 shrink-0 text-emerald-500" weight="fill" />
+        )}
+        {status === "failed" && (
+          <Warning className="size-3.5 shrink-0 text-destructive" />
+        )}
+      </div>
+    </div>
+  );
+}
+
+function EditableTitle({
+  value,
+  onSave,
+  ariaLabel,
+  className,
+  inputClassName,
+}: {
+  value: string;
+  onSave: (newValue: string) => void;
+  ariaLabel: string;
+  className?: string;
+  inputClassName?: string;
+}) {
+  const { t } = useTranslation();
+  const [editing, setEditing] = useState(false);
+  const [draft, setDraft] = useState(value);
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    if (!editing) setDraft(value);
+  }, [value, editing]);
+
+  useEffect(() => {
+    if (editing) {
+      inputRef.current?.focus();
+      inputRef.current?.select();
+    }
+  }, [editing]);
+
+  const startEditing = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    setDraft(value);
+    setEditing(true);
+  };
+
+  const commit = () => {
+    const trimmed = draft.trim();
+    if (trimmed && trimmed !== value) onSave(trimmed);
+    else setDraft(value);
+    setEditing(false);
+  };
+
+  const cancel = () => {
+    setDraft(value);
+    setEditing(false);
+  };
+
+  if (editing) {
+    return (
+      <input
+        ref={inputRef}
+        value={draft}
+        onChange={(e) => setDraft(e.target.value)}
+        onClick={(e) => e.stopPropagation()}
+        onBlur={commit}
+        onKeyDown={(e) => {
+          e.stopPropagation();
+          if (e.key === "Enter") {
+            e.preventDefault();
+            commit();
+          } else if (e.key === "Escape") {
+            e.preventDefault();
+            cancel();
+          }
+        }}
+        aria-label={ariaLabel}
+        className={inputClassName}
+      />
+    );
+  }
+
+  return (
+    <div className="flex min-w-0 flex-1 items-center gap-1.5">
+      <span
+        onDoubleClick={startEditing}
+        className={className}
+        title={t("import.doubleClickToEdit")}
+      >
+        {value}
+      </span>
+      <button
+        type="button"
+        onClick={startEditing}
+        aria-label={ariaLabel}
+        className="flex size-5 shrink-0 items-center justify-center rounded text-muted-foreground/40 opacity-0 transition-opacity hover:text-foreground group-hover/section:opacity-100 group-hover:opacity-100"
+      >
+        <PencilSimple className="size-3" weight="bold" />
+      </button>
+    </div>
+  );
+}
+
+function FieldGroup({
+  label,
+  children,
+}: {
+  label: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <div className="flex flex-col gap-2">
+      <label className="font-sans text-xs font-medium text-muted-foreground">
+        {label}
+      </label>
+      <div className="group/field relative">
+        <div className="squircle absolute inset-0 bg-border/25 transition-colors group-focus-within/field:bg-primary" />
+        <div className="squircle absolute inset-px bg-card" />
+        <div className="relative px-4 py-2.5">
+          {children}
+        </div>
+      </div>
+    </div>
+  );
+}
