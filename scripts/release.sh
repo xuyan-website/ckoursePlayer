@@ -81,7 +81,7 @@ Release $TAG pushed to Gitee. Now build locally and upload installers
 manually to both platforms:
 
   Gitee:  https://gitee.com/xuyan-website/ckoursePlayer/releases/new
-  GitHub: https://github.com/zheng-yang-liu/ckoursePlayer/releases/new
+  GitHub: https://github.com/xuyan-website/ckoursePlayer/releases/new
 
 Local build:
   npm run tauri:build

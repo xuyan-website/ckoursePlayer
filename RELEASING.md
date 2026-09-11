@@ -33,6 +33,17 @@ npm run tauri signer generate -- -w ~/.tauri/ckoursePlayer.key
 ## 发布新版本
 
 1. 在 `package.json` 和 `src-tauri/tauri.conf.json` 中更新版本号（如果单独管理版本，也更新 `src-tauri/Cargo.toml`）。
+可以运行scripts/sync-version.mjs同步更新软件版本号,用法:
+- node scripts/sync-version.mjs x.y.z — 设置新版本号，同步写入三个文件
+- node scripts/sync-version.mjs — 以 package.json 当前版本号为准，同步到另外两个文件
+```bash
+   node scripts/sync-version.mjs x.y.z
+```
+```bash
+   node scripts/sync-version.mjs
+```
+    
+    
 2. 提交、打 tag、推送：
    ```bash
    git commit -am "release vX.Y.Z"
@@ -43,7 +54,7 @@ npm run tauri signer generate -- -w ~/.tauri/ckoursePlayer.key
    - 平台安装包（`.dmg`、`.msi`、`.exe`）
    - `latest.json`（应用轮询的更新清单）
    - `.sig` 签名文件
-4. 在 GitHub 上审查草稿 release，然后**发布**它。发布后 `https://github.com/zheng-yang-liu/ckoursePlayer/releases/latest/download/latest.json` 将可解析，这是应用检查的端点。
+4. 在 GitHub 上审查草稿 release，然后**发布**它。发布后 `https://github.com/xuyan-website/ckoursePlayer/releases/latest/download/latest.json` 将可解析，这是应用检查的端点。
 
 ## 客户端如何更新
 

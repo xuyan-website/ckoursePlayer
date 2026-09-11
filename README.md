@@ -2,17 +2,17 @@
 
 > 你的本地课程播放器 — 进度真正能记住。
 
-ckoursePlayer 是一个开源桌面应用，用于观看和整理已下载的课程。无需订阅、无需云端、无需折腾 — 只有你的文件，被优雅地整理好，并带有完整的进度追踪。
+ckoursePlayer 是一款开源桌面应用，专为观看和整理已经下载到本地的课程而设计。没有订阅，没有云端依赖，也没有繁琐配置——只有你自己的文件，被优雅地组织起来，并配上完整的观看进度追踪。它不打扰你，不绑架你的数据，只是安静地帮你把散落的课程变成一座真正可用的私人学习库。
 
 ---
 
 ## 解决的问题
 
-你从网上下载了一门课程。你得到一个包含 80 个视频的文件夹，命名混乱，嵌套在子文件夹中，PDF 和字幕散落各处。你看了几节课，合上笔记本，三天后回来时完全不知道上次看到哪了。
+你从网上下载了一门课程，结果得到一个装着 80 个视频的文件夹：命名混乱，目录层层嵌套，PDF 讲义和字幕文件散落各处。你看了几节课，合上笔记本；三天后回来，却完全想不起上次看到哪里。
 
-你的媒体播放器不知道"第 4 章 - 第 12 课"是什么意思。你的文件管理器不追踪进度。没有任何东西把它们串联起来。
+普通媒体播放器看不懂“第 4 章 - 第 12 课”这样的课程结构，文件管理器也不会帮你记录观看进度。它们各管各的，却没有任何东西把课程、文件和进度真正串联起来。
 
-**ckoursePlayer 可以。**
+**ckoursePlayer** 可以。 它把混乱的文件整理成清晰的课程，把每一次观看都记录下来，让你无论隔了多久回来，都能从上次停下的地方继续。
 
 ---
 
@@ -23,14 +23,12 @@ ckoursePlayer 是一个开源桌面应用，用于观看和整理已下载的课
 - ▶️ **内置视频播放器** — 原生 HTML5 播放器，支持字幕、时间戳导航，长按倍速播放
 - 📊 **进度追踪** — 逐课时完成状态、逐课程进度条、从你停止的精确位置恢复播放
 - 📝 **带时间戳的笔记** — 添加绑定到特定时间戳的笔记，并即时跳转回该时间点，甚至跨课时
-- 🔖 **书签** — 为课时添加书签，从专属页面快速访问
+- 🔖 **书签** — 为课时添加书签，从专属页面快速访问，截图记录让笔记不局限于文字表述、导出笔记便于备份和查看
 - 🗂️ **课程库** — 清晰的仪表盘展示所有已导入课程，进度一目了然
 - 🎉 **完成庆祝** — 完成课程时的 Canvas 粒子动画
 - 🔄 **自动更新** — 应用会检查新版本并提供就地更新
+- 📄 **语言丰富** — 提供中文简体和英文两种语言
 
-### 🚧 v2 — 计划中
-- 📄 **PDF/资源查看器** — 不离开应用即可阅读课程附件
-- 🔍 **搜索** — 跨所有课程、课时和你的个人笔记进行搜索
 
 ---
 
@@ -55,7 +53,7 @@ ckoursePlayer 是一个开源桌面应用，用于观看和整理已下载的课
 
 ## 下载
 
-macOS 和 Windows 的预构建安装包可在 [Releases 页面](https://github.com/zheng-yang-liu/ckoursePlayer/releases) 获取。
+macOS 和 Windows 的预构建安装包可在 [Releases 页面](https://github.com/xuyan-website/ckoursePlayer/releases) 获取。
 
 ---
 
@@ -119,10 +117,6 @@ PostHog 分析默认禁用，除非你在项目根目录的 `.env` 文件中设�
 VITE_PUBLIC_POSTHOG_PROJECT_TOKEN=your_token
 VITE_PUBLIC_POSTHOG_HOST=https://us.i.posthog.com
 ```
-
-### CI
-
-CI 在推送 tag 时构建 macOS（通用）和 Windows 安装包 — 参见 [`.github/workflows/build.yml`](.github/workflows/build.yml)。
 
 ---
 
@@ -194,4 +188,4 @@ MIT — 可自由使用、修改和分发。
 ## 链接
 
 - 🐛 Issues: [gitee.com/xuyan-website/ckoursePlayer/issues](https://gitee.com/xuyan-website/ckoursePlayer/issues)
-- 📦 Releases: [github.com/zheng-yang-liu/ckoursePlayer/releases](https://github.com/zheng-yang-liu/ckoursePlayer/releases)
+- 📦 Releases: [github.com/xuyan-website/ckoursePlayer/releases](https://github.com/xuyan-website/ckoursePlayer/releases)
