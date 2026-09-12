@@ -1,6 +1,6 @@
 import { execSync } from "child_process";
 import { resolve } from "path";
-import { existsSync, readFileSync } from "fs";
+import { existsSync, readFileSync, rmSync } from "fs";
 
 const keyPath = resolve(".tauri/signing-key");
 
@@ -11,6 +11,12 @@ if (!existsSync(keyPath)) {
 }
 
 const privateKey = readFileSync(keyPath, "utf-8").trim();
+
+const bundleDir = resolve("src-tauri/target/release/bundle");
+if (existsSync(bundleDir)) {
+  console.log(`Removing previous build output: ${bundleDir}`);
+  rmSync(bundleDir, { recursive: true, force: true });
+}
 
 execSync("npx tauri build", {
   stdio: "inherit",
