@@ -15,6 +15,7 @@ import {
   StackIcon as Stack,
   MonitorPlayIcon as MonitorPlay,
   ArrowsClockwiseIcon as ArrowsClockwise,
+  BellSlashIcon as BellSlash,
   FastForwardIcon as FastForward,
   SpeakerHighIcon as SpeakerHigh,
   SkipForwardIcon as SkipForward,
@@ -394,6 +395,7 @@ interface SettingsProps {
 function UpdatesSection({ index }: { index: number }) {
   const { t } = useTranslation();
   const updater = useUpdater();
+  const { settings, update } = useSettings();
   const [appVersion, setAppVersion] = useState<string>("");
 
   useEffect(() => {
@@ -447,6 +449,16 @@ function UpdatesSection({ index }: { index: number }) {
         >
           {buttonLabel}
         </button>
+      </SettingRow>
+      <SettingRow
+        icon={<BellSlash className="size-4" />}
+        label={t("settings.updates.autoCheck")}
+        description={t("settings.updates.autoCheckDesc")}
+      >
+        <Toggle
+          checked={settings.auto_update_check}
+          onChange={(v) => update("auto_update_check", String(v))}
+        />
       </SettingRow>
       {isDownloading && (
         <div className="px-2 pb-2">

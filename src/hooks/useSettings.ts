@@ -12,6 +12,7 @@ const DEFAULTS: AppSettings = {
   skip_forward_secs: 10,
   skip_backward_secs: 10,
   long_press_speed: 1.5,
+  auto_update_check: true,
 };
 
 export const AUTOPLAY_DELAY_MAX = 15;
@@ -35,6 +36,7 @@ function parse(raw: Record<string, string>): AppSettings {
     skip_forward_secs: Number(raw.skip_forward_secs) || 10,
     skip_backward_secs: Number(raw.skip_backward_secs) || 10,
     long_press_speed: Number(raw.long_press_speed) || 1.5,
+    auto_update_check: raw.auto_update_check !== "false",
   };
 }
 

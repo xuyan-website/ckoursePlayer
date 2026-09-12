@@ -128,7 +128,9 @@
       "checkForNewVersions": "Check for new versions",
       "latestVersion": "You're on the latest version (v{{appVersion}})",
       "versionAvailable": "Version {{version}} is available",
-      "updateCheckFailed": "Update check failed"
+      "updateCheckFailed": "Update check failed",
+      "autoCheck": "Check for updates automatically",
+      "autoCheckDesc": "Check for updates when the app starts"
     },
     "googleDrive": {
       "title": "Google Drive",
@@ -448,5 +450,17 @@
   "courseCelebration": {
     "CourseComplete": "Course Complete!",
     "Congratulations": "Congratulations on finishing the course"
+  },
+  "updateBanner": {
+    "updateReady": "Update ready",
+    "downloading": "Downloading {{percent}}%",
+    "updateAvailable": "Update available",
+    "restartToFinish": "Restart to finish installing",
+    "version": "Version {{version}}",
+    "versionReadyToInstall": "Version {{version}} is ready to install",
+    "restart": "Restart",
+    "install": "Install",
+    "dismiss": "Dismiss",
+    "neverRemind": "Don't remind me"
   }
 }

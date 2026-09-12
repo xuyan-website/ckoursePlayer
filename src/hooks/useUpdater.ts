@@ -110,11 +110,19 @@ export function useUpdater(): UpdaterApi {
   return ctx;
 }
 
-export function useStartupUpdateCheck(api: UpdaterApi) {
+export function useStartupUpdateCheck(
+  api: UpdaterApi,
+  opts: { enabled: boolean; loaded: boolean },
+) {
   const apiRef = useRef(api);
   apiRef.current = api;
+  const ranRef = useRef(false);
 
   useEffect(() => {
+    if (ranRef.current) return;
+    if (!opts.loaded || !opts.enabled) return;
+    ranRef.current = true;
+
     const run = () => {
       apiRef.current.check({ silent: true }).catch(() => {});
     };
@@ -134,6 +142,5 @@ export function useStartupUpdateCheck(api: UpdaterApi) {
     }
     const timer = setTimeout(run, 1500);
     return () => clearTimeout(timer);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [opts.loaded, opts.enabled]);
 }

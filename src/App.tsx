@@ -116,7 +116,10 @@ function KeepAliveRoutes() {
 function App() {
   const settingsCtx = useSettingsProvider();
   const updaterCtx = useUpdaterProvider();
-  useStartupUpdateCheck(updaterCtx);
+  useStartupUpdateCheck(updaterCtx, {
+    enabled: settingsCtx.settings.auto_update_check,
+    loaded: settingsCtx.loaded,
+  });
   const { i18n } = useTranslation();
 
   useEffect(() => {

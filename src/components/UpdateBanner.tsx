@@ -6,9 +6,13 @@ import {
 import { cn } from "@/lib/utils";
 import { useUpdater } from "@/hooks/useUpdater";
 import { EASE_OUT } from "@/lib/constants";
+import { useTranslation } from "react-i18next";
+import { useSettings } from "@/hooks/useSettings";
 
 export function UpdateBanner() {
   const updater = useUpdater();
+  const { t } = useTranslation();
+  const { update } = useSettings();
 
   const showBanner =
     !updater.dismissed &&
@@ -34,17 +38,17 @@ export function UpdateBanner() {
         <div className="min-w-0 flex-1">
           <div className="font-sans text-sm font-semibold text-foreground">
             {isReady
-              ? "Update ready"
+              ? t("updateBanner.updateReady")
               : isDownloading
-                ? `Downloading ${percent}%`
-                : `Update available`}
+                ? t("updateBanner.downloading", { percent })
+                : t("updateBanner.updateAvailable")}
           </div>
           <div className="truncate font-sans text-xs text-muted-foreground">
             {isReady
-              ? "Restart to finish installing"
+              ? t("updateBanner.restartToFinish")
               : isDownloading
-                ? `Version ${updater.version}`
-                : `Version ${updater.version} is ready to install`}
+                ? t("updateBanner.version", { version: updater.version })
+                : t("updateBanner.versionReadyToInstall", { version: updater.version })}
           </div>
           {isDownloading && (
             <div className="mt-1.5 h-1 w-full overflow-hidden rounded-full bg-secondary">
@@ -66,7 +70,18 @@ export function UpdateBanner() {
             )}
           >
             <DownloadSimple className="size-3.5" weight="bold" />
-            {isReady ? "Restart" : "Install"}
+            {isReady ? t("updateBanner.restart") : t("updateBanner.install")}
+          </button>
+        )}
+        {updater.status === "available" && (
+          <button
+            onClick={() => {
+              update("auto_update_check", "false");
+              updater.dismiss();
+            }}
+            className="shrink-0 rounded-md px-2 py-1 font-sans text-xs text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground"
+          >
+            {t("updateBanner.neverRemind")}
           </button>
         )}
         <button
@@ -76,7 +91,7 @@ export function UpdateBanner() {
             "shrink-0 rounded-md p-1 text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground",
             isDownloading && "cursor-not-allowed opacity-40",
           )}
-          aria-label="Dismiss"
+          aria-label={t("updateBanner.dismiss")}
         >
           <X className="size-3.5" />
         </button>

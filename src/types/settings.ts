@@ -8,4 +8,5 @@ export interface AppSettings {
   skip_forward_secs: number;
   skip_backward_secs: number;
   long_press_speed: number;
+  auto_update_check: boolean;
 }
