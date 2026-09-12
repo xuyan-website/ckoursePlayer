@@ -202,61 +202,9 @@ git push github v1.2.0
 
 > `release.sh` 默认推送到 origin（Gitee）。**必须额外推送到 github remote** 才能让 GitHub Actions 使用最新代码。
 
-### 步骤 3：触发 CI 构建
 
-CI 工作流 `.github/workflows/build.yml` 配置为 `workflow_dispatch`（手动触发）。
 
-1. 打开 GitHub 仓库 → **Actions** 标签页
-2. 左侧选择 **Build & Release** 工作流
-3. 点击 **Run workflow** → 在 **Use workflow from** 下拉框选择 tag `v1.2.0`
-4. 点击绿色 **Run workflow** 按钮
-
-CI 会执行：
-- **macOS**（`universal-apple-darwin`）：构建 `.dmg` + `.app.tar.gz` + 签名
-- **Windows**：构建 `.msi` + `.exe`（NSIS）+ 签名
-- 用 `TAURI_SIGNING_PRIVATE_KEY` 对更新产物签名
-- 自动起草一个 **GitHub Release（草稿）**，包含：
-  - 平台安装包（`.dmg`、`.msi`、`.exe`）
-  - `latest.json`（应用轮询的更新清单）
-  - `.sig` 签名文件
-
-> 构建约需 10-20 分钟（两个平台并行）。在 Actions 页面可查看实时日志。
-
-### 步骤 4：发布 GitHub Release
-
-1. 构建完成后，打开仓库 → **Releases** 页面
-2. 找到刚创建的**草稿 Release**（标记为 `Draft`）
-3. 检查资产列表是否完整（应有 `latest.json`、各平台安装包、`.sig` 文件）
-4. 编辑 Release notes（可选）
-5. 点击 **Publish release**（取消草稿状态）
-
-> ⚠️ **必须发布（不能停留在草稿）**。草稿 Release 的 `releases/latest/download/` 快捷方式不生效，应用无法检测到更新。
-
-### 步骤 5：验证 endpoint 可访问
-
-```bash
-# 检查 latest.json 是否可公开访问
-curl -sL https://github.com/xuyan-website/ckoursePlayer/releases/latest/download/latest.json | head -5
-```
-
-应返回类似：
-
-```json
-{
-  "version": "x.y.z",
-  "notes": "...",
-  "pub_date": "2026-09-11T...",
-  "platforms": {
-    "windows-x86_64": { ... },
-    "darwin-aarch64": { ... },
-    "darwin-x86_64": { ... }
-  }
-}
-```
-
----
-
-## 五、本地构建与手动发布（不经过 CI）
+## 五、本地构建与手动发布
 
 适用场景：本地构建带签名安装包并手动上传到 GitHub Release，绕过 CI。适合快速测试或 CI 不可用时。
 
@@ -433,20 +381,19 @@ CI 构建自动生成的 `latest.json` 格式：
 
 ## 十、快速发布清单（Cheatsheet）
 
-```bash
-# 1. 更新版本号并提交
+```
+# 1.提交软件更改
+# 2.设置版本更新
+
 bash scripts/release.sh x.y.z
 
-# 2. 推送到 GitHub
-git push github main
-git push github v1.2.0
+3、手动打包
 
-# 3. 在 GitHub Actions 手动触发 Build & Release（选 v1.2.0 tag）
-#    https://github.com/xuyan-website/ckoursePlayer/actions/workflows/build.yml
+npm run tauri:build
 
-# 4. 构建完成后，在 Releases 页面发布草稿
-#    https://github.com/xuyan-website/ckoursePlayer/releases
+4、生成latest.json文件
 
-# 5. 验证
-curl -sL https://github.com/xuyan-website/ckoursePlayer/releases/latest/download/latest.json
+npm run tauri:updater
+
+5、github网页创建Release并发布
 ```

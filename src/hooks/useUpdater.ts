@@ -111,13 +111,12 @@ export function useUpdater(): UpdaterApi {
 }
 
 export function useStartupUpdateCheck(api: UpdaterApi) {
-  const ranRef = useRef(false);
-  useEffect(() => {
-    if (ranRef.current) return;
-    ranRef.current = true;
+  const apiRef = useRef(api);
+  apiRef.current = api;
 
+  useEffect(() => {
     const run = () => {
-      api.check({ silent: true }).catch(() => {});
+      apiRef.current.check({ silent: true }).catch(() => {});
     };
 
     // Prefer requestIdleCallback so the update check runs after first paint
@@ -135,5 +134,6 @@ export function useStartupUpdateCheck(api: UpdaterApi) {
     }
     const timer = setTimeout(run, 1500);
     return () => clearTimeout(timer);
-  }, [api]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 }
