@@ -19,7 +19,7 @@
         "maximized": true,
         "titleBarStyle": "Overlay",
         "acceptFirstMouse": true,
-        "backgroundColor": "#0A0A0A"
+        "backgroundColor": "#F5F5F5"
       }
     ],
     "security": {

@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useRef, useContext } from "react";
+import { useState, useEffect, useCallback, useRef, useContext, lazy, Suspense } from "react";
 import { useParams, useNavigate, useSearchParams, Link } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import type { TFunction } from "i18next";
@@ -32,7 +32,7 @@ import type { VideoPlayerHandle } from "@/types";
 import { VideoPlayer } from "@/components/course-detail/VideoPlayer";
 import { SectionAccordion } from "@/components/course-detail/SectionAccordion";
 import { NotesPanel } from "@/components/course-detail/NotesPanel";
-import { CourseEditPanel } from "@/components/course-detail/CourseEditPanel";
+const CourseEditPanel = lazy(() => import("@/components/course-detail/CourseEditPanel").then(m => ({ default: m.CourseEditPanel })));
 import { CourseCelebration } from "@/components/course-detail/CourseCelebration";
 import { EASE_OUT, SNAPPY } from "@/lib/constants";
 import { formatDuration } from "@/lib/format";
@@ -176,27 +176,29 @@ export function CourseDetail({ className }: CourseDetailProps) {
 
   if (editing) {
     return (
-      <CourseEditPanel
-        course={course}
-        sections={courseData?.sections ?? []}
-        onSave={async (title, author, accentColor, category) => {
-          await updateCourse(course.id, title, author, accentColor, category);
-          await reload();
-        }}
-        onResetProgress={async () => {
-          await resetCourseProgress(course.id);
-          await reload();
-        }}
-        onDelete={async () => {
-          await deleteCourse(course.id);
-          navigate(fromParam);
-        }}
-        onReorder={reload}
-        onBack={() => {
-          reload().then(() => setEditing(false));
-        }}
-        className={className}
-      />
+      <Suspense fallback={<div className="flex h-full items-center justify-center"><div className="size-6 animate-spin rounded-full border-2 border-muted-foreground/20 border-t-primary" /></div>}>
+        <CourseEditPanel
+          course={course}
+          sections={courseData?.sections ?? []}
+          onSave={async (title, author, accentColor, category) => {
+            await updateCourse(course.id, title, author, accentColor, category);
+            await reload();
+          }}
+          onResetProgress={async () => {
+            await resetCourseProgress(course.id);
+            await reload();
+          }}
+          onDelete={async () => {
+            await deleteCourse(course.id);
+            navigate(fromParam);
+          }}
+          onReorder={reload}
+          onBack={() => {
+            reload().then(() => setEditing(false));
+          }}
+          className={className}
+        />
+      </Suspense>
     );
   }
 

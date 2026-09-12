@@ -32,9 +32,6 @@ export default defineConfig(async () => ({
             if (id.includes("react-router-dom")) return "react-vendor";
             if (id.includes("/react/") || id.includes("/react-dom/")) return "react-vendor";
             if (id.includes("@tauri-apps")) return "tauri-vendor";
-            if (id.includes("@dnd-kit")) return "dnd-kit";
-            if (id.includes("recharts")) return "charts";
-            if (id.includes("lottie")) return "lottie";
             if (id.includes("radix-ui")) return "radix";
           }
         },

@@ -1,4 +1,4 @@
-import { useState, useMemo, useRef, useEffect, useCallback } from "react";
+import { useState, useMemo, useRef, useEffect, useCallback, lazy, Suspense } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import { usePageVisible } from "@/hooks/usePageVisible";
@@ -13,7 +13,7 @@ import {
 import { cn } from "@/lib/utils";
 import { CourseCard } from "@/components/dashboard/CourseCard";
 import { DashboardStatsBar } from "@/components/dashboard/DashboardStats";
-import { EmptyLibrary } from "@/components/dashboard/EmptyLibrary";
+const EmptyLibrary = lazy(() => import("@/components/dashboard/EmptyLibrary").then(m => ({ default: m.EmptyLibrary })));
 import { SquircleSearch } from "@/components/ui/SquircleSearch";
 import { SquircleButton } from "@/components/ui/SquircleButton";
 import type { Course, DashboardStats, CourseCategory, CourseStatus } from "@/types";
@@ -222,7 +222,9 @@ export function Dashboard({ className }: DashboardProps) {
   if (courses.length === 0) {
     return (
       <div className={cn("mx-auto max-w-6xl", className)}>
-        <EmptyLibrary onImport={handleImport} />
+        <Suspense fallback={null}>
+          <EmptyLibrary onImport={handleImport} />
+        </Suspense>
       </div>
     );
   }

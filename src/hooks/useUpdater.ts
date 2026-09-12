@@ -115,9 +115,25 @@ export function useStartupUpdateCheck(api: UpdaterApi) {
   useEffect(() => {
     if (ranRef.current) return;
     ranRef.current = true;
-    const timer = setTimeout(() => {
+
+    const run = () => {
       api.check({ silent: true }).catch(() => {});
-    }, 1500);
+    };
+
+    // Prefer requestIdleCallback so the update check runs after first paint
+    // and does not compete with JS parsing / React hydration. Falls back to a
+    // fixed delay on runtimes without idle callback support.
+    const scheduler = window as unknown as Partial<{
+      requestIdleCallback: (cb: () => void, opts?: { timeout: number }) => number;
+      cancelIdleCallback: (handle: number) => void;
+    }>;
+    const ric = scheduler.requestIdleCallback;
+    const cic = scheduler.cancelIdleCallback;
+    if (ric && cic) {
+      const handle = ric(run, { timeout: 4000 });
+      return () => cic(handle);
+    }
+    const timer = setTimeout(run, 1500);
     return () => clearTimeout(timer);
   }, [api]);
 }

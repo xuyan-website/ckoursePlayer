@@ -1,14 +1,8 @@
-import { useEffect, useState } from "react";
+import { lazy, Suspense, useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Routes, Route, useLocation } from "react-router-dom";
 import { AppShell } from "@/components/app-shell/AppShell";
 import { Dashboard } from "@/pages/Dashboard";
-import { CourseDetail } from "@/pages/CourseDetail";
-import { ImportCourse } from "@/pages/ImportCourse";
-import { Bookmarks } from "@/pages/Bookmarks";
-import { Progress } from "@/pages/Progress";
-import { Notes } from "@/pages/Notes";
-import { Settings } from "@/pages/Settings";
 import { ActivePathContext } from "@/hooks/usePageVisible";
 import { sectionMemory } from "@/hooks/useSectionMemory";
 import { SettingsContext, useSettingsProvider } from "@/hooks/useSettings";
@@ -18,6 +12,21 @@ import {
   useStartupUpdateCheck,
 } from "@/hooks/useUpdater";
 import { UpdateBanner } from "@/components/UpdateBanner";
+
+const CourseDetail = lazy(() => import("@/pages/CourseDetail").then(m => ({ default: m.CourseDetail })));
+const ImportCourse = lazy(() => import("@/pages/ImportCourse").then(m => ({ default: m.ImportCourse })));
+const Bookmarks = lazy(() => import("@/pages/Bookmarks").then(m => ({ default: m.Bookmarks })));
+const Progress = lazy(() => import("@/pages/Progress").then(m => ({ default: m.Progress })));
+const Notes = lazy(() => import("@/pages/Notes").then(m => ({ default: m.Notes })));
+const Settings = lazy(() => import("@/pages/Settings").then(m => ({ default: m.Settings })));
+
+function PageLoader() {
+  return (
+    <div className="flex h-full items-center justify-center">
+      <div className="size-6 animate-spin rounded-full border-2 border-muted-foreground/20 border-t-primary" />
+    </div>
+  );
+}
 
 function routeKey(pathname: string, search: string): string {
   if (pathname.startsWith("/course/")) {
@@ -80,21 +89,25 @@ function KeepAliveRoutes() {
           key={cachedKey}
           style={{ display: cachedKey === key ? undefined : "none" }}
         >
-          <Routes location={cachedLocation}>
-            <Route path="/" element={<Dashboard />} />
-            <Route path="/bookmarks" element={<Bookmarks />} />
-            <Route path="/progress" element={<Progress />} />
-            <Route path="/notes" element={<Notes />} />
-            <Route path="/settings" element={<Settings />} />
-            <Route path="/course/:courseId" element={<CourseDetail />} />
-          </Routes>
+          <Suspense fallback={<PageLoader />}>
+            <Routes location={cachedLocation}>
+              <Route path="/" element={<Dashboard />} />
+              <Route path="/bookmarks" element={<Bookmarks />} />
+              <Route path="/progress" element={<Progress />} />
+              <Route path="/notes" element={<Notes />} />
+              <Route path="/settings" element={<Settings />} />
+              <Route path="/course/:courseId" element={<CourseDetail />} />
+            </Routes>
+          </Suspense>
         </div>
       ))}
 
       {isTransient && (
-        <Routes location={location}>
-          <Route path="/import" element={<ImportCourse />} />
-        </Routes>
+        <Suspense fallback={<PageLoader />}>
+          <Routes location={location}>
+            <Route path="/import" element={<ImportCourse />} />
+          </Routes>
+        </Suspense>
       )}
     </ActivePathContext.Provider>
   );
