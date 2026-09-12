@@ -27,7 +27,7 @@
 // src-tauri/tauri.conf.json
 {
   "bundle": {
-    "createUpdaterArtifacts": true          // 构建时生成 latest.json + .sig 签名
+    "createUpdaterArtifacts": true          // 构建时生成 .sig 签名（latest.json 需 npm run tauri:updater 单独生成）
   },
   "plugins": {
     "updater": {
@@ -167,7 +167,7 @@ cat .tauri/signing-key
 bash scripts/release.sh x.y.z
 ```
 
-脚本会自动：版本号写入 `package.json` + `tauri.conf.json` + `Cargo.toml` → commit → 打 tag `v1.2.0` → 推送到 Gitee（origin）
+脚本会自动：版本号写入 `package.json` + `tauri.conf.json` + `Cargo.toml` → commit → 打 tag `vx.y.z` → 推送到 Gitee（origin）
 
 **方式 B — 使用版本同步工具：**
 
@@ -248,37 +248,97 @@ curl -sL https://github.com/xuyan-website/ckoursePlayer/releases/latest/download
   "pub_date": "2026-09-11T...",
   "platforms": {
     "windows-x86_64": { ... },
-    "darwin-universal": { ... }
+    "darwin-aarch64": { ... },
+    "darwin-x86_64": { ... }
   }
 }
 ```
 
 ---
 
-## 五、本地构建（可选，不经过 CI）
+## 五、本地构建与手动发布（不经过 CI）
 
-如果需要在本地构建带签名的安装包（用于测试或手动上传）：
+适用场景：本地构建带签名安装包并手动上传到 GitHub Release，绕过 CI。适合快速测试或 CI 不可用时。
+
+### 步骤 1：本地构建安装包
+
+若签名密钥设有密码，先注入密码环境变量（无密码密钥可跳过）：
 
 ```bash
-# 使用本地 .tauri/signing-key 签名
+# PowerShell
+$env:TAURI_SIGNING_PRIVATE_KEY_PASSWORD="你的密码"
+# Git Bash / WSL
+export TAURI_SIGNING_PRIVATE_KEY_PASSWORD="你的密码"
+```
+
+执行构建：
+
+```bash
 npm run tauri:build
 ```
 
-此命令（`scripts/build.mjs`）会：
-1. 读取 `.tauri/signing-key` 私钥
-2. 执行 `npx tauri build`，注入 `TAURI_SIGNING_PRIVATE_KEY` 环境变量
-3. 生成安装包 + `latest.json` + `.sig` 到 `src-tauri/target/release/bundle/`
+`scripts/build.mjs` 会读取 `.tauri/signing-key` 私钥，注入 `TAURI_SIGNING_PRIVATE_KEY`（及密码）环境变量后执行 `npx tauri build`，生成安装包 + `.sig` 签名到 `src-tauri/target/release/bundle/`。
+
+> `tauri build` 只生成安装包和 `.sig` 签名文件，**不生成 `latest.json`**（`createUpdaterArtifacts: true` 仅控制 `.sig` 生成）。
 
 **产物位置：**
 
 | 平台 | 路径 |
 |---|---|
-| Windows NSIS | `src-tauri/target/release/bundle/nsis/ckoursePlayer_1.2.0_x64-setup.exe` |
-| Windows MSI | `src-tauri/target/release/bundle/msi/ckoursePlayer_1.2.0_x64_en-US.msi` |
-| macOS | `src-tauri/target/release/bundle/macos/ckoursePlayer.app.tar.gz` |
-| 更新清单 | `src-tauri/target/release/bundle/` 下的 `latest.json` |
+| Windows NSIS | `bundle/nsis/ckoursePlayer_x.y.z_x64-setup.exe` + `.sig` |
+| Windows MSI | `bundle/msi/ckoursePlayer_x.y.z_x64_en-US.msi` + `.sig` |
+| macOS | `bundle/macos/ckoursePlayer_x.y.z_{universal\|aarch64\|x64}.app.tar.gz` + `.sig` |
 
-> 本地构建的产物可手动上传到 GitHub Release。但**推荐用 CI 构建**，确保签名密钥一致、跨平台覆盖。
+### 步骤 2：生成更新清单 latest.json
+
+```bash
+npm run tauri:updater
+```
+
+`scripts/generate-updater-json.mjs` 读取已生成的 `.sig` 和版本号，输出 `bundle/latest.json`：
+
+- Windows NSIS 产物存在 → 添加 `windows-x86_64` 条目
+- macOS universal 产物存在 → 同时添加 `darwin-aarch64` + `darwin-x86_64`（指向同一产物）
+- macOS 单架构产物 → 添加对应 `darwin-aarch64` 或 `darwin-x86_64`
+- 缺失平台的产物自动跳过
+
+> 单机只能扫描当前机器的 `bundle/` 目录，因此 Windows 上跑出来只含 `windows-x86_64`，macOS 上只含 `darwin-*`。要生成同时含两平台的 `latest.json`，需靠 CI 或手动合并两份产物。
+
+### 步骤 3：在 GitHub 创建 Release
+
+1. 打开 <https://github.com/xuyan-website/ckoursePlayer/releases/new>
+2. **Choose a tag** → 输入 `vx.y.z`（与版本号一致）→ 选择 **Create new tag vx.y.z on publish**
+3. **Release title** 填 `ckoursePlayer vx.y.z`
+4. （可选）填写 Release notes
+
+### 步骤 4：上传资产
+
+将以下文件拖入 Release 页面的 assets 区域（位于 `src-tauri/target/release/bundle/` 下）：
+
+| 文件 | 必需 | 说明 |
+|---|---|---|
+| `nsis/ckoursePlayer_x.y.z_x64-setup.exe` | ✅ | Windows 安装包 |
+| `latest.json` | ✅ | 更新清单（含 signature 字段） |
+| `msi/ckoursePlayer_x.y.z_x64_en-US.msi` | 可选 | Windows MSI 安装包 |
+| `macos/*.app.tar.gz` | macOS 需 | macOS 更新包 |
+
+> `.sig` 签名文件的内容已内嵌进 `latest.json` 的 `signature` 字段，无需单独上传。
+
+### 步骤 5：发布 Release
+
+点击页面底部绿色 **Publish release** 按钮。
+
+> ⚠️ **必须发布，不能停留在草稿**。草稿 Release 的 `releases/latest/download/` 快捷方式不生效，应用无法检测到更新。
+
+### 步骤 6：验证 endpoint 可访问
+
+```bash
+curl -sL https://github.com/xuyan-website/ckoursePlayer/releases/latest/download/latest.json
+```
+
+应返回包含 `version`、`platforms` 的 JSON。
+
+> 本地构建的签名密钥必须与已发布版本使用的密钥一致，否则旧版本无法验证新包签名。**推荐用 CI 构建**保证密钥一致与跨平台覆盖。
 
 ---
 
@@ -321,9 +381,13 @@ CI 构建自动生成的 `latest.json` 格式：
       "signature": "dW50cnVzdGVk...（.sig 文件内容）",
       "url": "https://github.com/xuyan-website/ckoursePlayer/releases/download/v1.2.0/ckoursePlayer_1.2.0_x64-setup.exe"
     },
-    "darwin-universal": {
+    "darwin-aarch64": {
       "signature": "dW50cnVzdGVk...",
-      "url": "https://github.com/xuyan-website/ckoursePlayer/releases/download/v1.2.0/ckoursePlayer.app.tar.gz"
+      "url": "https://github.com/xuyan-website/ckoursePlayer/releases/download/v1.2.0/ckoursePlayer_1.2.0_universal.app.tar.gz"
+    },
+    "darwin-x86_64": {
+      "signature": "dW50cnVzdGVk...",
+      "url": "https://github.com/xuyan-website/ckoursePlayer/releases/download/v1.2.0/ckoursePlayer_1.2.0_universal.app.tar.gz"
     }
   }
 }

@@ -17,6 +17,6 @@ execSync("npx tauri build", {
   env: {
     ...process.env,
     TAURI_SIGNING_PRIVATE_KEY: privateKey,
-    TAURI_SIGNING_PRIVATE_KEY_PASSWORD: "",
+    TAURI_SIGNING_PRIVATE_KEY_PASSWORD: "CKOURSE6zy13172",
   },
 });
