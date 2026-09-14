@@ -98,7 +98,7 @@ export function NoteEditor({
       el.innerHTML = initialContent;
     } else {
       // Auto-insert current video time timestamp when opening a new note
-      el.innerHTML = buildTimestampHtml(videoTimeRef.current) + "\u00A0";
+      el.innerHTML = "<div>" + buildTimestampHtml(videoTimeRef.current) + "</div><div><br></div>";
     }
     el.focus();
     // Place cursor at the end of the content
@@ -203,24 +203,16 @@ export function NoteEditor({
     replaceRange.setEnd(node, end);
     replaceRange.deleteContents();
 
-    const temp = document.createElement("span");
-    temp.innerHTML = html + "\u00A0";
-    const frag = document.createDocumentFragment();
-    let lastChild: Node | null = null;
-    while (temp.firstChild) {
-      lastChild = temp.firstChild;
-      frag.appendChild(lastChild);
-    }
-    replaceRange.insertNode(frag);
+    const wrapper = document.createElement("div");
+    wrapper.innerHTML = html;
+    replaceRange.insertNode(wrapper);
 
-    if (lastChild) {
-      const sel = window.getSelection();
-      const newRange = document.createRange();
-      newRange.setStartAfter(lastChild);
-      newRange.collapse(true);
-      sel?.removeAllRanges();
-      sel?.addRange(newRange);
-    }
+    const sel = window.getSelection();
+    const newRange = document.createRange();
+    newRange.setStartAfter(wrapper);
+    newRange.collapse(true);
+    sel?.removeAllRanges();
+    sel?.addRange(newRange);
 
     setMenu(null);
   }
@@ -255,23 +247,15 @@ export function NoteEditor({
     replaceRange.setEnd(node, matchEnd);
     replaceRange.deleteContents();
 
-    const temp = document.createElement("span");
-    temp.innerHTML = html + "\u00A0";
-    const frag = document.createDocumentFragment();
-    let lastChild: Node | null = null;
-    while (temp.firstChild) {
-      lastChild = temp.firstChild;
-      frag.appendChild(lastChild);
-    }
-    replaceRange.insertNode(frag);
+    const wrapper = document.createElement("div");
+    wrapper.innerHTML = html;
+    replaceRange.insertNode(wrapper);
 
-    if (lastChild) {
-      const newRange = document.createRange();
-      newRange.setStartAfter(lastChild);
-      newRange.collapse(true);
-      sel.removeAllRanges();
-      sel.addRange(newRange);
-    }
+    const newRange = document.createRange();
+    newRange.setStartAfter(wrapper);
+    newRange.collapse(true);
+    sel.removeAllRanges();
+    sel.addRange(newRange);
 
     setMenu(null);
     return true;

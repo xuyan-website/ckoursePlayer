@@ -149,6 +149,49 @@ pub fn get_lesson_resources(
     db::get_lesson_resources(&conn, lesson_id).map_err(|e| e.to_string())
 }
 
+fn copy_into_dir(src_path: &str, dir: &std::path::Path) -> Result<String, String> {
+    let src = std::path::Path::new(src_path);
+    let file_name = src.file_name().ok_or("invalid source path")?;
+    let dest = dir.join(file_name);
+
+    let src_canon = std::fs::canonicalize(src_path).ok();
+    let dest_canon = std::fs::canonicalize(&dest).ok();
+
+    if src_canon == dest_canon {
+        return Ok(dest.to_string_lossy().to_string());
+    }
+
+    let final_dest = if dest.exists() {
+        let stem = src
+            .file_stem()
+            .unwrap_or_default()
+            .to_string_lossy()
+            .to_string();
+        let ext = src
+            .extension()
+            .map(|e| format!(".{}", e.to_string_lossy()))
+            .unwrap_or_default();
+        let mut i = 1;
+        loop {
+            let candidate = dir.join(format!("{} ({}){}", stem, i, ext));
+            let candidate_canon = std::fs::canonicalize(&candidate).ok();
+            if src_canon == candidate_canon || !candidate.exists() {
+                break candidate;
+            }
+            i += 1;
+        }
+    } else {
+        dest
+    };
+
+    if src_canon != std::fs::canonicalize(&final_dest).ok() {
+        std::fs::create_dir_all(dir).map_err(|e| e.to_string())?;
+        std::fs::copy(src_path, &final_dest).map_err(|e| e.to_string())?;
+    }
+
+    Ok(final_dest.to_string_lossy().to_string())
+}
+
 #[tauri::command]
 pub fn add_lesson_resource(
     state: tauri::State<'_, DbState>,
@@ -156,12 +199,21 @@ pub fn add_lesson_resource(
     lesson_id: i64,
     path: String,
 ) -> Result<i64, String> {
-    let p = std::path::Path::new(&path);
-    let ext = p.extension().and_then(|e| e.to_str()).unwrap_or("");
+    let conn = state.conn.lock().map_err(|e| e.to_string())?;
+
+    let src = std::path::Path::new(&path);
+    let ext = src.extension().and_then(|e| e.to_str()).unwrap_or("");
     let title = resource_title_from_path(&path);
     let resource_type = classify_resource_type(ext);
-    let conn = state.conn.lock().map_err(|e| e.to_string())?;
-    db::add_lesson_resource(&conn, course_id, lesson_id, &title, &path, &resource_type)
+
+    let video_path = db::get_lesson_video_path(&conn, lesson_id).unwrap_or_default();
+    let video_dir = std::path::Path::new(&video_path).parent();
+    let final_path = match video_dir {
+        Some(dir) if !dir.as_os_str().is_empty() => copy_into_dir(&path, &dir.join("resource"))?,
+        _ => path.clone(),
+    };
+
+    db::add_lesson_resource(&conn, course_id, lesson_id, &title, &final_path, &resource_type)
         .map_err(|e| e.to_string())
 }
 

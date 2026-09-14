@@ -550,6 +550,14 @@ pub fn get_course_detail(conn: &Connection, course_id: i64) -> SqlResult<Option<
     }))
 }
 
+pub fn get_lesson_video_path(conn: &Connection, lesson_id: i64) -> SqlResult<String> {
+    conn.query_row(
+        "SELECT video_path FROM lessons WHERE id = ?1",
+        params![lesson_id],
+        |row| row.get(0),
+    )
+}
+
 pub fn get_lesson_resources(conn: &Connection, lesson_id: i64) -> SqlResult<Vec<Resource>> {
     let mut stmt = conn.prepare(
         "SELECT id, title, resource_type, path FROM resources WHERE lesson_id = ?1",

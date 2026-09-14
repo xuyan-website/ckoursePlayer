@@ -33,7 +33,7 @@ import { useTranslation } from "react-i18next";
 import { cn } from "@/lib/utils";
 import { formatVideoTime } from "@/lib/format";
 import type { Lesson, Subtitle, VideoPlayerHandle } from "@/types";
-import { getSubtitleVtt, captureVideoFrame } from "@/lib/store";
+import { getSubtitleVtt, captureVideoFrame, deleteFile } from "@/lib/store";
 import { driveAuthStatus, driveConnect, driveCredentialsStatus } from "@/lib/drive";
 import { reportError } from "@/lib/posthog";
 import { EASE_OUT } from "@/lib/constants";
@@ -501,6 +501,14 @@ export const VideoPlayer = forwardRef<VideoPlayerHandle, VideoPlayerProps>(funct
       reportError(err, "VideoPlayer.handleScreenshot");
     }
   }, [lesson?.videoPath]);
+
+  const closeScreenshotDialog = useCallback(async () => {
+    if (screenshotImagePath) {
+      await deleteFile(screenshotImagePath).catch(() => {});
+    }
+    setShowScreenshotDialog(false);
+    setScreenshotImagePath(null);
+  }, [screenshotImagePath]);
 
   useEffect(() => {
     function handleKeyDown(e: KeyboardEvent) {
@@ -1724,8 +1732,7 @@ export const VideoPlayer = forwardRef<VideoPlayerHandle, VideoPlayerProps>(funct
           className="absolute inset-0 z-50 flex items-center justify-center bg-black/60"
           onClick={(e) => {
             if (e.target === e.currentTarget) {
-              setShowScreenshotDialog(false);
-              setScreenshotImagePath(null);
+              closeScreenshotDialog();
             }
           }}
         >
@@ -1747,8 +1754,7 @@ export const VideoPlayer = forwardRef<VideoPlayerHandle, VideoPlayerProps>(funct
                 }
               }}
               onCancel={() => {
-                setShowScreenshotDialog(false);
-                setScreenshotImagePath(null);
+                closeScreenshotDialog();
               }}
             />
           </div>
