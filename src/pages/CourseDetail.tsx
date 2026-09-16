@@ -23,6 +23,7 @@ import {
   TrashIcon as Trash,
   PlusIcon as Plus,
   FileArrowDownIcon as FileArrowDown,
+  BookOpenIcon as BookOpen,
 } from "@phosphor-icons/react";
 import { cn } from "@/lib/utils";
 import { reportError } from "@/lib/posthog";
@@ -32,11 +33,12 @@ import type { VideoPlayerHandle } from "@/types";
 import { VideoPlayer } from "@/components/course-detail/VideoPlayer";
 import { SectionAccordion } from "@/components/course-detail/SectionAccordion";
 import { NotesPanel } from "@/components/course-detail/NotesPanel";
+import { ReviewsPanel } from "@/components/course-detail/ReviewsPanel";
 const CourseEditPanel = lazy(() => import("@/components/course-detail/CourseEditPanel").then(m => ({ default: m.CourseEditPanel })));
 import { CourseCelebration } from "@/components/course-detail/CourseCelebration";
 import { EASE_OUT, SNAPPY } from "@/lib/constants";
 import { formatDuration } from "@/lib/format";
-import type { Note, Course, CourseDetail as CourseDetailData, Lesson, Subtitle, Resource } from "@/types";
+import type { Note, Course, CourseDetail as CourseDetailData, Lesson, Subtitle, Resource, Review } from "@/types";
 import { useSettings } from "@/hooks/useSettings";
 import { useCourseTitles } from "@/components/app-shell/CourseTitleContext";
 import {
@@ -64,6 +66,12 @@ import {
   updateResourcePath,
   exportNotesToZip,
   type ExportDocData,
+  getCourseReviews,
+  addReview as storeAddReview,
+  updateReview as storeUpdateReview,
+  deleteReview as storeDeleteReview,
+  exportReviewsZip,
+  type ExportReviewItemData,
 } from "@/lib/store";
 import { htmlToMarkdown } from "@/lib/htmlToMarkdown";
 
@@ -274,7 +282,7 @@ function CourseDetailInner({
   const activeLesson = allLessons.find((l) => l.id === activeLessonId) ?? allLessons[0];
   const [subtitles, setSubtitles] = useState<Subtitle[]>([]);
   const [mounted, setMounted] = useState(false);
-  const [activeTab, setActiveTab] = useState<"resources" | "notes">("notes");
+  const [activeTab, setActiveTab] = useState<"resources" | "notes" | "reviews">("notes");
   const [lessonResources, setLessonResources] = useState<Resource[]>([]);
   const [selectedFile, setSelectedFile] = useState<{ name: string; path: string } | null>(null);
   const [notes, setNotes] = useState<Note[]>([]);
@@ -283,6 +291,10 @@ function CourseDetailInner({
     : [];
   const [editingNoteId, setEditingNoteId] = useState<number | null>(null);
   const [showEditor, setShowEditor] = useState(false);
+  const [reviews, setReviews] = useState<Review[]>([]);
+  const lessonReviews = activeLesson
+    ? reviews.filter((r) => r.lessonId === activeLesson.id)
+    : [];
   const [autoPlay, setAutoPlay] = useState(false);
   const [curriculumOpen, setCurriculumOpen] = useState(() => {
     try {
@@ -369,6 +381,10 @@ function CourseDetailInner({
   // Re-fetch notes on mount and when course prop changes (e.g. after returning from Notes page)
   useEffect(() => {
     getCourseNotes(course.id).then(setNotes).catch(() => {});
+  }, [course]);
+
+  useEffect(() => {
+    getCourseReviews(course.id).then(setReviews).catch(() => {});
   }, [course]);
 
   useEffect(() => {
@@ -572,6 +588,7 @@ function CourseDetailInner({
     try {
       await storeDeleteNote(noteId);
       setNotes((prev) => prev.filter((n) => n.id !== noteId));
+      toast(t("courseDetail.deleted"), { className: "toast-red-text" });
     } catch (err) {
       console.error("deleteNote failed", err);
       reportError(err, "CourseDetail.handleDeleteNote", { noteId });
@@ -635,6 +652,99 @@ function CourseDetailInner({
       toast.error(t("courseDetail.couldntExportNotes"));
     }
   }
+
+  const activeSection = activeLesson
+    ? courseData.sections.find((s) => s.lessons.some((l) => l.id === activeLesson.id))
+    : undefined;
+
+  const handleAddReview = useCallback(
+    (title: string, content: string) => {
+      if (!activeLesson) return;
+      storeAddReview(
+        course.id,
+        activeLesson.id,
+        activeSection?.title ?? "",
+        activeLesson.title,
+        title,
+        content,
+      )
+        .then((review) => {
+          setReviews((prev) => [review, ...prev]);
+        })
+        .catch((err) => {
+          console.error("add review failed", err);
+          reportError(err, "CourseDetail.handleAddReview");
+          toast.error(t("courseDetail.couldntSaveReview"));
+        });
+    },
+    [activeLesson, activeSection, course.id, t],
+  );
+
+  const handleEditReview = useCallback(
+    (reviewId: number, title: string, content: string) => {
+      storeUpdateReview(reviewId, title, content)
+        .then(() => {
+          setReviews((prev) =>
+            prev.map((r) =>
+              r.id === reviewId
+                ? { ...r, title, content, updatedAt: new Date().toISOString() }
+                : r,
+            ),
+          );
+        })
+        .catch((err) => {
+          console.error("update review failed", err);
+          reportError(err, "CourseDetail.handleEditReview");
+          toast.error(t("courseDetail.couldntUpdateReview"));
+        });
+    },
+    [],
+  );
+
+  const handleDeleteReview = useCallback(
+    (reviewId: number) => {
+      storeDeleteReview(reviewId)
+        .then(() => {
+          setReviews((prev) => prev.filter((r) => r.id !== reviewId));
+          toast(t("courseDetail.deleted"), { className: "toast-red-text" });
+        })
+        .catch((err) => {
+          console.error("delete review failed", err);
+          reportError(err, "CourseDetail.handleDeleteReview");
+          toast.error(t("courseDetail.couldntDeleteReview"));
+        });
+    },
+    [],
+  );
+
+  const handleExportReviews = async () => {
+    if (!activeLesson || lessonReviews.length === 0) return;
+    try {
+      const outputPath = await save({
+        defaultPath: "ReviewMD.zip",
+        filters: [{ name: "ZIP", extensions: ["zip"] }],
+      });
+      if (!outputPath) return;
+
+      const items: ExportReviewItemData[] = lessonReviews.map((r) => ({
+        sectionTitle: r.sectionTitle,
+        lessonTitle: r.lessonTitle,
+        title: r.title,
+        content: r.content,
+        videoPath: activeLesson.videoPath,
+      }));
+      await exportReviewsZip(items, outputPath);
+      toast.success(t("reviewsPanel.exportSuccess"), {
+        action: {
+          label: t("notes.openFolder"),
+          onClick: () => revealInExplorer(outputPath),
+        },
+      });
+    } catch (err) {
+      console.error("export reviews failed", err);
+      toast.error(t("reviewsPanel.exportFailed"));
+    }
+  };
 
   const handleTimestampClick = useCallback(
     (seconds: number, lessonId: number) => {
@@ -1020,13 +1130,35 @@ function CourseDetailInner({
                 </span>
               </button>
               <button
-                onClick={handleExportNotes}
-                className="ml-auto flex items-center gap-1.5 rounded-md px-2.5 py-1 font-sans text-xs font-medium text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground"
+                onClick={() => setActiveTab("reviews")}
+                className={cn(
+                  "rounded-md px-2.5 py-1 font-sans text-xs font-medium transition-colors",
+                  activeTab === "reviews"
+                    ? "bg-secondary text-foreground"
+                    : "text-muted-foreground hover:text-foreground",
+                )}
                 style={{ transitionTimingFunction: SNAPPY }}
               >
-                <FileArrowDown className="size-3.5" />
-                {t("courseDetail.exportNotes")}
+                <span className="flex items-center gap-1.5">
+                  <BookOpen className="size-3.5" />
+                  {t("courseDetail.reviews")}
+                  {lessonReviews.length > 0 && (
+                    <span className="font-mono text-[10px] text-muted-foreground">
+                      {lessonReviews.length}
+                    </span>
+                  )}
+                </span>
               </button>
+              {activeTab !== "resources" && (
+                <button
+                  onClick={activeTab === "reviews" ? handleExportReviews : handleExportNotes}
+                  className="ml-auto flex items-center gap-1.5 rounded-md px-2.5 py-1 font-sans text-xs font-medium text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground"
+                  style={{ transitionTimingFunction: SNAPPY }}
+                >
+                  <FileArrowDown className="size-3.5" />
+                  {activeTab === "reviews" ? t("reviewsPanel.export") : t("courseDetail.exportNotes")}
+                </button>
+              )}
             </div>
 
             {activeTab === "resources" && (
@@ -1130,6 +1262,16 @@ function CourseDetailInner({
                 onSetEditing={setEditingNoteId}
                 onSetShowEditor={setShowEditor}
                 onTimestampClick={handleTimestampClick}
+              />
+            )}
+            {activeTab === "reviews" && activeLesson && (
+              <ReviewsPanel
+                reviews={lessonReviews}
+                lessonId={activeLesson.id}
+                videoDir={activeLesson.videoPath.replace(/[\\/][^\\/]*$/, "")}
+                onAdd={handleAddReview}
+                onEdit={handleEditReview}
+                onDelete={handleDeleteReview}
               />
             )}
           </div>

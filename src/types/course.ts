@@ -88,6 +88,24 @@ export interface NoteWithCourse {
   accentColor: string;
 }
 
+export interface Review {
+  id: number;
+  courseId: number;
+  lessonId: number;
+  sectionTitle: string;
+  lessonTitle: string;
+  title: string;
+  content: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface ReviewWithCourse extends Review {
+  courseTitle: string;
+  accentColor: string;
+  videoPath: string;
+}
+
 export interface SearchResult {
   kind: "course" | "lesson";
   courseId: number;

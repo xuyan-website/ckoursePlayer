@@ -3,6 +3,7 @@ import {
   ChartBarIcon as ChartBar,
   BookmarkSimpleIcon as BookmarkSimple,
   NotepadIcon as Notepad,
+  BookOpenIcon as BookOpen,
   GearSixIcon as GearSix,
 } from "@phosphor-icons/react";
 import { EASE } from "@/lib/constants";
@@ -18,6 +19,7 @@ export const navigationItems: NavItem[] = [
   { icon: BookmarkSimple, label: "nav.bookmarks", path: "/bookmarks" },
   { icon: ChartBar, label: "nav.progress", path: "/progress" },
   { icon: Notepad, label: "nav.notes", path: "/notes" },
+  { icon: BookOpen, label: "nav.reviews", path: "/reviews" },
 ];
 
 export const appItems: NavItem[] = [
@@ -29,6 +31,7 @@ export const routeTitles: Record<string, string> = {
   "/bookmarks": "nav.bookmarks",
   "/progress": "nav.progress",
   "/notes": "nav.notes",
+  "/reviews": "nav.reviews",
   "/settings": "nav.settings",
   "/import": "nav.importCourse",
 };

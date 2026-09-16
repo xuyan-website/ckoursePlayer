@@ -14,6 +14,8 @@ import type {
   LibraryStats,
   SearchResult,
   Resource,
+  Review,
+  ReviewWithCourse,
 } from "@/types";
 
 export async function getCourses(): Promise<Course[]> {
@@ -349,4 +351,55 @@ export async function updateResourcePath(
   path: string,
 ): Promise<void> {
   return invoke("update_resource_path", { resourceId, path });
+}
+
+export async function getAllReviews(): Promise<ReviewWithCourse[]> {
+  return invoke<ReviewWithCourse[]>("get_all_reviews");
+}
+
+export async function getCourseReviews(courseId: number): Promise<Review[]> {
+  return invoke<Review[]>("get_course_reviews", { courseId });
+}
+
+export async function getLessonReviews(lessonId: number): Promise<Review[]> {
+  return invoke<Review[]>("get_lesson_reviews", { lessonId });
+}
+
+export async function addReview(
+  courseId: number,
+  lessonId: number,
+  sectionTitle: string,
+  lessonTitle: string,
+  title: string,
+  content: string,
+): Promise<Review> {
+  return invoke<Review>("add_review", { courseId, lessonId, sectionTitle, lessonTitle, title, content });
+}
+
+export async function updateReview(reviewId: number, title: string, content: string): Promise<void> {
+  return invoke("update_review", { reviewId, title, content });
+}
+
+export async function deleteReview(reviewId: number): Promise<void> {
+  return invoke("delete_review", { reviewId });
+}
+
+export async function copyReviewImage(srcPath: string, lessonId: number): Promise<string> {
+  return invoke<string>("copy_review_image", { srcPath, lessonId });
+}
+
+export async function saveReviewImageData(dataUrl: string, lessonId: number): Promise<string> {
+  return invoke<string>("save_review_image_data", { dataUrl, lessonId });
+}
+
+export interface ExportReviewItemData {
+  sectionTitle: string;
+  lessonTitle: string;
+  title: string;
+  content: string;
+  videoPath: string;
+}
+
+export async function exportReviewsZip(items: ExportReviewItemData[], outputPath: string): Promise<void> {
+  return invoke("export_reviews_zip", { items, outputPath });
 }

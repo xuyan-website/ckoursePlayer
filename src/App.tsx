@@ -18,6 +18,7 @@ const ImportCourse = lazy(() => import("@/pages/ImportCourse").then(m => ({ defa
 const Bookmarks = lazy(() => import("@/pages/Bookmarks").then(m => ({ default: m.Bookmarks })));
 const Progress = lazy(() => import("@/pages/Progress").then(m => ({ default: m.Progress })));
 const Notes = lazy(() => import("@/pages/Notes").then(m => ({ default: m.Notes })));
+const Reviews = lazy(() => import("@/pages/Reviews").then(m => ({ default: m.Reviews })));
 const Settings = lazy(() => import("@/pages/Settings").then(m => ({ default: m.Settings })));
 
 function PageLoader() {
@@ -95,6 +96,7 @@ function KeepAliveRoutes() {
               <Route path="/bookmarks" element={<Bookmarks />} />
               <Route path="/progress" element={<Progress />} />
               <Route path="/notes" element={<Notes />} />
+              <Route path="/reviews" element={<Reviews />} />
               <Route path="/settings" element={<Settings />} />
               <Route path="/course/:courseId" element={<CourseDetail />} />
             </Routes>

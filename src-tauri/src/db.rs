@@ -103,6 +103,37 @@ pub struct NoteWithCourse {
 
 #[derive(Debug, Serialize, Clone)]
 #[serde(rename_all = "camelCase")]
+pub struct Review {
+    pub id: i64,
+    pub course_id: i64,
+    pub lesson_id: i64,
+    pub section_title: String,
+    pub lesson_title: String,
+    pub title: String,
+    pub content: String,
+    pub created_at: String,
+    pub updated_at: String,
+}
+
+#[derive(Debug, Serialize, Clone)]
+#[serde(rename_all = "camelCase")]
+pub struct ReviewWithCourse {
+    pub id: i64,
+    pub course_id: i64,
+    pub lesson_id: i64,
+    pub section_title: String,
+    pub lesson_title: String,
+    pub title: String,
+    pub content: String,
+    pub created_at: String,
+    pub updated_at: String,
+    pub course_title: String,
+    pub accent_color: String,
+    pub video_path: String,
+}
+
+#[derive(Debug, Serialize, Clone)]
+#[serde(rename_all = "camelCase")]
 pub struct SearchResult {
     pub kind: String, // "course" | "lesson"
     pub course_id: i64,
@@ -206,6 +237,18 @@ pub fn init_db(app_data_dir: &Path) -> SqlResult<Connection> {
             updated_at TEXT NOT NULL
         );
 
+        CREATE TABLE IF NOT EXISTS reviews (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            course_id INTEGER NOT NULL REFERENCES courses(id) ON DELETE CASCADE,
+            lesson_id INTEGER NOT NULL,
+            section_title TEXT NOT NULL DEFAULT '',
+            lesson_title TEXT NOT NULL,
+            title TEXT NOT NULL DEFAULT '',
+            content TEXT NOT NULL,
+            created_at TEXT NOT NULL,
+            updated_at TEXT NOT NULL
+        );
+
         CREATE TABLE IF NOT EXISTS bookmarks (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             course_id INTEGER NOT NULL UNIQUE REFERENCES courses(id) ON DELETE CASCADE,
@@ -236,6 +279,7 @@ pub fn init_db(app_data_dir: &Path) -> SqlResult<Connection> {
         CREATE INDEX IF NOT EXISTS idx_lessons_section_id ON lessons(section_id);
         CREATE INDEX IF NOT EXISTS idx_lessons_completed ON lessons(completed);
         CREATE INDEX IF NOT EXISTS idx_notes_course_id ON notes(course_id);
+        CREATE INDEX IF NOT EXISTS idx_reviews_course_id ON reviews(course_id);
         CREATE INDEX IF NOT EXISTS idx_subtitles_lesson_id ON subtitles(lesson_id);
         CREATE INDEX IF NOT EXISTS idx_resources_course_id ON resources(course_id);
         CREATE INDEX IF NOT EXISTS idx_courses_updated_at ON courses(updated_at DESC);
@@ -883,6 +927,130 @@ pub fn delete_note(conn: &Connection, note_id: i64) -> SqlResult<()> {
     }
 
     conn.execute("DELETE FROM notes WHERE id = ?1", params![note_id])?;
+    Ok(())
+}
+
+pub fn get_all_reviews(conn: &Connection) -> SqlResult<Vec<ReviewWithCourse>> {
+    let mut stmt = conn.prepare(
+        "SELECT r.id, r.course_id, r.lesson_id, r.section_title, r.lesson_title,
+                r.title, r.content, r.created_at, r.updated_at, c.title, c.accent_color, l.video_path
+         FROM reviews r
+         JOIN courses c ON c.id = r.course_id
+         LEFT JOIN lessons l ON l.id = r.lesson_id
+         ORDER BY r.updated_at DESC",
+    )?;
+    let reviews = stmt
+        .query_map([], |row| {
+            Ok(ReviewWithCourse {
+                id: row.get(0)?,
+                course_id: row.get(1)?,
+                lesson_id: row.get(2)?,
+                section_title: row.get(3)?,
+                lesson_title: row.get(4)?,
+                title: row.get(5)?,
+                content: row.get(6)?,
+                created_at: row.get(7)?,
+                updated_at: row.get(8)?,
+                course_title: row.get(9)?,
+                accent_color: row.get(10)?,
+                video_path: row.get(11)?,
+            })
+        })?
+        .collect::<SqlResult<Vec<_>>>()?;
+    Ok(reviews)
+}
+
+pub fn get_course_reviews(conn: &Connection, course_id: i64) -> SqlResult<Vec<Review>> {
+    let mut stmt = conn.prepare(
+        "SELECT id, course_id, lesson_id, section_title, lesson_title, title, content, created_at, updated_at
+         FROM reviews WHERE course_id = ?1 ORDER BY created_at DESC",
+    )?;
+    let reviews = stmt
+        .query_map(params![course_id], |row| {
+            Ok(Review {
+                id: row.get(0)?,
+                course_id: row.get(1)?,
+                lesson_id: row.get(2)?,
+                section_title: row.get(3)?,
+                lesson_title: row.get(4)?,
+                title: row.get(5)?,
+                content: row.get(6)?,
+                created_at: row.get(7)?,
+                updated_at: row.get(8)?,
+            })
+        })?
+        .collect::<SqlResult<Vec<_>>>()?;
+    Ok(reviews)
+}
+
+pub fn get_lesson_reviews(conn: &Connection, lesson_id: i64) -> SqlResult<Vec<Review>> {
+    let mut stmt = conn.prepare(
+        "SELECT id, course_id, lesson_id, section_title, lesson_title, title, content, created_at, updated_at
+         FROM reviews WHERE lesson_id = ?1 ORDER BY created_at DESC",
+    )?;
+    let reviews = stmt
+        .query_map(params![lesson_id], |row| {
+            Ok(Review {
+                id: row.get(0)?,
+                course_id: row.get(1)?,
+                lesson_id: row.get(2)?,
+                section_title: row.get(3)?,
+                lesson_title: row.get(4)?,
+                title: row.get(5)?,
+                content: row.get(6)?,
+                created_at: row.get(7)?,
+                updated_at: row.get(8)?,
+            })
+        })?
+        .collect::<SqlResult<Vec<_>>>()?;
+    Ok(reviews)
+}
+
+pub fn add_review(
+    conn: &Connection,
+    course_id: i64,
+    lesson_id: i64,
+    section_title: &str,
+    lesson_title: &str,
+    title: &str,
+    content: &str,
+) -> SqlResult<Review> {
+    let now = chrono_now();
+    conn.execute(
+        "INSERT INTO reviews (course_id, lesson_id, section_title, lesson_title, title, content, created_at, updated_at)
+         VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8)",
+        params![course_id, lesson_id, section_title, lesson_title, title, content, now, now],
+    )?;
+    let id = conn.last_insert_rowid();
+    Ok(Review {
+        id,
+        course_id,
+        lesson_id,
+        section_title: section_title.to_string(),
+        lesson_title: lesson_title.to_string(),
+        title: title.to_string(),
+        content: content.to_string(),
+        created_at: now.clone(),
+        updated_at: now,
+    })
+}
+
+pub fn update_review(
+    conn: &Connection,
+    review_id: i64,
+    title: &str,
+    content: &str,
+) -> SqlResult<()> {
+    let now = chrono_now();
+    conn.execute(
+        "UPDATE reviews SET title = ?1, content = ?2, updated_at = ?3 WHERE id = ?4",
+        params![title, content, now, review_id],
+    )?;
+    Ok(())
+}
+
+pub fn delete_review(conn: &Connection, review_id: i64) -> SqlResult<()> {
+    conn.execute("DELETE FROM reviews WHERE id = ?1", params![review_id])?;
     Ok(())
 }
 

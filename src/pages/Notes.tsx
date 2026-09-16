@@ -136,8 +136,9 @@ export function Notes({ className }: NotesProps) {
       await deleteNote(noteId);
       setEditingNoteId(null);
       await reload();
+      toast(t("courseDetail.deleted"), { className: "toast-red-text" });
     },
-    [reload],
+    [reload, t],
   );
 
   const handleExportNotes = useCallback(async () => {

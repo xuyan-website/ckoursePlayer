@@ -277,9 +277,24 @@
   }
 }
 
+/* Milkdown ProseMirror padding */
+.ProseMirror {
+  padding: 30px 75px !important;
+}
+.min-h-full{
+    min-height: 100%;
+    background-color: #fdfcff;
+}
+
 /* Sonner toast icon colors by type — SVGs use currentColor */
 [data-sonner-toast][data-type="success"] [data-icon] svg { color: var(--success); }
 [data-sonner-toast][data-type="error"] [data-icon] svg { color: var(--destructive); }
 [data-sonner-toast][data-type="info"] [data-icon] svg { color: var(--info); }
 [data-sonner-toast][data-type="warning"] [data-icon] svg { color: #F59E0B; }
 [data-sonner-toast][data-type="loading"] [data-icon] svg { color: var(--info); }
+
+/* Red text toast for delete confirmation */
+[data-sonner-toast].toast-red-text [data-content],
+[data-sonner-toast].toast-red-text [data-title] {
+  color: #ef4444 !important;
+}

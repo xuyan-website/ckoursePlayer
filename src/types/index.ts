@@ -10,6 +10,8 @@ export type {
   Subtitle,
   SaveCourseConfig,
   NoteWithCourse,
+  Review,
+  ReviewWithCourse,
   FavoriteLesson,
   SearchResult,
 } from "./course";
