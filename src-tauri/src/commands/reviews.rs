@@ -75,20 +75,17 @@ pub fn delete_review(
     db::delete_review(&conn, review_id).map_err(|e| e.to_string())
 }
 
+fn review_img_dir() -> Result<std::path::PathBuf, String> {
+    let exe = std::env::current_exe().map_err(|e| e.to_string())?;
+    let exe_dir = exe.parent().ok_or("cannot resolve exe parent dir")?;
+    Ok(exe_dir.join("ReviewMDimg"))
+}
+
 #[tauri::command]
 pub fn copy_review_image(
-    state: tauri::State<'_, DbState>,
     src_path: String,
-    lesson_id: i64,
 ) -> Result<String, String> {
-    let conn = state.conn.lock().map_err(|e| e.to_string())?;
-    let video_path = db::get_lesson_video_path(&conn, lesson_id).map_err(|e| e.to_string())?;
-    drop(conn);
-
-    let video_dir = std::path::Path::new(&video_path)
-        .parent()
-        .ok_or("cannot resolve video dir")?;
-    let img_dir = video_dir.join("ReviewMDimg");
+    let img_dir = review_img_dir()?;
     std::fs::create_dir_all(&img_dir).map_err(|e| e.to_string())?;
 
     let ts_millis = std::time::SystemTime::now()
@@ -103,23 +100,14 @@ pub fn copy_review_image(
     let dest = img_dir.join(&filename);
     std::fs::copy(&src_path, &dest).map_err(|e| e.to_string())?;
 
-    Ok(format!("ReviewMDimg/{}", filename))
+    Ok(dest.to_string_lossy().to_string())
 }
 
 #[tauri::command]
 pub fn save_review_image_data(
-    state: tauri::State<'_, DbState>,
     data_url: String,
-    lesson_id: i64,
 ) -> Result<String, String> {
-    let conn = state.conn.lock().map_err(|e| e.to_string())?;
-    let video_path = db::get_lesson_video_path(&conn, lesson_id).map_err(|e| e.to_string())?;
-    drop(conn);
-
-    let video_dir = std::path::Path::new(&video_path)
-        .parent()
-        .ok_or("cannot resolve video dir")?;
-    let img_dir = video_dir.join("ReviewMDimg");
+    let img_dir = review_img_dir()?;
     std::fs::create_dir_all(&img_dir).map_err(|e| e.to_string())?;
 
     let b64 = data_url
@@ -138,7 +126,7 @@ pub fn save_review_image_data(
     let dest = img_dir.join(&filename);
     std::fs::write(&dest, &bytes).map_err(|e| e.to_string())?;
 
-    Ok(format!("ReviewMDimg/{}", filename))
+    Ok(dest.to_string_lossy().to_string())
 }
 
 #[derive(Deserialize)]
@@ -148,7 +136,6 @@ pub struct ExportReviewItem {
     pub lesson_title: String,
     pub title: String,
     pub content: String,
-    pub video_path: String,
 }
 
 fn remove_br_tags(content: &str) -> String {
@@ -240,15 +227,17 @@ fn extract_title(content: &str) -> String {
 
 fn extract_image_paths(content: &str) -> Vec<String> {
     let mut paths = Vec::new();
-    let marker = "ReviewMDimg/";
     let mut search_from = 0;
-    while let Some(idx) = content[search_from..].find(marker) {
-        let path_start = search_from + idx;
+    while let Some(idx) = content[search_from..].find("](") {
+        let path_start = search_from + idx + 2;
         let rest = &content[path_start..];
         let end = rest
-            .find(|c: char| c == ')' || c.is_whitespace())
+            .find(')')
             .unwrap_or(rest.len());
-        paths.push(rest[..end].to_string());
+        let path = rest[..end].to_string();
+        if path.contains("ReviewMDimg") && !paths.contains(&path) {
+            paths.push(path);
+        }
         search_from = path_start + end;
     }
     paths
@@ -284,13 +273,24 @@ pub fn export_reviews_zip(
         }
         used_md_names.insert(md_filename.clone());
 
+        let img_paths = extract_image_paths(&item.content);
+        let mut md_content = remove_br_tags(&item.content).to_string();
+        for img_rel in &img_paths {
+            let img_name = std::path::Path::new(img_rel)
+                .file_name()
+                .and_then(|n| n.to_str())
+                .unwrap_or("image.png")
+                .to_string();
+            let relative_path = format!("ReviewMDimg/{}", img_name);
+            md_content = md_content.replace(img_rel, &relative_path);
+        }
+
         zip.start_file(&md_filename, options)
             .map_err(|e| e.to_string())?;
-        zip.write_all(remove_br_tags(&item.content).as_bytes())
+        zip.write_all(md_content.as_bytes())
             .map_err(|e| e.to_string())?;
 
-        let video_dir = std::path::Path::new(&item.video_path).parent();
-        for img_rel in extract_image_paths(&item.content) {
+        for img_rel in img_paths {
             let img_name = std::path::Path::new(&img_rel)
                 .file_name()
                 .and_then(|n| n.to_str())
@@ -300,10 +300,7 @@ pub fn export_reviews_zip(
                 continue;
             }
 
-            let actual_path = match video_dir {
-                Some(dir) => dir.join(&img_rel),
-                None => continue,
-            };
+            let actual_path = std::path::Path::new(&img_rel);
             if !actual_path.exists() || !actual_path.is_file() {
                 continue;
             }

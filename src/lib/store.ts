@@ -384,12 +384,12 @@ export async function deleteReview(reviewId: number): Promise<void> {
   return invoke("delete_review", { reviewId });
 }
 
-export async function copyReviewImage(srcPath: string, lessonId: number): Promise<string> {
-  return invoke<string>("copy_review_image", { srcPath, lessonId });
+export async function copyReviewImage(srcPath: string): Promise<string> {
+  return invoke<string>("copy_review_image", { srcPath });
 }
 
-export async function saveReviewImageData(dataUrl: string, lessonId: number): Promise<string> {
-  return invoke<string>("save_review_image_data", { dataUrl, lessonId });
+export async function saveReviewImageData(dataUrl: string): Promise<string> {
+  return invoke<string>("save_review_image_data", { dataUrl });
 }
 
 export interface ExportReviewItemData {
@@ -397,7 +397,6 @@ export interface ExportReviewItemData {
   lessonTitle: string;
   title: string;
   content: string;
-  videoPath: string;
 }
 
 export async function exportReviewsZip(items: ExportReviewItemData[], outputPath: string): Promise<void> {

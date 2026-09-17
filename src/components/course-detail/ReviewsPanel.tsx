@@ -10,8 +10,6 @@ import { toast } from "sonner";
 
 interface ReviewsPanelProps {
   reviews: Review[];
-  lessonId: number;
-  videoDir: string;
   onAdd: (title: string, content: string) => void;
   onEdit: (reviewId: number, title: string, content: string) => void;
   onDelete: (reviewId: number) => void;
@@ -35,8 +33,6 @@ function previewText(content: string): string {
 
 export function ReviewsPanel({
   reviews,
-  lessonId,
-  videoDir,
   onAdd,
   onEdit,
   onDelete,
@@ -123,8 +119,6 @@ export function ReviewsPanel({
               key={editorKey}
               defaultValue={content}
               onChange={setContent}
-              lessonId={lessonId}
-              videoDir={videoDir}
               className="review-editor"
               autoFocus={!content}
             />
@@ -242,8 +236,6 @@ export function ReviewsPanel({
               <MilkdownEditor
                 defaultValue={content}
                 onChange={setContent}
-                lessonId={lessonId}
-                videoDir={videoDir}
                 className="review-editor min-h-full"
                 autoFocus={!content}
               />

@@ -10,8 +10,6 @@ import "@milkdown/crepe/theme/nord.css";
 interface MilkdownEditorProps {
   defaultValue?: string;
   onChange?: (markdown: string) => void;
-  lessonId: number;
-  videoDir: string;
   readOnly?: boolean;
   className?: string;
   autoFocus?: boolean;
@@ -29,8 +27,6 @@ function fileToDataUrl(file: File): Promise<string> {
 export function MilkdownEditor({
   defaultValue = "",
   onChange,
-  lessonId,
-  videoDir,
   readOnly = false,
   className,
   autoFocus = false,
@@ -58,18 +54,17 @@ export function MilkdownEditor({
         [Crepe.Feature.ImageBlock]: {
           onUpload: async (file: File) => {
             const dataUrl = await fileToDataUrl(file);
-            return await saveReviewImageData(dataUrl, lessonId);
+            return await saveReviewImageData(dataUrl);
           },
           proxyDomURL: (url: string) => {
-            if (url.startsWith("ReviewMDimg/")) {
-              const sep = videoDir.endsWith("/") || videoDir.endsWith("\\") ? "" : "/";
-              return convertFileSrc(`${videoDir}${sep}${url}`);
+            if (url.includes("ReviewMDimg")) {
+              return convertFileSrc(url);
             }
             return url;
           },
           blockOnUpload: async (file: File) => {
             const dataUrl = await fileToDataUrl(file);
-            return await saveReviewImageData(dataUrl, lessonId);
+            return await saveReviewImageData(dataUrl);
           },
         },
       },
@@ -106,7 +101,7 @@ export function MilkdownEditor({
       crepe.destroy();
       crepeRef.current = null;
     };
-  }, [lessonId, videoDir]);
+  }, []);
 
   return <div ref={rootRef} className={className} />;
 }

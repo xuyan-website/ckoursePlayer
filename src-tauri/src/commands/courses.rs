@@ -120,12 +120,14 @@ pub fn delete_all_data(state: tauri::State<'_, DbState>) -> Result<(), String> {
     let conn = state.conn.lock().map_err(|e| e.to_string())?;
     db::delete_all_data(&conn).map_err(|e| e.to_string())?;
 
-    // Clear Screenshot folder on disk
+    // Clear Screenshot and ReviewMDimg folders on disk
     let exe = std::env::current_exe().map_err(|e| e.to_string())?;
     let exe_dir = exe.parent().ok_or("cannot resolve exe parent dir")?;
-    let screenshot_dir = exe_dir.join("Screenshot");
-    if screenshot_dir.exists() {
-        std::fs::remove_dir_all(&screenshot_dir).map_err(|e| e.to_string())?;
+    for folder in ["Screenshot", "ReviewMDimg"] {
+        let dir = exe_dir.join(folder);
+        if dir.exists() {
+            std::fs::remove_dir_all(&dir).map_err(|e| e.to_string())?;
+        }
     }
 
     Ok(())

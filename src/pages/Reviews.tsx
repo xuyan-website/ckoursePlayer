@@ -39,11 +39,6 @@ function extractTitle(content: string): string {
   return content.replace(/\s/g, "").slice(0, 10);
 }
 
-function videoDirOf(videoPath: string): string {
-  const idx = videoPath.search(/[\\/][^\\/]*$/);
-  return idx >= 0 ? videoPath.substring(0, idx) : "";
-}
-
 export function Reviews() {
   const { t } = useTranslation();
   const navigate = useNavigate();
@@ -137,7 +132,7 @@ export function Reviews() {
     if (reviews.length === 0) return;
     try {
       const outputPath = await save({
-        defaultPath: "reviewAll.zip",
+        defaultPath: "ReviewMD.zip",
         filters: [{ name: "ZIP", extensions: ["zip"] }],
       });
       if (!outputPath) return;
@@ -147,7 +142,6 @@ export function Reviews() {
         lessonTitle: r.lessonTitle,
         title: r.title,
         content: r.content,
-        videoPath: r.videoPath,
       }));
       await exportReviewsZip(items, outputPath);
       toast.success(t("reviews.exportSuccess"));
@@ -292,8 +286,6 @@ export function Reviews() {
                   <MilkdownEditor
                     defaultValue={editContent}
                     onChange={setEditContent}
-                    lessonId={review.lessonId}
-                    videoDir={videoDirOf(review.videoPath)}
                     className="review-editor"
                   />
                   <div className="mt-2 flex items-center justify-end gap-1.5">

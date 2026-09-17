@@ -280,6 +280,12 @@ function CourseDetailInner({
   }, [initialLessonId]);
 
   const activeLesson = allLessons.find((l) => l.id === activeLessonId) ?? allLessons[0];
+
+  // Reset note editor when switching lessons
+  useEffect(() => {
+    setEditingNoteId(null);
+    setShowEditor(false);
+  }, [activeLessonId]);
   const [subtitles, setSubtitles] = useState<Subtitle[]>([]);
   const [mounted, setMounted] = useState(false);
   const [activeTab, setActiveTab] = useState<"resources" | "notes" | "reviews">("notes");
@@ -731,7 +737,6 @@ function CourseDetailInner({
         lessonTitle: r.lessonTitle,
         title: r.title,
         content: r.content,
-        videoPath: activeLesson.videoPath,
       }));
       await exportReviewsZip(items, outputPath);
       toast.success(t("reviewsPanel.exportSuccess"), {
@@ -1266,9 +1271,8 @@ function CourseDetailInner({
             )}
             {activeTab === "reviews" && activeLesson && (
               <ReviewsPanel
+                key={activeLesson.id}
                 reviews={lessonReviews}
-                lessonId={activeLesson.id}
-                videoDir={activeLesson.videoPath.replace(/[\\/][^\\/]*$/, "")}
                 onAdd={handleAddReview}
                 onEdit={handleEditReview}
                 onDelete={handleDeleteReview}

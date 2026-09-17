@@ -1750,6 +1750,7 @@ pub fn delete_all_data(conn: &Connection) -> SqlResult<()> {
     conn.execute_batch(
         "
         DELETE FROM notes;
+        DELETE FROM reviews;
         DELETE FROM subtitles;
         DELETE FROM resources;
         DELETE FROM favorites;
@@ -1778,6 +1779,7 @@ pub struct ExportPayload {
     pub subtitles: Vec<serde_json::Value>,
     pub resources: Vec<serde_json::Value>,
     pub notes: Vec<serde_json::Value>,
+    pub reviews: Vec<serde_json::Value>,
     pub bookmarks: Vec<serde_json::Value>,
     pub favorites: Vec<serde_json::Value>,
     pub activity_log: Vec<serde_json::Value>,
@@ -1824,6 +1826,7 @@ pub fn export_all_data(conn: &Connection) -> SqlResult<ExportPayload> {
         subtitles: read_table(conn, "subtitles")?,
         resources: read_table(conn, "resources")?,
         notes: read_table(conn, "notes")?,
+        reviews: read_table(conn, "reviews")?,
         bookmarks: read_table(conn, "bookmarks")?,
         favorites: read_table(conn, "favorites")?,
         activity_log: read_table(conn, "activity_log")?,
@@ -1903,6 +1906,7 @@ pub fn import_all_data(conn: &Connection, payload: &ExportPayload, mode: &str) -
     insert_table(conn, "subtitles", &payload.subtitles, replace_mode)?;
     insert_table(conn, "resources", &payload.resources, replace_mode)?;
     insert_table(conn, "notes", &payload.notes, replace_mode)?;
+    insert_table(conn, "reviews", &payload.reviews, replace_mode)?;
     insert_table(conn, "bookmarks", &payload.bookmarks, replace_mode)?;
     insert_table(conn, "favorites", &payload.favorites, replace_mode)?;
     insert_table(conn, "activity_log", &payload.activity_log, replace_mode)?;
