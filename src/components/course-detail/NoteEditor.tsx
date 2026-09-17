@@ -29,6 +29,7 @@ interface NoteEditorProps {
   onSubmit: (content: string, imagePaths: string[]) => void;
   onCancel?: () => void;
   className?: string;
+  onRegisterUnsaved?: (api: { check: () => boolean; save: () => void } | null) => void;
 }
 
 interface Suggestion {
@@ -44,6 +45,7 @@ export function NoteEditor({
   onSubmit,
   onCancel,
   className,
+  onRegisterUnsaved,
 }: NoteEditorProps) {
   const { t } = useTranslation();
   const editorRef = useRef<HTMLDivElement>(null);
@@ -298,6 +300,17 @@ export function NoteEditor({
     if (editorRef.current) editorRef.current.innerHTML = "";
     setMenu(null);
   }
+
+  const handleSubmitRef = useRef(handleSubmit);
+  handleSubmitRef.current = handleSubmit;
+
+  useEffect(() => {
+    onRegisterUnsaved?.({
+      check: () => !isEmpty(),
+      save: () => handleSubmitRef.current(),
+    });
+    return () => onRegisterUnsaved?.(null);
+  }, [onRegisterUnsaved, isEmpty]);
 
   const handleCancel = useCallback(async () => {
     const newPaths = newImagePathsRef.current;

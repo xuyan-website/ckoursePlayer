@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback, useRef, useContext, lazy, Suspense } from "react";
+import { createPortal } from "react-dom";
 import { useParams, useNavigate, useSearchParams, Link } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import type { TFunction } from "i18next";
@@ -301,6 +302,21 @@ function CourseDetailInner({
   const lessonReviews = activeLesson
     ? reviews.filter((r) => r.lessonId === activeLesson.id)
     : [];
+
+  const noteUnsavedRef = useRef<{ check: () => boolean; save: () => void } | null>(null);
+  const reviewUnsavedRef = useRef<{ check: () => boolean; save: () => void } | null>(null);
+  const [unsavedType, setUnsavedType] = useState<"note" | "review" | null>(null);
+  const [pendingAction, setPendingAction] = useState<(() => void | Promise<void>) | null>(null);
+
+  const guardAction = useCallback((action: () => void | Promise<void>) => {
+    const api = activeTab === "notes" ? noteUnsavedRef.current : activeTab === "reviews" ? reviewUnsavedRef.current : null;
+    if (api?.check()) {
+      setUnsavedType(activeTab === "notes" ? "note" : "review");
+      setPendingAction(() => action);
+    } else {
+      action();
+    }
+  }, [activeTab]);
   const [autoPlay, setAutoPlay] = useState(false);
   const [curriculumOpen, setCurriculumOpen] = useState(() => {
     try {
@@ -419,14 +435,16 @@ function CourseDetailInner({
         );
       }
 
-      setActiveLessonId(lesson.id);
-      setVideoTime(0);
-      videoTimeRef.current = 0;
+      guardAction(async () => {
+        setActiveLessonId(lesson.id);
+        setVideoTime(0);
+        videoTimeRef.current = 0;
 
-      await setLastWatched(course.id, lesson.id);
-      await onDataChange();
+        await setLastWatched(course.id, lesson.id);
+        await onDataChange();
+      });
     },
-    [course.id, activeLesson?.id, onDataChange],
+    [course.id, activeLesson?.id, onDataChange, guardAction],
   );
 
   const handlePlayStateChange = useCallback(
@@ -460,14 +478,16 @@ function CourseDetailInner({
           }),
         );
       }
-      setActiveLessonId(next.id);
-      setVideoTime(0);
-      videoTimeRef.current = 0;
-      setAutoPlay(true);
-      await setLastWatched(course.id, next.id);
-      await onDataChange();
+      guardAction(async () => {
+        setActiveLessonId(next.id);
+        setVideoTime(0);
+        videoTimeRef.current = 0;
+        setAutoPlay(true);
+        await setLastWatched(course.id, next.id);
+        await onDataChange();
+      });
     }
-  }, [activeLesson, allLessons, course.id, onDataChange]);
+  }, [activeLesson, allLessons, course.id, onDataChange, guardAction]);
 
   const handleToggleComplete = useCallback(
     async (lessonId: number) => {
@@ -785,21 +805,23 @@ function CourseDetailInner({
       );
     }
 
-    setActiveLessonId(lessonId);
-    setVideoTime(0);
-    videoTimeRef.current = 0;
-    setPendingTimestampNav(null);
+    guardAction(async () => {
+      setActiveLessonId(lessonId);
+      setVideoTime(0);
+      videoTimeRef.current = 0;
+      setPendingTimestampNav(null);
 
-    await setLastWatched(course.id, lessonId);
-    await onDataChange();
+      await setLastWatched(course.id, lessonId);
+      await onDataChange();
 
-    // Seek after the new video loads
-    requestAnimationFrame(() => {
-      setTimeout(() => {
-        videoPlayerRef.current?.seekTo(seconds);
-      }, 200);
+      // Seek after the new video loads
+      requestAnimationFrame(() => {
+        setTimeout(() => {
+          videoPlayerRef.current?.seekTo(seconds);
+        }, 200);
+      });
     });
-  }, [pendingTimestampNav, activeLesson, allLessons, course.id, onDataChange]);
+  }, [pendingTimestampNav, activeLesson, allLessons, course.id, onDataChange, guardAction]);
 
   const handleOpenResource = async (path: string) => {
     try {
@@ -1099,7 +1121,7 @@ function CourseDetailInner({
               {(courseData.resources.length > 0 ||
                 (activeLesson && !activeLesson.videoPath.startsWith("gdrive:"))) && (
                 <button
-                  onClick={() => setActiveTab("resources")}
+                  onClick={() => guardAction(() => setActiveTab("resources"))}
                   className={cn(
                     "rounded-md px-2.5 py-1 font-sans text-xs font-medium transition-colors",
                     activeTab === "resources"
@@ -1115,7 +1137,7 @@ function CourseDetailInner({
                 </button>
               )}
               <button
-                onClick={() => setActiveTab("notes")}
+                onClick={() => guardAction(() => setActiveTab("notes"))}
                 className={cn(
                   "rounded-md px-2.5 py-1 font-sans text-xs font-medium transition-colors",
                   activeTab === "notes"
@@ -1135,7 +1157,7 @@ function CourseDetailInner({
                 </span>
               </button>
               <button
-                onClick={() => setActiveTab("reviews")}
+                onClick={() => guardAction(() => setActiveTab("reviews"))}
                 className={cn(
                   "rounded-md px-2.5 py-1 font-sans text-xs font-medium transition-colors",
                   activeTab === "reviews"
@@ -1267,6 +1289,7 @@ function CourseDetailInner({
                 onSetEditing={setEditingNoteId}
                 onSetShowEditor={setShowEditor}
                 onTimestampClick={handleTimestampClick}
+                onRegisterUnsaved={(api) => { noteUnsavedRef.current = api; }}
               />
             )}
             {activeTab === "reviews" && activeLesson && (
@@ -1276,6 +1299,7 @@ function CourseDetailInner({
                 onAdd={handleAddReview}
                 onEdit={handleEditReview}
                 onDelete={handleDeleteReview}
+                onRegisterUnsaved={(api) => { reviewUnsavedRef.current = api; }}
               />
             )}
           </div>
@@ -1423,6 +1447,54 @@ function CourseDetailInner({
             </div>
           </div>
         </div>
+      )}
+
+      {unsavedType && pendingAction && createPortal(
+        <div
+          className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/60"
+          onClick={() => { setUnsavedType(null); setPendingAction(null); }}
+        >
+          <div
+            className="mx-4 w-full max-w-sm rounded-xl border border-border bg-card p-5"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <h3 className="font-heading text-sm font-bold text-foreground">
+              {unsavedType === "note" ? t("courseDetail.noteUnsaved") : t("courseDetail.reviewUnsaved")}
+            </h3>
+            <div className="mt-4 flex items-center justify-end gap-2">
+              <button
+                onClick={() => { setUnsavedType(null); setPendingAction(null); }}
+                className="rounded-lg px-3 py-1.5 font-sans text-xs font-medium text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground"
+              >
+                {t("common.cancel")}
+              </button>
+              <button
+                onClick={() => {
+                  setUnsavedType(null);
+                  setPendingAction(null);
+                  pendingAction?.();
+                }}
+                className="rounded-lg px-3 py-1.5 font-sans text-xs font-medium text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground"
+              >
+                {t("courseDetail.discard")}
+              </button>
+              <button
+                onClick={() => {
+                  if (unsavedType === "note") noteUnsavedRef.current?.save();
+                  else reviewUnsavedRef.current?.save();
+                  const action = pendingAction;
+                  setUnsavedType(null);
+                  setPendingAction(null);
+                  action?.();
+                }}
+                className="rounded-lg bg-primary px-3 py-1.5 font-sans text-xs font-medium text-primary-foreground transition-opacity hover:opacity-90"
+              >
+                {t("common.save")}
+              </button>
+            </div>
+          </div>
+        </div>,
+        document.body,
       )}
     </div>
   );

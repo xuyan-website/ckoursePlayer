@@ -1,4 +1,4 @@
-import { useState, useCallback } from "react";
+import { useState, useCallback, useEffect } from "react";
 import { createPortal } from "react-dom";
 import { TrashIcon as Trash, PencilSimpleIcon as PencilSimple, PlusIcon as Plus, XIcon as X, ArrowsOutSimpleIcon as ArrowsOutSimple } from "@phosphor-icons/react";
 import type { Review } from "@/types";
@@ -13,6 +13,7 @@ interface ReviewsPanelProps {
   onAdd: (title: string, content: string) => void;
   onEdit: (reviewId: number, title: string, content: string) => void;
   onDelete: (reviewId: number) => void;
+  onRegisterUnsaved?: (api: { check: () => boolean; save: () => void } | null) => void;
 }
 
 function extractTitle(content: string): string {
@@ -36,6 +37,7 @@ export function ReviewsPanel({
   onAdd,
   onEdit,
   onDelete,
+  onRegisterUnsaved,
 }: ReviewsPanelProps) {
   const { t } = useTranslation();
   const [showEditor, setShowEditor] = useState(false);
@@ -69,6 +71,14 @@ export function ReviewsPanel({
     setContent("");
     toast.success(t("courseDetail.saved"));
   }, [content, editingId, onAdd, onEdit, t]);
+
+  useEffect(() => {
+    onRegisterUnsaved?.({
+      check: () => (showEditor || editingId !== null) && !!content.trim(),
+      save: () => handleSave(),
+    });
+    return () => onRegisterUnsaved?.(null);
+  }, [onRegisterUnsaved, showEditor, editingId, content, handleSave]);
 
   const handleCancel = useCallback(() => {
     setShowEditor(false);

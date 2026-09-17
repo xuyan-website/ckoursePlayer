@@ -20,6 +20,7 @@ interface NotesPanelProps {
   onSetEditing: (id: number | null) => void;
   onSetShowEditor: (show: boolean) => void;
   onTimestampClick?: (seconds: number, lessonId: number) => void;
+  onRegisterUnsaved?: (api: { check: () => boolean; save: () => void } | null) => void;
 }
 
 export function NotesPanel({
@@ -33,6 +34,7 @@ export function NotesPanel({
   onSetEditing,
   onSetShowEditor,
   onTimestampClick,
+  onRegisterUnsaved,
 }: NotesPanelProps) {
     const { t } = useTranslation();
   return (
@@ -42,6 +44,7 @@ export function NotesPanel({
           videoTime={videoTime}
           onSubmit={onAdd}
           onCancel={() => onSetShowEditor(false)}
+          onRegisterUnsaved={onRegisterUnsaved}
         />
       ) : (
         <button
@@ -71,6 +74,7 @@ export function NotesPanel({
           onStartEdit={() => onSetEditing(note.id)}
           onCancelEdit={() => onSetEditing(null)}
           onTimestampClick={onTimestampClick}
+          onRegisterUnsaved={onRegisterUnsaved}
         />
       ))}
     </div>
@@ -86,6 +90,7 @@ interface NoteCardProps {
   onStartEdit: () => void;
   onCancelEdit: () => void;
   onTimestampClick?: (seconds: number, lessonId: number) => void;
+  onRegisterUnsaved?: (api: { check: () => boolean; save: () => void } | null) => void;
 }
 
 function NoteCard({
@@ -97,6 +102,7 @@ function NoteCard({
   onStartEdit,
   onCancelEdit,
   onTimestampClick,
+  onRegisterUnsaved,
 }: NoteCardProps) {
   if (isEditing) {
     return (
@@ -106,6 +112,7 @@ function NoteCard({
         initialImagePaths={note.imagePaths}
         onSubmit={(content, imagePaths) => onEdit(note.id, content, imagePaths)}
         onCancel={onCancelEdit}
+        onRegisterUnsaved={onRegisterUnsaved}
       />
     );
   }
