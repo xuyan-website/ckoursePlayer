@@ -747,7 +747,7 @@ function CourseDetailInner({
     if (!activeLesson || lessonReviews.length === 0) return;
     try {
       const outputPath = await save({
-        defaultPath: "ReviewMD.zip",
+        defaultPath: `ReviewMD-${activeSection?.title ?? ""}-${activeLesson.title}.zip`,
         filters: [{ name: "ZIP", extensions: ["zip"] }],
       });
       if (!outputPath) return;

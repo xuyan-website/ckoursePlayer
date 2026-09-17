@@ -225,6 +225,24 @@ fn extract_title(content: &str) -> String {
     plain
 }
 
+fn unescape_markdown(s: &str) -> String {
+    let mut result = String::new();
+    let mut chars = s.chars().peekable();
+    while let Some(c) = chars.next() {
+        if c == '\\' {
+            if let Some(&next) = chars.peek() {
+                if next.is_ascii_punctuation() {
+                    result.push(next);
+                    chars.next();
+                    continue;
+                }
+            }
+        }
+        result.push(c);
+    }
+    result
+}
+
 fn extract_image_paths(content: &str) -> Vec<String> {
     let mut paths = Vec::new();
     let mut search_from = 0;
@@ -276,13 +294,15 @@ pub fn export_reviews_zip(
         let img_paths = extract_image_paths(&item.content);
         let mut md_content = remove_br_tags(&item.content).to_string();
         for img_rel in &img_paths {
-            let img_name = std::path::Path::new(img_rel)
+            let pure_path = img_rel.split(" \"").next().unwrap_or(img_rel.as_str());
+            let unescaped = unescape_markdown(pure_path);
+            let img_name = std::path::Path::new(&unescaped)
                 .file_name()
                 .and_then(|n| n.to_str())
                 .unwrap_or("image.png")
                 .to_string();
             let relative_path = format!("ReviewMDimg/{}", img_name);
-            md_content = md_content.replace(img_rel, &relative_path);
+            md_content = md_content.replace(pure_path, &relative_path);
         }
 
         zip.start_file(&md_filename, options)
@@ -291,7 +311,9 @@ pub fn export_reviews_zip(
             .map_err(|e| e.to_string())?;
 
         for img_rel in img_paths {
-            let img_name = std::path::Path::new(&img_rel)
+            let pure_path = img_rel.split(" \"").next().unwrap_or(img_rel.as_str());
+            let unescaped = unescape_markdown(pure_path);
+            let img_name = std::path::Path::new(&unescaped)
                 .file_name()
                 .and_then(|n| n.to_str())
                 .unwrap_or("image.png")
@@ -300,7 +322,13 @@ pub fn export_reviews_zip(
                 continue;
             }
 
-            let actual_path = std::path::Path::new(&img_rel);
+            let actual_path = if std::path::Path::new(&unescaped).is_absolute() {
+                std::path::PathBuf::from(&unescaped)
+            } else {
+                let exe = std::env::current_exe().map_err(|e| e.to_string())?;
+                let exe_dir = exe.parent().ok_or("cannot resolve exe parent dir")?;
+                exe_dir.join(&unescaped)
+            };
             if !actual_path.exists() || !actual_path.is_file() {
                 continue;
             }
