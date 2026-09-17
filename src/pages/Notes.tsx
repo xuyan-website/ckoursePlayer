@@ -154,13 +154,18 @@ export function Notes({ className }: NotesProps) {
       return;
     }
 
-    let defaultZipName = "notes.zip";
-    if (hasSearch) {
-      defaultZipName = `notes-${search.trim()}.zip`;
-    } else if (courseFilter !== null) {
+    const sanitize = (s: string) =>
+      s.replace(/[/\\:*?"<>|]/g, "").trim().slice(0, 50);
+
+    let nameBase = "notes";
+    if (courseFilter !== null) {
       const courseNote = notes.find((n) => n.courseId === courseFilter);
-      if (courseNote) defaultZipName = `${courseNote.courseTitle}.zip`;
+      if (courseNote) nameBase = sanitize(courseNote.courseTitle) || "notes";
     }
+    if (hasSearch) {
+      nameBase += `-${sanitize(search.trim())}`;
+    }
+    const defaultZipName = `${nameBase}.zip`;
 
     const path = await save({
       defaultPath: defaultZipName,

@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import { save } from "@tauri-apps/plugin-dialog";
@@ -11,6 +11,8 @@ import {
   ArrowRightIcon as ArrowRight,
   BookOpenIcon as BookOpen,
   FunnelIcon as Funnel,
+  SortAscendingIcon as SortAscending,
+  SortDescendingIcon as SortDescending,
 } from "@phosphor-icons/react";
 import type { ReviewWithCourse } from "@/types";
 import {
@@ -39,6 +41,9 @@ function extractTitle(content: string): string {
   return content.replace(/\s/g, "").slice(0, 10);
 }
 
+type SortField = "updated" | "created" | "course";
+type SortDir = "desc" | "asc";
+
 export function Reviews() {
   const { t } = useTranslation();
   const navigate = useNavigate();
@@ -48,6 +53,8 @@ export function Reviews() {
   const [courseFilter, setCourseFilter] = useState<number | null>(null);
   const [editingId, setEditingId] = useState<number | null>(null);
   const [editContent, setEditContent] = useState("");
+  const [sortField, setSortField] = useState<SortField>("updated");
+  const [sortDir, setSortDir] = useState<SortDir>("desc");
 
   const reload = useCallback(() => {
     getAllReviews()
@@ -75,15 +82,31 @@ export function Reviews() {
     new Map(),
   );
 
-  const filtered = reviews.filter((r) => {
-    const matchesSearch =
-      !search ||
-      r.title.toLowerCase().includes(search.toLowerCase()) ||
-      r.content.toLowerCase().includes(search.toLowerCase()) ||
-      r.lessonTitle.toLowerCase().includes(search.toLowerCase());
-    const matchesCourse = courseFilter === null || r.courseId === courseFilter;
-    return matchesSearch && matchesCourse;
-  });
+  const filtered = useMemo(() => {
+    let result = reviews.filter((r) => {
+      const matchesSearch =
+        !search ||
+        r.title.toLowerCase().includes(search.toLowerCase()) ||
+        r.content.toLowerCase().includes(search.toLowerCase()) ||
+        r.lessonTitle.toLowerCase().includes(search.toLowerCase());
+      const matchesCourse = courseFilter === null || r.courseId === courseFilter;
+      return matchesSearch && matchesCourse;
+    });
+
+    result = [...result].sort((a, b) => {
+      let cmp = 0;
+      if (sortField === "updated") {
+        cmp = a.updatedAt.localeCompare(b.updatedAt);
+      } else if (sortField === "created") {
+        cmp = a.createdAt.localeCompare(b.createdAt);
+      } else {
+        cmp = a.courseTitle.localeCompare(b.courseTitle) || a.updatedAt.localeCompare(b.updatedAt);
+      }
+      return sortDir === "desc" ? -cmp : cmp;
+    });
+
+    return result;
+  }, [reviews, search, courseFilter, sortField, sortDir]);
 
   const handleEdit = (review: ReviewWithCourse) => {
     setEditingId(review.id);
@@ -116,6 +139,18 @@ export function Reviews() {
     setEditContent("");
   };
 
+  const toggleSort = useCallback(
+    (field: SortField) => {
+      if (sortField === field) {
+        setSortDir((d) => (d === "desc" ? "asc" : "desc"));
+      } else {
+        setSortField(field);
+        setSortDir("desc");
+      }
+    },
+    [sortField],
+  );
+
   const handleDelete = (reviewId: number) => {
     deleteReview(reviewId)
       .then(() => {
@@ -129,15 +164,27 @@ export function Reviews() {
   };
 
   const handleExportAll = async () => {
-    if (reviews.length === 0) return;
+    if (filtered.length === 0) return;
     try {
+      const sanitize = (s: string) =>
+        s.replace(/[/\\:*?"<>|]/g, "").trim().slice(0, 50);
+
+      let nameBase = "ReviewMD";
+      if (courseFilter !== null) {
+        const info = courseGroups.get(courseFilter);
+        if (info) nameBase = sanitize(info.title) || "ReviewMD";
+      }
+      if (search) {
+        nameBase += `-${sanitize(search)}`;
+      }
+
       const outputPath = await save({
-        defaultPath: "ReviewMD.zip",
+        defaultPath: `${nameBase}.zip`,
         filters: [{ name: "ZIP", extensions: ["zip"] }],
       });
       if (!outputPath) return;
 
-      const items: ExportReviewItemData[] = reviews.map((r) => ({
+      const items: ExportReviewItemData[] = filtered.map((r) => ({
         sectionTitle: r.sectionTitle,
         lessonTitle: r.lessonTitle,
         title: r.title,
@@ -181,6 +228,8 @@ export function Reviews() {
     );
   }
 
+  const SortIcon = sortDir === "desc" ? SortDescending : SortAscending;
+
   return (
     <div className="mx-auto max-w-6xl">
       <div
@@ -217,6 +266,23 @@ export function Reviews() {
           placeholder={t("reviews.searchPlaceholder")}
           className="flex-1"
         />
+        <div className="flex items-center gap-1">
+          {(["updated", "created", "course"] as SortField[]).map((field) => (
+            <button
+              key={field}
+              onClick={() => toggleSort(field)}
+              className={cn(
+                "flex items-center gap-1 rounded-md px-2 py-1.5 font-sans text-xs font-medium transition-colors",
+                sortField === field
+                  ? "border border-border bg-secondary text-foreground"
+                  : "text-muted-foreground hover:text-foreground",
+              )}
+            >
+              {field === "updated" ? t("reviews.modified") : field === "created" ? t("reviews.created") : t("reviews.course")}
+              {sortField === field && <SortIcon className="size-3" />}
+            </button>
+          ))}
+        </div>
       </div>
 
       {courseGroups.size > 1 && (

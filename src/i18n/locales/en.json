@@ -28,7 +28,7 @@
     "bookmarks": "Bookmarks",
     "progress": "Progress",
     "notes": "Notes",
-    "reviews": "Reviews 1",
+    "reviews": "Reviews",
     "settings": "Settings",
     "importCourse": "Import Course",
     "navigation": "Navigation",
@@ -469,6 +469,9 @@
     "goToLesson": "Go to lesson",
     "editReview": "Edit review",
     "deleteReview": "Delete review",
+    "modified": "Modified",
+    "created": "Created",
+    "course": "Course",
     "export": "Export all",
     "exportSuccess": "Export successful",
     "exportFailed": "Export failed"
