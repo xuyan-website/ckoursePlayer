@@ -457,7 +457,9 @@
     "exportFailed": "导出失败",
     "emptyContent": "（空内容）",
     "expand": "放大编辑",
-    "editExpanded": "编辑复习"
+    "editExpanded": "编辑复习",
+    "preview": "预览",
+    "previewExpanded": "复习预览"
   },
   "reviews": {
     "title": "复习",

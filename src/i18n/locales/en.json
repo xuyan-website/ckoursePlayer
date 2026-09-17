@@ -456,7 +456,9 @@
     "exportFailed": "Export failed",
     "emptyContent": "(empty)",
     "expand": "Expand editor",
-    "editExpanded": "Edit review"
+    "editExpanded": "Edit review",
+    "preview": "Preview",
+    "previewExpanded": "Review preview"
   },
   "reviews": {
     "title": "Reviews",

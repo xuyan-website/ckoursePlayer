@@ -13,6 +13,7 @@ import {
   FunnelIcon as Funnel,
   SortAscendingIcon as SortAscending,
   SortDescendingIcon as SortDescending,
+  EyeIcon as Eye,
 } from "@phosphor-icons/react";
 import type { ReviewWithCourse } from "@/types";
 import {
@@ -25,6 +26,7 @@ import {
 } from "@/lib/store";
 import { usePageVisible } from "@/hooks/usePageVisible";
 import { MilkdownEditor } from "@/components/course-detail/MilkdownEditor";
+import { ReviewPreviewDialog } from "@/components/course-detail/ReviewPreviewDialog";
 import { SquircleSearch } from "@/components/ui/SquircleSearch";
 import { reportError } from "@/lib/posthog";
 import { cn } from "@/lib/utils";
@@ -53,6 +55,7 @@ export function Reviews() {
   const [courseFilter, setCourseFilter] = useState<number | null>(null);
   const [editingId, setEditingId] = useState<number | null>(null);
   const [editContent, setEditContent] = useState("");
+  const [previewReview, setPreviewReview] = useState<ReviewWithCourse | null>(null);
   const [sortField, setSortField] = useState<SortField>("updated");
   const [sortDir, setSortDir] = useState<SortDir>("desc");
 
@@ -389,6 +392,13 @@ export function Reviews() {
                         <ArrowRight className="size-3.5" />
                       </button>
                       <button
+                        onClick={() => setPreviewReview(review)}
+                        className="rounded-md p-1 text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground"
+                        title={t("reviewsPanel.preview")}
+                      >
+                        <Eye className="size-3.5" />
+                      </button>
+                      <button
                         onClick={() => handleEdit(review)}
                         className="rounded-md p-1 text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground"
                         title={t("reviews.editReview")}
@@ -415,6 +425,31 @@ export function Reviews() {
             </div>
           ))}
         </div>
+      )}
+
+      {previewReview && (
+        <ReviewPreviewDialog
+          content={previewReview.content}
+          onClose={() => setPreviewReview(null)}
+          onSave={(newContent) => {
+            const title = extractTitle(newContent);
+            updateReview(previewReview.id, title, newContent)
+              .then(() => {
+                setReviews((prev) =>
+                  prev.map((r) =>
+                    r.id === previewReview.id
+                      ? { ...r, title, content: newContent, updatedAt: new Date().toISOString() }
+                      : r,
+                  ),
+                );
+                setPreviewReview((prev) => (prev ? { ...prev, content: newContent, title } : null));
+              })
+              .catch((err) => {
+                reportError(err, "Reviews.handleSavePreview");
+                toast.error(t("reviews.exportFailed"));
+              });
+          }}
+        />
       )}
     </div>
   );

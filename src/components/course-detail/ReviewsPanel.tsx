@@ -1,8 +1,9 @@
 import { useState, useCallback, useEffect } from "react";
 import { createPortal } from "react-dom";
-import { TrashIcon as Trash, PencilSimpleIcon as PencilSimple, PlusIcon as Plus, XIcon as X, ArrowsOutSimpleIcon as ArrowsOutSimple } from "@phosphor-icons/react";
+import { TrashIcon as Trash, PencilSimpleIcon as PencilSimple, PlusIcon as Plus, XIcon as X, ArrowsOutSimpleIcon as ArrowsOutSimple, EyeIcon as Eye } from "@phosphor-icons/react";
 import type { Review } from "@/types";
 import { MilkdownEditor } from "./MilkdownEditor";
+import { ReviewPreviewDialog } from "./ReviewPreviewDialog";
 import { useTranslation } from "react-i18next";
 import { cn } from "@/lib/utils";
 import { SNAPPY } from "@/lib/constants";
@@ -45,6 +46,7 @@ export function ReviewsPanel({
   const [content, setContent] = useState("");
   const [expanded, setExpanded] = useState(false);
   const [editorKey, setEditorKey] = useState(0);
+  const [previewReview, setPreviewReview] = useState<Review | null>(null);
 
   const handleStartAdd = useCallback(() => {
     setShowEditor(true);
@@ -187,6 +189,13 @@ export function ReviewsPanel({
                   </h4>
                   <div className="flex shrink-0 items-center gap-0.5">
                     <button
+                      onClick={() => setPreviewReview(review)}
+                      className="rounded-md p-1 text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground"
+                      title={t("reviewsPanel.preview")}
+                    >
+                      <Eye className="size-3.5" />
+                    </button>
+                    <button
                       onClick={() => handleStartEdit(review)}
                       className="rounded-md p-1 text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground"
                       title={t("reviewsPanel.edit")}
@@ -265,6 +274,18 @@ export function ReviewsPanel({
           </div>
         </div>,
         document.body,
+      )}
+
+      {previewReview && (
+        <ReviewPreviewDialog
+          content={previewReview.content}
+          onClose={() => setPreviewReview(null)}
+          onSave={(newContent) => {
+            const title = extractTitle(newContent);
+            onEdit(previewReview.id, title, newContent);
+            setPreviewReview((prev) => (prev ? { ...prev, content: newContent, title } : null));
+          }}
+        />
       )}
     </div>
   );
