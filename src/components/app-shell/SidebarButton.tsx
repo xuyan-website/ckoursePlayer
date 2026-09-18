@@ -4,6 +4,7 @@ import { cn } from "@/lib/utils";
 import type { NavItem } from "@/types";
 import { spring } from "./constants";
 import { sectionMemory } from "@/hooks/useSectionMemory";
+import { useUnsavedGuard } from "@/hooks/useUnsavedGuard";
 
 export function SidebarButton({
   item,
@@ -17,6 +18,7 @@ export function SidebarButton({
   const { t } = useTranslation();
   const location = useLocation();
   const navigate = useNavigate();
+  const guard = useUnsavedGuard();
   const searchParams = new URLSearchParams(location.search);
   const from = searchParams.get("from");
   const fromPathname = from ? from.split("?")[0] : null;
@@ -36,7 +38,11 @@ export function SidebarButton({
     if (isActive) return;
     // Navigate to the last remembered path in this section
     const target = sectionMemory.get(item.path);
-    navigate(target);
+    if (guard) {
+      guard.guardedNavigate(target);
+    } else {
+      navigate(target);
+    }
   };
 
   return (

@@ -32,6 +32,7 @@ import {
 } from "@/lib/store";
 import { NoteEditor } from "@/components/course-detail/NoteEditor";
 import { CollapsibleImages } from "@/components/course-detail/CollapsibleImages";
+import { useUnsavedGuard } from "@/hooks/useUnsavedGuard";
 import { EASE_OUT, SNAPPY } from "@/lib/constants";
 import { extractFirstTimestamp } from "@/lib/format";
 import { htmlToMarkdown } from "@/lib/htmlToMarkdown";
@@ -46,6 +47,7 @@ interface NotesProps {
 
 export function Notes({ className }: NotesProps) {
   const { t } = useTranslation();
+  const guard = useUnsavedGuard();
   const [notes, setNotes] = useState<NoteWithCourse[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
@@ -485,6 +487,9 @@ export function Notes({ className }: NotesProps) {
                   initialImagePaths={note.imagePaths}
                   onSubmit={(content, imagePaths) => handleEdit(note.id, content, imagePaths)}
                   onCancel={() => setEditingNoteId(null)}
+                  onRegisterUnsaved={(api) => {
+                    guard?.registerGuard("notes-page", api ? { ...api, type: "note" as const } : null);
+                  }}
                 />
               ) : (
                 <NoteItem

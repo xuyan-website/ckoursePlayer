@@ -12,6 +12,7 @@ import {
   useStartupUpdateCheck,
 } from "@/hooks/useUpdater";
 import { UpdateBanner } from "@/components/UpdateBanner";
+import { UnsavedGuardProvider } from "@/hooks/useUnsavedGuard";
 
 const CourseDetail = lazy(() => import("@/pages/CourseDetail").then(m => ({ default: m.CourseDetail })));
 const ImportCourse = lazy(() => import("@/pages/ImportCourse").then(m => ({ default: m.ImportCourse })));
@@ -133,10 +134,12 @@ function App() {
   return (
     <SettingsContext.Provider value={settingsCtx}>
       <UpdaterContext.Provider value={updaterCtx}>
-        <AppShell>
-          <KeepAliveRoutes />
-        </AppShell>
-        <UpdateBanner />
+        <UnsavedGuardProvider>
+          <AppShell>
+            <KeepAliveRoutes />
+          </AppShell>
+          <UpdateBanner />
+        </UnsavedGuardProvider>
       </UpdaterContext.Provider>
     </SettingsContext.Provider>
   );

@@ -4,6 +4,7 @@ import { useParams, useNavigate, useSearchParams, Link } from "react-router-dom"
 import { useTranslation } from "react-i18next";
 import type { TFunction } from "i18next";
 import { ActivePathContext } from "@/hooks/usePageVisible";
+import { useUnsavedGuard } from "@/hooks/useUnsavedGuard";
 import { open as openDialog, save } from "@tauri-apps/plugin-dialog";
 import { toast } from "sonner";
 import {
@@ -256,6 +257,7 @@ function CourseDetailInner({
   const { t } = useTranslation();
   const { settings, loaded: settingsLoaded } = useSettings();
   const { setTitle: setBreadcrumbTitle } = useCourseTitles();
+  const guard = useUnsavedGuard();
   const allLessons = courseData.sections.flatMap((s) => s.lessons);
 
   useEffect(() => {
@@ -1289,7 +1291,10 @@ function CourseDetailInner({
                 onSetEditing={setEditingNoteId}
                 onSetShowEditor={setShowEditor}
                 onTimestampClick={handleTimestampClick}
-                onRegisterUnsaved={(api) => { noteUnsavedRef.current = api; }}
+                onRegisterUnsaved={(api) => {
+                  noteUnsavedRef.current = api;
+                  guard?.registerGuard("courseDetail-note", api ? { ...api, type: "note" as const } : null);
+                }}
               />
             )}
             {activeTab === "reviews" && activeLesson && (
@@ -1299,7 +1304,10 @@ function CourseDetailInner({
                 onAdd={handleAddReview}
                 onEdit={handleEditReview}
                 onDelete={handleDeleteReview}
-                onRegisterUnsaved={(api) => { reviewUnsavedRef.current = api; }}
+                onRegisterUnsaved={(api) => {
+                  reviewUnsavedRef.current = api;
+                  guard?.registerGuard("courseDetail-review", api ? { ...api, type: "review" as const } : null);
+                }}
               />
             )}
           </div>

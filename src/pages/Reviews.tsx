@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useMemo } from "react";
+import { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import { save } from "@tauri-apps/plugin-dialog";
@@ -27,6 +27,7 @@ import {
 import { usePageVisible } from "@/hooks/usePageVisible";
 import { MilkdownEditor } from "@/components/course-detail/MilkdownEditor";
 import { ReviewPreviewDialog } from "@/components/course-detail/ReviewPreviewDialog";
+import { useUnsavedGuard } from "@/hooks/useUnsavedGuard";
 import { SquircleSearch } from "@/components/ui/SquircleSearch";
 import { reportError } from "@/lib/posthog";
 import { cn } from "@/lib/utils";
@@ -49,6 +50,7 @@ type SortDir = "desc" | "asc";
 export function Reviews() {
   const { t } = useTranslation();
   const navigate = useNavigate();
+  const guard = useUnsavedGuard();
   const [reviews, setReviews] = useState<ReviewWithCourse[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
@@ -141,6 +143,24 @@ export function Reviews() {
     setEditingId(null);
     setEditContent("");
   };
+
+  const editContentRef = useRef(editContent);
+  editContentRef.current = editContent;
+  const handleSaveEditRef = useRef(handleSaveEdit);
+  handleSaveEditRef.current = handleSaveEdit;
+
+  useEffect(() => {
+    if (editingId !== null) {
+      guard?.registerGuard("reviews-page", {
+        check: () => editingId !== null && editContentRef.current.trim().length > 0,
+        save: () => handleSaveEditRef.current(),
+        type: "review" as const,
+      });
+    } else {
+      guard?.registerGuard("reviews-page", null);
+    }
+    return () => guard?.registerGuard("reviews-page", null);
+  }, [editingId, guard]);
 
   const toggleSort = useCallback(
     (field: SortField) => {

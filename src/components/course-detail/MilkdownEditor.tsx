@@ -103,6 +103,21 @@ export function MilkdownEditor({
     };
   }, []);
 
+  useEffect(() => {
+    const handleMouseDown = (e: MouseEvent) => {
+      if (!rootRef.current) return;
+      if (rootRef.current.contains(e.target as Node)) return;
+      const slashMenu = document.querySelector('.milkdown-slash-menu[data-show="true"]');
+      if (!slashMenu || slashMenu.contains(e.target as Node)) return;
+      const editor = rootRef.current.querySelector(".ProseMirror") as HTMLElement | null;
+      if (editor) {
+        editor.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true, cancelable: true }));
+      }
+    };
+    document.addEventListener("mousedown", handleMouseDown, true);
+    return () => document.removeEventListener("mousedown", handleMouseDown, true);
+  }, []);
+
   return <div ref={rootRef} className={className} />;
 }
 
