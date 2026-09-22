@@ -381,7 +381,6 @@ export const NoteEditor = forwardRef<NoteEditorHandle, NoteEditorProps>(function
     { command: "underline", icon: TextUnderline, label: t("noteEditor.underline") },
     { command: "strikeThrough", icon: TextStrikethrough, label: t("noteEditor.strikethrough") },
   ];
-  console.log("onDetach",onDetach)
 
   return (
     <div className={cn("rounded-lg border border-border bg-card", className)}>
