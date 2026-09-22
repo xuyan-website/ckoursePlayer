@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect, useCallback } from "react";
+import { useState, useRef, useEffect, useCallback, forwardRef, useImperativeHandle } from "react";
 import {
   PaperPlaneTiltIcon as PaperPlaneTilt,
   XIcon as X,
@@ -9,6 +9,8 @@ import {
   ClockIcon as Clock,
   TrashIcon as Trash,
   CameraIcon as Camera,
+  ArrowSquareOutIcon as ArrowSquareOut,
+  ArrowSquareInIcon as ArrowSquareIn,
 } from "@phosphor-icons/react";
 import { open } from "@tauri-apps/plugin-dialog";
 import { convertFileSrc } from "@tauri-apps/api/core";
@@ -28,6 +30,8 @@ interface NoteEditorProps {
   initialImagePaths?: string[];
   onSubmit: (content: string, imagePaths: string[]) => void;
   onCancel?: () => void;
+  onDetach?: () => void;
+  detached?: boolean;
   className?: string;
   onRegisterUnsaved?: (api: { check: () => boolean; save: () => void } | null) => void;
 }
@@ -38,20 +42,33 @@ interface Suggestion {
   seconds: number;
 }
 
-export function NoteEditor({
+export interface NoteEditorHandle {
+  getContent: () => { html: string; imagePaths: string[] };
+}
+
+export const NoteEditor = forwardRef<NoteEditorHandle, NoteEditorProps>(function NoteEditor({
   videoTime,
   initialContent = "",
   initialImagePaths = [],
   onSubmit,
   onCancel,
+  onDetach,
+  detached = false,
   className,
   onRegisterUnsaved,
-}: NoteEditorProps) {
+}: NoteEditorProps, ref) {
   const { t } = useTranslation();
   const editorRef = useRef<HTMLDivElement>(null);
   const videoTimeRef = useRef(videoTime);
   const [imagePaths, setImagePaths] = useState<string[]>(initialImagePaths);
   const [lightboxIndex, setLightboxIndex] = useState<number | null>(null);
+
+  useImperativeHandle(ref, () => ({
+    getContent: () => ({
+      html: editorRef.current?.innerHTML ?? "",
+      imagePaths,
+    }),
+  }), [imagePaths]);
   const [menu, setMenu] = useState<{
     x: number;
     y: number;
@@ -364,6 +381,7 @@ export function NoteEditor({
     { command: "underline", icon: TextUnderline, label: t("noteEditor.underline") },
     { command: "strikeThrough", icon: TextStrikethrough, label: t("noteEditor.strikethrough") },
   ];
+  console.log("onDetach",onDetach)
 
   return (
     <div className={cn("rounded-lg border border-border bg-card", className)}>
@@ -390,6 +408,24 @@ export function NoteEditor({
         <span className="ml-2 font-mono text-[10px] text-muted-foreground/40">
           {t("noteEditor.type")} <span className="text-muted-foreground/60">@</span> {t("noteEditor.toTagTime")}
         </span>
+
+        {onDetach && (
+          <button
+            onMouseDown={(e) => e.preventDefault()}
+            onClick={onDetach}
+            title={detached ? t("noteEditor.dock") : t("noteEditor.detach")}
+            className="ml-auto flex items-center gap-1 rounded-md px-1.5 py-0.5 text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground"
+          >
+            {detached ? (
+              <ArrowSquareIn className="size-3.5" />
+            ) : (
+              <ArrowSquareOut className="size-3.5" />
+            )}
+            <span className="font-sans text-[10px]">
+              {detached ? t("noteEditor.dock") : t("noteEditor.detach")}
+            </span>
+          </button>
+        )}
       </div>
 
       <div className="flex flex-col gap-1.5 border-b border-border/50 px-2 py-1.5">
@@ -499,4 +535,4 @@ export function NoteEditor({
       )}
     </div>
   );
-}
+});

@@ -444,7 +444,10 @@
     "replaceImage": "Replace image",
     "removeImage": "Remove image",
     "images_one": "{{count}} image",
-    "images_other": "{{count}} images"
+    "images_other": "{{count}} images",
+    "detach": "Detach",
+    "dock": "Dock",
+    "floatingNote": "Note"
   },
   "reviewsPanel": {
     "addReview": "Add review",

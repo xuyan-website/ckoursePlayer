@@ -445,7 +445,10 @@
     "replaceImage": "替换图片",
     "removeImage": "删除图片",
     "images_one": "{{count}} 张图片",
-    "images_other": "{{count}} 张图片"
+    "images_other": "{{count}} 张图片",
+    "detach": "脱离",
+    "dock": "收回",
+    "floatingNote": "笔记"
   },
   "reviewsPanel": {
     "addReview": "添加复习",

@@ -1,11 +1,15 @@
+import { useRef, useState } from "react";
 import {
   NotePencilIcon as NotePencil,
   PencilSimpleIcon as PencilSimple,
   TrashIcon as Trash,
+  XIcon as X,
 } from "@phosphor-icons/react";
-import { NoteEditor } from "./NoteEditor";
+import { createPortal } from "react-dom";
+import { NoteEditor, type NoteEditorHandle } from "./NoteEditor";
 import { CollapsibleImages } from "./CollapsibleImages";
 import { SNAPPY } from "@/lib/constants";
+import { useDetachableWindow } from "@/hooks/useDetachableWindow";
 import type { Note } from "@/types";
 import { useTranslation } from "react-i18next";
 
@@ -40,7 +44,7 @@ export function NotesPanel({
   return (
     <div className="flex flex-col gap-3">
       {showEditor ? (
-        <NoteEditor
+        <DetachableInlineEditor
           videoTime={videoTime}
           onSubmit={onAdd}
           onCancel={() => onSetShowEditor(false)}
@@ -106,7 +110,7 @@ function NoteCard({
 }: NoteCardProps) {
   if (isEditing) {
     return (
-      <NoteEditor
+      <DetachableInlineEditor
         videoTime={videoTime}
         initialContent={note.content}
         initialImagePaths={note.imagePaths}
@@ -172,5 +176,78 @@ function NoteCard({
         </span>
       </div>
     </div>
+  );
+}
+
+interface DetachableInlineEditorProps {
+  videoTime: number;
+  initialContent?: string;
+  initialImagePaths?: string[];
+  onSubmit: (content: string, imagePaths: string[]) => void;
+  onCancel?: () => void;
+  onRegisterUnsaved?: (api: { check: () => boolean; save: () => void } | null) => void;
+}
+
+function DetachableInlineEditor({
+  videoTime,
+  initialContent,
+  initialImagePaths,
+  onSubmit,
+  onCancel,
+  onRegisterUnsaved,
+}: DetachableInlineEditorProps) {
+  const { t } = useTranslation();
+  const { detached, pos, containerRef, handleDetach: toggleDetach, startDrag } = useDetachableWindow();
+  const editorRef = useRef<NoteEditorHandle>(null);
+  const [snapshot, setSnapshot] = useState<{ html: string; imagePaths: string[] } | null>(null);
+
+  const handleDetach = () => {
+    const c = editorRef.current?.getContent();
+    if (c) setSnapshot(c);
+    toggleDetach();
+  };
+
+  const editor = (
+    <NoteEditor
+      ref={editorRef}
+      videoTime={videoTime}
+      initialContent={snapshot?.html ?? initialContent}
+      initialImagePaths={snapshot?.imagePaths ?? initialImagePaths}
+      onDetach={handleDetach}
+      detached={detached}
+      onSubmit={onSubmit}
+      onCancel={onCancel}
+      onRegisterUnsaved={onRegisterUnsaved}
+    />
+  );
+
+  if (!detached) return editor;
+
+  return createPortal(
+    <div
+      ref={containerRef}
+      className="fixed z-[60] flex flex-col rounded-lg border border-border bg-card shadow-2xl"
+      style={{ left: pos.x, top: pos.y, width: 480 }}
+    >
+      <div
+        onMouseDown={startDrag}
+        className="flex cursor-move select-none items-center gap-2 border-b border-border/50 px-3 py-1.5"
+      >
+        <NotePencil className="size-3.5 text-muted-foreground" weight="bold" />
+        <span className="font-sans text-xs font-medium text-foreground">
+          {t("noteEditor.floatingNote")}
+        </span>
+        <button
+          onMouseDown={(e) => e.stopPropagation()}
+          onClick={onCancel}
+          title={t("common.close")}
+          className="ml-auto rounded-md p-1 text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground"
+        >
+          <X className="size-3.5" />
+        </button>
+      </div>
+      {editor}
+    </div>,
+    document.body,
   );
 }

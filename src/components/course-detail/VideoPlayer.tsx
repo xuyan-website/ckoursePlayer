@@ -28,8 +28,11 @@ import {
   GoogleDriveLogoIcon as GoogleDriveLogo,
   NotePencilIcon as NotePencil,
   CameraIcon as Camera,
+  ArrowSquareInIcon as ArrowSquareIn,
+  XIcon as X,
 } from "@phosphor-icons/react";
 import { useTranslation } from "react-i18next";
+import { createPortal } from "react-dom";
 import { cn } from "@/lib/utils";
 import { formatVideoTime } from "@/lib/format";
 import type { Lesson, Subtitle, VideoPlayerHandle } from "@/types";
@@ -38,6 +41,7 @@ import { driveAuthStatus, driveConnect, driveCredentialsStatus } from "@/lib/dri
 import { reportError } from "@/lib/posthog";
 import { EASE_OUT } from "@/lib/constants";
 import { NoteEditor } from "./NoteEditor";
+import { useDetachableWindow } from "@/hooks/useDetachableWindow";
 
 interface VideoPlayerProps {
   lesson: Lesson | undefined;
@@ -1694,31 +1698,20 @@ export const VideoPlayer = forwardRef<VideoPlayerHandle, VideoPlayerProps>(funct
       `}</style>
 
       {showNoteDialog && onAddNote && (
-        <div
-          className="absolute inset-0 z-50 flex items-center justify-center bg-black/60"
-          onClick={(e) => {
-            if (e.target === e.currentTarget) setShowNoteDialog(false);
+        <DetachableEditorDialog
+          videoTime={Math.floor(videoTime)}
+          onSubmit={async (content: string, imagePaths: string[]) => {
+            const ok = onAddNote ? await onAddNote(content, imagePaths) : true;
+            if (ok) {
+              setShowNoteDialog(false);
+              setNoteSavedTip(true);
+              if (noteTipTimerRef.current) clearTimeout(noteTipTimerRef.current);
+              noteTipTimerRef.current = setTimeout(() => setNoteSavedTip(false), 2000);
+            }
           }}
-        >
-          <div
-            className="w-full max-w-lg p-4"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <NoteEditor
-              videoTime={Math.floor(videoTime)}
-              onSubmit={async (content: string, imagePaths: string[]) => {
-                const ok = onAddNote ? await onAddNote(content, imagePaths) : true;
-                if (ok) {
-                  setShowNoteDialog(false);
-                  setNoteSavedTip(true);
-                  if (noteTipTimerRef.current) clearTimeout(noteTipTimerRef.current);
-                  noteTipTimerRef.current = setTimeout(() => setNoteSavedTip(false), 2000);
-                }
-              }}
-              onCancel={() => setShowNoteDialog(false)}
-            />
-          </div>
-        </div>
+          onCancel={() => setShowNoteDialog(false)}
+          onClose={() => setShowNoteDialog(false)}
+        />
       )}
 
       {noteSavedTip && isFullscreen && (
@@ -1728,41 +1721,118 @@ export const VideoPlayer = forwardRef<VideoPlayerHandle, VideoPlayerProps>(funct
       )}
 
       {showScreenshotDialog && screenshotImagePath && (
-        <div
-          className="absolute inset-0 z-50 flex items-center justify-center bg-black/60"
-          onClick={(e) => {
-            if (e.target === e.currentTarget) {
-              closeScreenshotDialog();
+        <DetachableEditorDialog
+          videoTime={Math.floor(videoTime)}
+          initialImagePaths={screenshotImagePath ? [screenshotImagePath] : []}
+          onSubmit={async (content: string, imagePaths: string[]): Promise<void> => {
+            const ok = onAddNote ? await onAddNote(content, imagePaths) : true;
+            if (ok) {
+              setShowScreenshotDialog(false);
+              setScreenshotImagePath(null);
+              setNoteSavedTip(true);
+              if (noteTipTimerRef.current) clearTimeout(noteTipTimerRef.current);
+              noteTipTimerRef.current = setTimeout(() => setNoteSavedTip(false), 2000);
             }
           }}
-        >
-          <div
-            className="w-full max-w-lg p-4"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <NoteEditor
-              videoTime={Math.floor(videoTime)}
-              initialImagePaths={screenshotImagePath ? [screenshotImagePath] : []}
-              onSubmit={async (content: string, imagePaths: string[]):Promise<void> => {
-                const ok = onAddNote ? await onAddNote(content, imagePaths) : true;
-                if (ok) {
-                  setShowScreenshotDialog(false);
-                  setScreenshotImagePath(null);
-                  setNoteSavedTip(true);
-                  if (noteTipTimerRef.current) clearTimeout(noteTipTimerRef.current);
-                  noteTipTimerRef.current = setTimeout(() => setNoteSavedTip(false), 2000);
-                }
-              }}
-              onCancel={() => {
-                closeScreenshotDialog();
-              }}
-            />
-          </div>
-        </div>
+          onCancel={() => {
+            closeScreenshotDialog();
+          }}
+          onClose={() => {
+            closeScreenshotDialog();
+          }}
+        />
       )}
     </div>
   );
 });
+
+function DetachableEditorDialog({
+  videoTime,
+  initialImagePaths,
+  onSubmit,
+  onCancel,
+  onClose,
+}: {
+  videoTime: number;
+  initialImagePaths?: string[];
+  onSubmit: (content: string, imagePaths: string[]) => void;
+  onCancel?: () => void;
+  onClose: () => void;
+}) {
+  const { t } = useTranslation();
+  const { detached, pos, containerRef, handleDetach, startDrag, setDetached } = useDetachableWindow();
+
+  return createPortal(
+    <>
+      {!detached && (
+        <div
+          className="fixed inset-0 z-50 bg-black/60"
+          onClick={(e) => {
+            if (e.target === e.currentTarget) onClose();
+          }}
+        />
+      )}
+      <div
+        ref={containerRef}
+        className={cn(
+          detached
+            ? "fixed z-[60] flex flex-col rounded-lg border border-border bg-card shadow-2xl"
+            : "fixed inset-0 z-50 flex items-center justify-center",
+        )}
+        style={detached ? { left: pos.x, top: pos.y, width: 480 } : undefined}
+        onClick={
+          detached
+            ? undefined
+            : (e) => {
+                if (e.target === e.currentTarget) onClose();
+              }
+        }
+      >
+        {detached && (
+          <div
+            onMouseDown={startDrag}
+            className="flex cursor-move select-none items-center gap-2 border-b border-border/50 px-3 py-1.5"
+          >
+            <NotePencil className="size-3.5 text-muted-foreground" weight="bold" />
+            <span className="font-sans text-xs font-medium text-foreground">
+              {t("noteEditor.floatingNote")}
+            </span>
+            <button
+              onMouseDown={(e) => e.stopPropagation()}
+              onClick={() => setDetached(false)}
+              title={t("noteEditor.dock")}
+              className="ml-auto rounded-md p-1 text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground"
+            >
+              <ArrowSquareIn className="size-3.5" />
+            </button>
+            <button
+              onMouseDown={(e) => e.stopPropagation()}
+              onClick={onClose}
+              title={t("common.close")}
+              className="rounded-md p-1 text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground"
+            >
+              <X className="size-3.5" />
+            </button>
+          </div>
+        )}
+        <div
+          className={cn(detached ? "w-full" : "w-full max-w-lg p-4")}
+          onClick={detached ? undefined : (e) => e.stopPropagation()}
+        >
+          <NoteEditor
+            videoTime={videoTime}
+            initialImagePaths={initialImagePaths}
+            onDetach={handleDetach}
+            detached={detached}
+            onSubmit={onSubmit}
+            onCancel={onCancel}
+          />
+        </div>
+      </div>
+    </>,
+    document.body,
+  );
+}
 
 function ControlButton({
   onClick,
