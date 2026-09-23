@@ -440,6 +440,8 @@
     "italic": "Italic",
     "underline": "underline",
     "strikethrough": "strikethrough",
+    "codeBlock": "Code block",
+    "searchLanguage": "Search language...",
     "addImage": "Add image",
     "replaceImage": "Replace image",
     "removeImage": "Remove image",

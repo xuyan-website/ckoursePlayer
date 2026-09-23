@@ -35,6 +35,18 @@ function convertNode(node: Node): string {
     case "div":
     case "p":
       return `\n${children}`;
+    case "pre": {
+      const codeEl = el.querySelector("code");
+      const language = el.getAttribute("data-language") || "";
+      const codeText = (codeEl ? codeEl.textContent : el.textContent) ?? "";
+      const lang = language && language !== "plaintext" && language !== "auto" ? language : "";
+      const body = codeText.replace(/\n+$/, "");
+      return `\n\`\`\`${lang}\n${body}\n\`\`\`\n`;
+    }
+    case "code": {
+      if (el.parentElement && el.parentElement.tagName.toLowerCase() === "pre") return children;
+      return `\`${children}\``;
+    }
     default:
       return children;
   }

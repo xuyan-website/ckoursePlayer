@@ -30,6 +30,7 @@
 @import "tailwindcss";
 @import "tw-animate-css";
 @import "shadcn/tailwind.css";
+@import "highlight.js/styles/github-dark.css";
 
 ::view-transition-old(root),
 ::view-transition-new(root) {
@@ -245,6 +246,31 @@
 .note-content i { font-style: italic; }
 .note-content u { text-decoration: underline; }
 .note-content s { text-decoration: line-through; }
+
+/* Code block styles — editor and rendered notes */
+.note-editable pre.note-codeblock,
+.note-content pre.note-codeblock {
+  margin: 6px 0;
+  padding: 10px 12px;
+  border-radius: 6px;
+  background: #0d1117;
+  overflow-x: auto;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  line-height: 1.5;
+  tab-size: 2;
+}
+.note-editable pre.note-codeblock code,
+.note-content pre.note-codeblock code {
+  display: block;
+  background: transparent;
+  padding: 0;
+  color: #c9d1d9;
+  white-space: pre;
+  font-family: inherit;
+  font-size: inherit;
+  line-height: inherit;
+}
 
 /* Inline timestamp pill — used in both editor and rendered notes */
 .note-timestamp {

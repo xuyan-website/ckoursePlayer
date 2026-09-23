@@ -9,6 +9,7 @@ import { createPortal } from "react-dom";
 import { NoteEditor, type NoteEditorHandle } from "./NoteEditor";
 import { CollapsibleImages } from "./CollapsibleImages";
 import { SNAPPY } from "@/lib/constants";
+import { highlightAllCodeBlocks } from "@/lib/highlight";
 import { useDetachableWindow } from "@/hooks/useDetachableWindow";
 import type { Note } from "@/types";
 import { useTranslation } from "react-i18next";
@@ -139,6 +140,7 @@ function NoteCard({
       />
       <div className="flex items-start gap-2">
         <div
+          ref={(el) => { if (el) highlightAllCodeBlocks(el); }}
           className="note-content flex-1 font-sans text-xs leading-relaxed text-foreground/90"
           dangerouslySetInnerHTML={{ __html: note.content }}
           onClick={(e) => {

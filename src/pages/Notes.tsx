@@ -36,6 +36,7 @@ import { useUnsavedGuard } from "@/hooks/useUnsavedGuard";
 import { EASE_OUT, SNAPPY } from "@/lib/constants";
 import { extractFirstTimestamp } from "@/lib/format";
 import { htmlToMarkdown } from "@/lib/htmlToMarkdown";
+import { highlightAllCodeBlocks } from "@/lib/highlight";
 import { toast } from "sonner";
 
 type SortField = "updated" | "created" | "course";
@@ -552,6 +553,7 @@ function NoteItem({
 
         <div className="min-w-0 flex-1">
           <div
+            ref={(el) => { if (el) highlightAllCodeBlocks(el); }}
             className="note-content font-sans text-sm leading-relaxed text-foreground/90"
             dangerouslySetInnerHTML={{ __html: note.content }}
             onClick={(e) => {

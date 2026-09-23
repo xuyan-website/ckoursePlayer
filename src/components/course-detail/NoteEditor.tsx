@@ -11,6 +11,7 @@ import {
   CameraIcon as Camera,
   ArrowSquareOutIcon as ArrowSquareOut,
   ArrowSquareInIcon as ArrowSquareIn,
+  CodeIcon as Code,
 } from "@phosphor-icons/react";
 import { open } from "@tauri-apps/plugin-dialog";
 import { convertFileSrc } from "@tauri-apps/api/core";
@@ -20,6 +21,14 @@ import { copyImageToScreenshot, deleteFile } from "@/lib/store";
 import { SNAPPY, EASE_OUT } from "@/lib/constants";
 import { useTranslation } from "react-i18next";
 import { ImageLightbox } from "./ImageLightbox";
+import {
+  CODE_LANGUAGES,
+  highlightCode,
+  highlightAllCodeBlocks,
+  getCaretOffset,
+  setCaretOffsetRange,
+  getLanguageLabel,
+} from "@/lib/highlight";
 
 // Matches @current or @m:ss / @h:mm:ss followed by a word boundary (space, end, punctuation)
 const TIMESTAMP_COMMIT_RE = /@(current|\d{1,2}(?::\d{2}){1,2})(?=[\s,.\-!?;:]|$)/;
@@ -78,6 +87,21 @@ export const NoteEditor = forwardRef<NoteEditorHandle, NoteEditorProps>(function
   const menuRef = useRef<HTMLDivElement>(null);
   const [activeFormats, setActiveFormats] = useState<Set<string>>(new Set());
   const newImagePathsRef = useRef<string[]>([]);
+  const isHighlightingRef = useRef(false);
+  const isComposingRef = useRef(false);
+  const [langMenu, setLangMenu] = useState<{
+    x: number;
+    y: number;
+    mode: "insert" | "change";
+    targetPre?: HTMLPreElement;
+  } | null>(null);
+  const [langQuery, setLangQuery] = useState("");
+  const [codeToolbar, setCodeToolbar] = useState<{
+    pre: HTMLPreElement;
+    x: number;
+    y: number;
+    language: string;
+  } | null>(null);
 
   const handlePickImage = useCallback(async () => {
     try {
@@ -115,6 +139,7 @@ export const NoteEditor = forwardRef<NoteEditorHandle, NoteEditorProps>(function
     if (!el) return;
     if (initialContent) {
       el.innerHTML = initialContent;
+      highlightAllCodeBlocks(el);
     } else {
       // Auto-insert current video time timestamp when opening a new note
       el.innerHTML = "<div>" + buildTimestampHtml(videoTimeRef.current) + "</div><div><br></div>";
@@ -135,6 +160,7 @@ export const NoteEditor = forwardRef<NoteEditorHandle, NoteEditorProps>(function
     const handler = () => {
       if (editorRef.current?.contains(document.activeElement) || editorRef.current === document.activeElement) {
         updateActiveFormats();
+        updateCodeToolbar();
       }
     };
     document.addEventListener("selectionchange", handler);
@@ -151,6 +177,130 @@ export const NoteEditor = forwardRef<NoteEditorHandle, NoteEditorProps>(function
     document.execCommand(command, false);
     editorRef.current?.focus();
     updateActiveFormats();
+  }
+
+  function getCurrentCodeElement(): HTMLElement | null {
+    const sel = window.getSelection();
+    if (!sel || sel.rangeCount === 0) return null;
+    let node: Node | null = sel.getRangeAt(0).startContainer;
+    const root = editorRef.current;
+    while (node && node !== root) {
+      if (node.nodeType === Node.ELEMENT_NODE && (node as HTMLElement).tagName === "CODE") {
+        const parent = node.parentElement;
+        if (parent && parent.tagName === "PRE" && parent.classList.contains("note-codeblock")) {
+          return node as HTMLElement;
+        }
+      }
+      node = node.parentNode;
+    }
+    return null;
+  }
+
+  function updateCodeToolbar() {
+    const code = getCurrentCodeElement();
+    if (!code || !code.parentElement) {
+      setCodeToolbar(null);
+      return;
+    }
+    const pre = code.parentElement as HTMLPreElement;
+    const editorRect = editorRef.current?.getBoundingClientRect();
+    if (!editorRect) {
+      setCodeToolbar(null);
+      return;
+    }
+    const preRect = pre.getBoundingClientRect();
+    const language = pre.getAttribute("data-language") || "auto";
+    setCodeToolbar({ pre, x: preRect.left - editorRect.left, y: preRect.top - editorRect.top, language });
+  }
+
+  function highlightCurrentCodeBlock() {
+    if (isHighlightingRef.current) return;
+    const code = getCurrentCodeElement();
+    if (!code) return;
+    const pre = code.parentElement;
+    if (!pre) return;
+    const language = pre.getAttribute("data-language") || "plaintext";
+
+    isHighlightingRef.current = true;
+    const { start, end } = getCaretOffset(code);
+    const text = code.textContent ?? "";
+    code.innerHTML = highlightCode(text, language);
+    code.className = "hljs language-" + language;
+    setCaretOffsetRange(code, start, end);
+    isHighlightingRef.current = false;
+  }
+
+  function insertCodeBlock(language: string) {
+    const sel = window.getSelection();
+    if (!sel || !sel.rangeCount) return;
+    const range = sel.getRangeAt(0);
+    range.deleteContents();
+
+    const pre = document.createElement("pre");
+    pre.className = "note-codeblock";
+    pre.setAttribute("data-language", language);
+
+    const code = document.createElement("code");
+    code.className = "hljs language-" + language;
+    code.innerHTML = "<br>";
+    pre.appendChild(code);
+    range.insertNode(pre);
+
+    const after = document.createElement("div");
+    after.innerHTML = "<br>";
+    pre.after(after);
+
+    const newRange = document.createRange();
+    newRange.setStart(code, 0);
+    newRange.collapse(true);
+    sel.removeAllRanges();
+    sel.addRange(newRange);
+
+    editorRef.current?.focus();
+    setLangMenu(null);
+    updateCodeToolbar();
+  }
+
+  function changeCodeBlockLanguage(pre: HTMLPreElement, language: string) {
+    pre.setAttribute("data-language", language);
+    const code = pre.querySelector("code");
+    if (code) {
+      const codeEl = code as HTMLElement;
+      const text = codeEl.textContent ?? "";
+      codeEl.innerHTML = highlightCode(text, language) || "<br>";
+      codeEl.className = "hljs language-" + language;
+    }
+    setLangMenu(null);
+    editorRef.current?.focus();
+    if (code) {
+      const codeEl = code as HTMLElement;
+      const sel = window.getSelection();
+      const range = document.createRange();
+      range.selectNodeContents(codeEl);
+      range.collapse(false);
+      sel?.removeAllRanges();
+      sel?.addRange(range);
+    }
+    const editorRect = editorRef.current?.getBoundingClientRect();
+    const preRect = pre.getBoundingClientRect();
+    if (editorRect) {
+      setCodeToolbar({ pre, x: preRect.left - editorRect.left, y: preRect.top - editorRect.top, language });
+    }
+  }
+
+  function handleCodeBlockButton(e: React.MouseEvent) {
+    e.preventDefault();
+    editorRef.current?.focus();
+    if (getCurrentCodeElement()) return;
+    insertCodeBlock("auto");
+  }
+
+  function handleLangSelect(language: string) {
+    if (langMenu?.mode === "change" && langMenu.targetPre) {
+      changeCodeBlockLanguage(langMenu.targetPre, language);
+    } else {
+      insertCodeBlock(language);
+    }
   }
 
   // Get the @... query text behind cursor, if any
@@ -303,6 +453,8 @@ export const NoteEditor = forwardRef<NoteEditorHandle, NoteEditorProps>(function
   }
 
   function handleInput() {
+    if (isComposingRef.current) return;
+    highlightCurrentCodeBlock();
     // First try to auto-commit completed patterns (after space/punctuation)
     if (tryCommitTimestamp()) return;
     updateMenu();
@@ -370,6 +522,28 @@ export const NoteEditor = forwardRef<NoteEditorHandle, NoteEditorProps>(function
       return;
     }
 
+    // Inside code block: Enter inserts a newline instead of a new block
+    if (e.key === "Enter" && !(e.metaKey || e.ctrlKey)) {
+      const currentCode = getCurrentCodeElement();
+      if (currentCode) {
+        e.preventDefault();
+        const sel = window.getSelection();
+        if (sel && sel.rangeCount) {
+          const range = sel.getRangeAt(0);
+          range.deleteContents();
+          const textNode = document.createTextNode("\n");
+          range.insertNode(textNode);
+          const newRange = document.createRange();
+          newRange.setStartAfter(textNode);
+          newRange.collapse(true);
+          sel.removeAllRanges();
+          sel.addRange(newRange);
+        }
+        highlightCurrentCodeBlock();
+        return;
+      }
+    }
+
     if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) {
       e.preventDefault();
       handleSubmit();
@@ -409,6 +583,14 @@ export const NoteEditor = forwardRef<NoteEditorHandle, NoteEditorProps>(function
             <Icon className="size-3.5" />
           </button>
         ))}
+
+        <button
+          onMouseDown={handleCodeBlockButton}
+          title={t("noteEditor.codeBlock")}
+          className="rounded p-1 text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground"
+        >
+          <Code className="size-3.5" />
+        </button>
 
         <span className="ml-2 font-mono text-[10px] text-muted-foreground/40">
           {t("noteEditor.type")} <span className="text-muted-foreground/60">@</span> {t("noteEditor.toTagTime")}
@@ -470,9 +652,77 @@ export const NoteEditor = forwardRef<NoteEditorHandle, NoteEditorProps>(function
           contentEditable
           onInput={handleInput}
           onKeyDown={handleKeyDown}
+          onCompositionStart={() => { isComposingRef.current = true; }}
+          onCompositionEnd={() => {
+            isComposingRef.current = false;
+            highlightCurrentCodeBlock();
+            updateActiveFormats();
+          }}
           data-placeholder={t("notesPanel.writeANote")}
           className="note-editable max-h-60 min-h-18 w-full overflow-y-auto px-3 pt-2.5 pb-2 font-sans text-xs leading-relaxed text-foreground focus:outline-none"
         />
+
+        {codeToolbar && (
+          <button
+            onMouseDown={(e) => {
+              e.preventDefault();
+              const btn = e.currentTarget as HTMLElement;
+              setLangMenu({
+                x: btn.offsetLeft,
+                y: btn.offsetTop + btn.offsetHeight,
+                mode: "change",
+                targetPre: codeToolbar.pre,
+              });
+              setLangQuery("");
+            }}
+            className="absolute z-20 flex items-center gap-1 rounded-t bg-[#161b22] px-1.5 py-0.5 font-mono text-[10px] text-[#8b949e] shadow-sm transition-colors hover:bg-[#21262d] hover:text-[#c9d1d9]"
+            style={{ left: codeToolbar.x, top: codeToolbar.y - 18 }}
+          >
+            {getLanguageLabel(codeToolbar.language)}
+          </button>
+        )}
+
+        {langMenu && (
+          <>
+            <div className="absolute inset-0 z-40" onMouseDown={() => setLangMenu(null)} />
+            <div
+              className="absolute z-50 max-h-60 w-48 overflow-y-auto rounded-lg border border-border bg-card shadow-lg"
+              style={{ left: langMenu.x, top: langMenu.y }}
+            >
+              <div className="sticky top-0 border-b border-border/50 bg-card px-2 py-1.5">
+                <input
+                  autoFocus
+                  value={langQuery}
+                  onChange={(e) => setLangQuery(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Escape") {
+                      e.preventDefault();
+                      setLangMenu(null);
+                    }
+                  }}
+                  placeholder={t("noteEditor.searchLanguage")}
+                  className="w-full bg-transparent text-xs text-foreground outline-none placeholder:text-muted-foreground/50"
+                />
+              </div>
+              {CODE_LANGUAGES.filter(
+                (l) =>
+                  l.label.toLowerCase().includes(langQuery.toLowerCase()) ||
+                  l.id.toLowerCase().includes(langQuery.toLowerCase()),
+              ).map((lang) => (
+                <button
+                  key={lang.id}
+                  onMouseDown={(e) => {
+                    e.preventDefault();
+                    handleLangSelect(lang.id);
+                  }}
+                  className="flex w-full items-center px-2.5 py-1.5 text-left text-xs text-foreground transition-colors hover:bg-secondary"
+                >
+                  {lang.label}
+                </button>
+              ))}
+            </div>
+          </>
+        )}
 
         {menu && suggestions.length > 0 && (
           <div

@@ -441,6 +441,8 @@
     "italic": "斜体",
     "underline": "下划线",
     "strikethrough": "删除线",
+    "codeBlock": "代码块",
+    "searchLanguage": "搜索语言...",
     "addImage": "添加图片",
     "replaceImage": "替换图片",
     "removeImage": "删除图片",
