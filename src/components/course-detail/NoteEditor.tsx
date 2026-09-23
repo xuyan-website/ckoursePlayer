@@ -364,6 +364,12 @@ export const NoteEditor = forwardRef<NoteEditorHandle, NoteEditorProps>(function
       }
     }
 
+    if (e.key === "Tab") {
+      e.preventDefault();
+      document.execCommand("insertText", false, "    ");
+      return;
+    }
+
     if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) {
       e.preventDefault();
       handleSubmit();
