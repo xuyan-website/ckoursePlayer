@@ -659,7 +659,7 @@ export const NoteEditor = forwardRef<NoteEditorHandle, NoteEditorProps>(function
             updateActiveFormats();
           }}
           data-placeholder={t("notesPanel.writeANote")}
-          className="note-editable max-h-60 min-h-18 w-full overflow-y-auto px-3 pt-2.5 pb-2 font-sans text-xs leading-relaxed text-foreground focus:outline-none"
+          className="note-editable max-h-60 min-h-18 w-full overflow-x-hidden overflow-y-auto px-3 pt-2.5 pb-2 font-sans text-xs leading-relaxed text-foreground focus:outline-none"
         />
 
         {codeToolbar && (

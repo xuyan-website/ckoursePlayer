@@ -1,5 +1,6 @@
 import { useEffect, useRef } from "react";
 import { Crepe } from "@milkdown/crepe";
+import { EditorView } from "@codemirror/view";
 import { convertFileSrc } from "@tauri-apps/api/core";
 import { saveReviewImageData } from "@/lib/store";
 
@@ -51,6 +52,9 @@ export function MilkdownEditor({
         [Crepe.Feature.Placeholder]: false,
       },
       featureConfigs: {
+        [Crepe.Feature.CodeMirror]: {
+          extensions: [EditorView.lineWrapping],
+        },
         [Crepe.Feature.ImageBlock]: {
           onUpload: async (file: File) => {
             const dataUrl = await fileToDataUrl(file);

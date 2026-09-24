@@ -141,7 +141,7 @@ function NoteCard({
       <div className="flex items-start gap-2">
         <div
           ref={(el) => { if (el) highlightAllCodeBlocks(el); }}
-          className="note-content flex-1 font-sans text-xs leading-relaxed text-foreground/90"
+          className="note-content min-w-0 flex-1 font-sans text-xs leading-relaxed text-foreground/90"
           dangerouslySetInnerHTML={{ __html: note.content }}
           onClick={(e) => {
             const target = e.target as HTMLElement;
