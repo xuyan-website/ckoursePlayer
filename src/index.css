@@ -252,7 +252,7 @@
   margin: 6px 0;
   padding: 10px 12px;
   border-radius: 6px;
-  background: #0d1117;
+  background: transparent;
   max-width: 100%;
   overflow-x: auto;
   font-family: var(--font-mono);
@@ -260,10 +260,7 @@
   line-height: 1.5;
   tab-size: 2;
 }
-html.light .note-editable pre.note-codeblock,
-html.light .note-content pre.note-codeblock {
-  background: #ffffff;
-}
+
 .note-editable pre.note-codeblock code,
 .note-content pre.note-codeblock code {
   display: block;

@@ -154,16 +154,42 @@ export const NoteEditor = forwardRef<NoteEditorHandle, NoteEditorProps>(function
     }
   }, []);
 
+  const cleanupEmptyCodeBlocks = useCallback((skipCurrent: boolean) => {
+    const el = editorRef.current;
+    if (!el) return;
+    const currentCode = getCurrentCodeElement();
+    el.querySelectorAll("pre.note-codeblock").forEach((pre) => {
+      const code = pre.querySelector("code");
+      if (!code) return;
+      const isCurrent = !!currentCode && code === currentCode;
+      if (skipCurrent && isCurrent) return;
+      const text = code.textContent ?? "";
+      if (!text.trim()) {
+        const next = pre.nextElementSibling;
+        pre.remove();
+        if (isCurrent && next) {
+          const sel = window.getSelection();
+          const range = document.createRange();
+          range.selectNodeContents(next);
+          range.collapse(true);
+          sel?.removeAllRanges();
+          sel?.addRange(range);
+        }
+      }
+    });
+  }, []);
+
   useEffect(() => {
     const handler = () => {
       if (editorRef.current?.contains(document.activeElement) || editorRef.current === document.activeElement) {
         updateActiveFormats();
         updateCodeToolbar();
+        cleanupEmptyCodeBlocks(true);
       }
     };
     document.addEventListener("selectionchange", handler);
     return () => document.removeEventListener("selectionchange", handler);
-  }, [updateActiveFormats]);
+  }, [updateActiveFormats, cleanupEmptyCodeBlocks]);
 
   const isEmpty = useCallback(() => {
     const el = editorRef.current;
@@ -456,6 +482,7 @@ export const NoteEditor = forwardRef<NoteEditorHandle, NoteEditorProps>(function
   function handleInput() {
     if (isComposingRef.current) return;
     highlightCurrentCodeBlock();
+    cleanupEmptyCodeBlocks(false);
     // First try to auto-commit completed patterns (after space/punctuation)
     if (tryCommitTimestamp()) return;
     updateMenu();
@@ -653,6 +680,7 @@ export const NoteEditor = forwardRef<NoteEditorHandle, NoteEditorProps>(function
           contentEditable
           onInput={handleInput}
           onKeyDown={handleKeyDown}
+          onBlur={() => cleanupEmptyCodeBlocks(false)}
           onCompositionStart={() => { isComposingRef.current = true; }}
           onCompositionEnd={() => {
             isComposingRef.current = false;
