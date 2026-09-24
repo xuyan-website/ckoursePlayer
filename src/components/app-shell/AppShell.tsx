@@ -10,6 +10,8 @@ import {
 import { cn } from "@/lib/utils";
 import { reportError } from "@/lib/posthog";
 import { useTheme } from "@/hooks/useTheme";
+import githubDarkUrl from "highlight.js/styles/github-dark.css?url";
+import githubLightUrl from "highlight.js/styles/github.css?url";
 import { AnimatedThemeToggler } from "@/components/ui/animatedThemeToggle";
 import logoDark from "@/assets/icons/logo-dark.svg";
 import logoLight from "@/assets/icons/logo-light.svg";
@@ -35,6 +37,17 @@ export function AppShell({ children }: AppShellProps) {
 function AppShellInner({ children }: AppShellProps) {
   const { t } = useTranslation();
   const { theme } = useTheme();
+
+  useEffect(() => {
+    const link = document.createElement("link");
+    link.rel = "stylesheet";
+    link.href = theme === "light" ? githubLightUrl : githubDarkUrl;
+    document.head.appendChild(link);
+    return () => {
+      document.head.removeChild(link);
+    };
+  }, [theme]);
+
   const breadcrumbs = useBreadcrumbs();
   const logo = theme === "light" ? logoLight : logoDark;
   const [collapsed, setCollapsed] = useState(false);

@@ -90,8 +90,6 @@ export const NoteEditor = forwardRef<NoteEditorHandle, NoteEditorProps>(function
   const isHighlightingRef = useRef(false);
   const isComposingRef = useRef(false);
   const [langMenu, setLangMenu] = useState<{
-    x: number;
-    y: number;
     mode: "insert" | "change";
     targetPre?: HTMLPreElement;
   } | null>(null);
@@ -262,6 +260,8 @@ export const NoteEditor = forwardRef<NoteEditorHandle, NoteEditorProps>(function
   }
 
   function changeCodeBlockLanguage(pre: HTMLPreElement, language: string) {
+    const editor = editorRef.current;
+    const savedScrollTop = editor?.scrollTop ?? 0;
     pre.setAttribute("data-language", language);
     const code = pre.querySelector("code");
     if (code) {
@@ -271,7 +271,7 @@ export const NoteEditor = forwardRef<NoteEditorHandle, NoteEditorProps>(function
       codeEl.className = "hljs language-" + language;
     }
     setLangMenu(null);
-    editorRef.current?.focus();
+    editor?.focus({ preventScroll: true });
     if (code) {
       const codeEl = code as HTMLElement;
       const sel = window.getSelection();
@@ -281,7 +281,8 @@ export const NoteEditor = forwardRef<NoteEditorHandle, NoteEditorProps>(function
       sel?.removeAllRanges();
       sel?.addRange(range);
     }
-    const editorRect = editorRef.current?.getBoundingClientRect();
+    if (editor) editor.scrollTop = savedScrollTop;
+    const editorRect = editor?.getBoundingClientRect();
     const preRect = pre.getBoundingClientRect();
     if (editorRect) {
       setCodeToolbar({ pre, x: preRect.left - editorRect.left, y: preRect.top - editorRect.top, language });
@@ -563,7 +564,7 @@ export const NoteEditor = forwardRef<NoteEditorHandle, NoteEditorProps>(function
   ];
 
   return (
-    <div className={cn("rounded-lg border border-border bg-card", className)}>
+    <div className={cn("relative rounded-lg border border-border bg-card", className)}>
       <div className="flex items-center gap-0.5 border-b border-border/50 px-2 py-1.5">
         {toolbarButtons.map(({ command, icon: Icon, label }) => (
           <button
@@ -666,62 +667,17 @@ export const NoteEditor = forwardRef<NoteEditorHandle, NoteEditorProps>(function
           <button
             onMouseDown={(e) => {
               e.preventDefault();
-              const btn = e.currentTarget as HTMLElement;
               setLangMenu({
-                x: btn.offsetLeft,
-                y: btn.offsetTop + btn.offsetHeight,
                 mode: "change",
                 targetPre: codeToolbar.pre,
               });
               setLangQuery("");
             }}
-            className="absolute z-20 flex items-center gap-1 rounded-t bg-[#161b22] px-1.5 py-0.5 font-mono text-[10px] text-[#8b949e] shadow-sm transition-colors hover:bg-[#21262d] hover:text-[#c9d1d9]"
-            style={{ left: codeToolbar.x, top: codeToolbar.y - 18 }}
+            className="absolute z-20 flex items-center gap-1 rounded bg-[#ffffff] px-2.5 py-0.5 font-mono text-[10px] text-[#8b949e] shadow-sm transition-colors hover:text-[#000000]"
+            style={{ left: 10, bottom:-30}}
           >
             {getLanguageLabel(codeToolbar.language)}
           </button>
-        )}
-
-        {langMenu && (
-          <>
-            <div className="absolute inset-0 z-40" onMouseDown={() => setLangMenu(null)} />
-            <div
-              className="absolute z-50 max-h-60 w-48 overflow-y-auto rounded-lg border border-border bg-card shadow-lg"
-              style={{ left: langMenu.x, top: langMenu.y }}
-            >
-              <div className="sticky top-0 border-b border-border/50 bg-card px-2 py-1.5">
-                <input
-                  autoFocus
-                  value={langQuery}
-                  onChange={(e) => setLangQuery(e.target.value)}
-                  onKeyDown={(e) => {
-                    if (e.key === "Escape") {
-                      e.preventDefault();
-                      setLangMenu(null);
-                    }
-                  }}
-                  placeholder={t("noteEditor.searchLanguage")}
-                  className="w-full bg-transparent text-xs text-foreground outline-none placeholder:text-muted-foreground/50"
-                />
-              </div>
-              {CODE_LANGUAGES.filter(
-                (l) =>
-                  l.label.toLowerCase().includes(langQuery.toLowerCase()) ||
-                  l.id.toLowerCase().includes(langQuery.toLowerCase()),
-              ).map((lang) => (
-                <button
-                  key={lang.id}
-                  onMouseDown={(e) => {
-                    e.preventDefault();
-                    handleLangSelect(lang.id);
-                  }}
-                  className="flex w-full items-center px-2.5 py-1.5 text-left text-xs text-foreground transition-colors hover:bg-secondary"
-                >
-                  {lang.label}
-                </button>
-              ))}
-            </div>
-          </>
         )}
 
         {menu && suggestions.length > 0 && (
@@ -763,7 +719,42 @@ export const NoteEditor = forwardRef<NoteEditorHandle, NoteEditorProps>(function
         )}
       </div>
 
-      <div className="flex items-center justify-end gap-1.5 border-t border-border/50 px-3 py-1.5">
+      <div className="relative flex items-center justify-end gap-1.5 border-t border-border/50 px-3 py-1.5">
+        {langMenu && (
+          <div className="absolute bottom-full left-3 z-50 max-h-60 w-48 overflow-y-auto rounded-lg border border-border bg-card shadow-lg">
+            <div className="sticky top-0 border-b border-border/50 bg-card px-2 py-1.5">
+              <input
+                autoFocus
+                value={langQuery}
+                onChange={(e) => setLangQuery(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Escape") {
+                    e.preventDefault();
+                    setLangMenu(null);
+                  }
+                }}
+                placeholder={t("noteEditor.searchLanguage")}
+                className="w-full bg-transparent text-xs text-foreground outline-none placeholder:text-muted-foreground/50"
+              />
+            </div>
+            {CODE_LANGUAGES.filter(
+              (l) =>
+                l.label.toLowerCase().includes(langQuery.toLowerCase()) ||
+                l.id.toLowerCase().includes(langQuery.toLowerCase()),
+            ).map((lang) => (
+              <button
+                key={lang.id}
+                onMouseDown={(e) => {
+                  e.preventDefault();
+                  handleLangSelect(lang.id);
+                }}
+                className="flex w-full items-center px-2.5 py-1.5 text-left text-xs text-foreground transition-colors hover:bg-secondary"
+              >
+                {lang.label}
+              </button>
+            ))}
+          </div>
+        )}
         {onCancel && (
           <button
             onClick={handleCancel}
@@ -784,6 +775,10 @@ export const NoteEditor = forwardRef<NoteEditorHandle, NoteEditorProps>(function
           {t("common.save")}
         </button>
       </div>
+
+      {langMenu && (
+        <div className="absolute inset-0 z-40" onMouseDown={() => setLangMenu(null)} />
+      )}
 
       {lightboxIndex !== null && imagePaths[lightboxIndex] && (
         <ImageLightbox src={convertFileSrc(imagePaths[lightboxIndex])} onClose={() => setLightboxIndex(null)} />

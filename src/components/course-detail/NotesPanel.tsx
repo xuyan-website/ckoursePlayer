@@ -138,36 +138,35 @@ function NoteCard({
         imagePaths={note.imagePaths}
         className="mb-2"
       />
-      <div className="flex items-start gap-2">
-        <div
-          ref={(el) => { if (el) highlightAllCodeBlocks(el); }}
-          className="note-content min-w-0 flex-1 font-sans text-xs leading-relaxed text-foreground/90"
-          dangerouslySetInnerHTML={{ __html: note.content }}
-          onClick={(e) => {
-            const target = e.target as HTMLElement;
-            if (target.classList.contains("note-timestamp")) {
-              const seconds = Number(target.dataset.timestamp);
-              if (!isNaN(seconds) && onTimestampClick) {
-                onTimestampClick(seconds, note.lessonId);
-              }
-            }
-          }}
-        />
-        <div className="flex shrink-0 items-center gap-0.5 opacity-0 transition-opacity group-hover:opacity-100">
-          <button
-            onClick={onStartEdit}
-            className="rounded-md p-1 text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground"
-          >
-            <PencilSimple className="size-3" />
-          </button>
-          <button
-            onClick={() => onDelete(note.id)}
-            className="rounded-md p-1 text-muted-foreground transition-colors hover:bg-destructive/15 hover:text-destructive"
-          >
-            <Trash className="size-3" />
-          </button>
-        </div>
+      <div className="mb-1.5 flex items-center gap-0.5">
+        <button
+          onClick={onStartEdit}
+          className="ml-auto rounded-md p-1 text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground"
+        >
+          <PencilSimple className="size-3" />
+        </button>
+        <button
+          onClick={() => onDelete(note.id)}
+          className="rounded-md p-1 text-muted-foreground transition-colors hover:bg-destructive/15 hover:text-destructive"
+        >
+          <Trash className="size-3" />
+        </button>
       </div>
+
+      <div
+        ref={(el) => { if (el) highlightAllCodeBlocks(el); }}
+        className="note-content font-sans text-xs leading-relaxed text-foreground/90"
+        dangerouslySetInnerHTML={{ __html: note.content }}
+        onClick={(e) => {
+          const target = e.target as HTMLElement;
+          if (target.classList.contains("note-timestamp")) {
+            const seconds = Number(target.dataset.timestamp);
+            if (!isNaN(seconds) && onTimestampClick) {
+              onTimestampClick(seconds, note.lessonId);
+            }
+          }
+        }}
+      />
 
       <div className="mt-1.5 flex items-center gap-2">
         <span className="font-mono text-[10px] text-muted-foreground/50">

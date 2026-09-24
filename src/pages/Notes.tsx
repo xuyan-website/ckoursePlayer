@@ -552,6 +552,30 @@ function NoteItem({
         />
 
         <div className="min-w-0 flex-1">
+          <div className="mb-1.5 flex items-center gap-0.5">
+            <Link
+              to={lessonUrl}
+              className="ml-auto rounded-md p-1.5 text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground"
+              title={t("notes.goToLesson")}
+            >
+              <CaretRight className="size-3.5" />
+            </Link>
+            <button
+              onClick={onStartEdit}
+              className="rounded-md p-1.5 text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground"
+              title={t("notes.editNote")}
+            >
+              <PencilSimple className="size-3.5" />
+            </button>
+            <button
+              onClick={onDelete}
+              className="rounded-md p-1.5 text-muted-foreground transition-colors hover:bg-destructive/15 hover:text-destructive"
+              title={t("notes.deleteNote")}
+            >
+              <Trash className="size-3.5" />
+            </button>
+          </div>
+
           <div
             ref={(el) => { if (el) highlightAllCodeBlocks(el); }}
             className="note-content font-sans text-sm leading-relaxed text-foreground/90"
@@ -584,30 +608,6 @@ function NoteItem({
               {formatted}
             </span>
           </div>
-        </div>
-
-        <div className="flex shrink-0 items-center gap-0.5 opacity-0 transition-opacity group-hover:opacity-100">
-          <Link
-            to={lessonUrl}
-            className="rounded-md p-1.5 text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground"
-            title={t("notes.goToLesson")}
-          >
-            <CaretRight className="size-3.5" />
-          </Link>
-          <button
-            onClick={onStartEdit}
-            className="rounded-md p-1.5 text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground"
-            title={t("notes.editNote")}
-          >
-            <PencilSimple className="size-3.5" />
-          </button>
-          <button
-            onClick={onDelete}
-            className="rounded-md p-1.5 text-muted-foreground transition-colors hover:bg-destructive/15 hover:text-destructive"
-            title={t("notes.deleteNote")}
-          >
-            <Trash className="size-3.5" />
-          </button>
         </div>
       </div>
     </div>
