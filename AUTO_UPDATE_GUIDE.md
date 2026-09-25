@@ -397,6 +397,6 @@ npm run tauri:updater
 
 5、github网页创建Release并发布
 上传两个文件
-\bundle\msi\ckoursePlayer_1.1.0_x64_en-US.msi
-\bundle\nsis\ckoursePlayer_1.1.0_x64-setup.exe
+\target\release\bundle\latest.json
+\target\release\bundle\nsis\ckoursePlayer_1.1.0_x64-setup.exe
 ```

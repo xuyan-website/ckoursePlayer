@@ -115,6 +115,9 @@ export const NoteEditor = forwardRef<NoteEditorHandle, NoteEditorProps>(function
     y: number;
   } | null>(null);
   const savedRangeRef = useRef<Range | null>(null);
+  const codeUndoStackRef = useRef<{ text: string; caretStart: number; caretEnd: number }[]>([]);
+  const codeRedoStackRef = useRef<{ text: string; caretStart: number; caretEnd: number }[]>([]);
+  const codeHistoryCodeRef = useRef<HTMLElement | null>(null);
 
   const handlePickImage = useCallback(async () => {
     try {
@@ -194,6 +197,59 @@ export const NoteEditor = forwardRef<NoteEditorHandle, NoteEditorProps>(function
     });
   }, []);
 
+  const saveCodeSnapshot = useCallback(() => {
+    const code = getCurrentCodeElement();
+    if (!code) return;
+    if (codeHistoryCodeRef.current !== code) {
+      codeUndoStackRef.current = [];
+      codeRedoStackRef.current = [];
+      codeHistoryCodeRef.current = code;
+    }
+    const text = code.textContent ?? "";
+    const { start, end } = getCaretOffset(code);
+    codeUndoStackRef.current.push({ text, caretStart: start, caretEnd: end });
+    if (codeUndoStackRef.current.length > 100) {
+      codeUndoStackRef.current.shift();
+    }
+    codeRedoStackRef.current = [];
+  }, []);
+
+  function undoCodeBlock(): boolean {
+    const code = getCurrentCodeElement();
+    if (!code || codeHistoryCodeRef.current !== code) return false;
+    if (codeUndoStackRef.current.length === 0) return false;
+    const currentText = code.textContent ?? "";
+    const { start, end } = getCaretOffset(code);
+    codeRedoStackRef.current.push({ text: currentText, caretStart: start, caretEnd: end });
+    const snapshot = codeUndoStackRef.current.pop()!;
+    const pre = code.parentElement;
+    const language = pre?.getAttribute("data-language") || "plaintext";
+    isHighlightingRef.current = true;
+    code.innerHTML = highlightCode(snapshot.text, language) || "<br>";
+    code.className = "hljs language-" + language;
+    setCaretOffsetRange(code, snapshot.caretStart, snapshot.caretEnd);
+    isHighlightingRef.current = false;
+    return true;
+  }
+
+  function redoCodeBlock(): boolean {
+    const code = getCurrentCodeElement();
+    if (!code || codeHistoryCodeRef.current !== code) return false;
+    if (codeRedoStackRef.current.length === 0) return false;
+    const currentText = code.textContent ?? "";
+    const { start, end } = getCaretOffset(code);
+    codeUndoStackRef.current.push({ text: currentText, caretStart: start, caretEnd: end });
+    const snapshot = codeRedoStackRef.current.pop()!;
+    const pre = code.parentElement;
+    const language = pre?.getAttribute("data-language") || "plaintext";
+    isHighlightingRef.current = true;
+    code.innerHTML = highlightCode(snapshot.text, language) || "<br>";
+    code.className = "hljs language-" + language;
+    setCaretOffsetRange(code, snapshot.caretStart, snapshot.caretEnd);
+    isHighlightingRef.current = false;
+    return true;
+  }
+
   useEffect(() => {
     const handler = () => {
       if (editorRef.current?.contains(document.activeElement) || editorRef.current === document.activeElement) {
@@ -206,6 +262,29 @@ export const NoteEditor = forwardRef<NoteEditorHandle, NoteEditorProps>(function
     document.addEventListener("selectionchange", handler);
     return () => document.removeEventListener("selectionchange", handler);
   }, [updateActiveFormats, cleanupEmptyCodeBlocks]);
+
+  useEffect(() => {
+    const el = editorRef.current;
+    if (!el) return;
+    const onBeforeInput = (e: InputEvent) => {
+      if (isComposingRef.current) return;
+      const code = getCurrentCodeElement();
+      if (!code) return;
+      const t = e.inputType;
+      if (
+        t === "insertText" ||
+        t === "insertReplacementText" ||
+        t === "insertFromPaste" ||
+        t === "deleteContentBackward" ||
+        t === "deleteContentForward" ||
+        t === "deleteByCut"
+      ) {
+        saveCodeSnapshot();
+      }
+    };
+    el.addEventListener("beforeinput", onBeforeInput as EventListener);
+    return () => el.removeEventListener("beforeinput", onBeforeInput as EventListener);
+  }, [saveCodeSnapshot]);
 
   const isEmpty = useCallback(() => {
     const el = editorRef.current;
@@ -802,6 +881,27 @@ export const NoteEditor = forwardRef<NoteEditorHandle, NoteEditorProps>(function
       }
     }
 
+    if ((e.metaKey || e.ctrlKey) && (e.key === "z" || e.key === "Z")) {
+      const currentCode = getCurrentCodeElement();
+      if (currentCode) {
+        e.preventDefault();
+        if (e.shiftKey) {
+          redoCodeBlock();
+        } else {
+          undoCodeBlock();
+        }
+        return;
+      }
+    }
+    if ((e.metaKey || e.ctrlKey) && e.key === "y") {
+      const currentCode = getCurrentCodeElement();
+      if (currentCode) {
+        e.preventDefault();
+        redoCodeBlock();
+        return;
+      }
+    }
+
     if (e.key === "Tab") {
       const cell = getCurrentCell();
       if (cell) {
@@ -839,6 +939,7 @@ export const NoteEditor = forwardRef<NoteEditorHandle, NoteEditorProps>(function
       const currentCode = getCurrentCodeElement();
       if (currentCode) {
         e.preventDefault();
+        saveCodeSnapshot();
         const sel = window.getSelection();
         if (sel && sel.rangeCount) {
           const range = sel.getRangeAt(0);
