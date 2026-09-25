@@ -47,6 +47,37 @@ function convertNode(node: Node): string {
       if (el.parentElement && el.parentElement.tagName.toLowerCase() === "pre") return children;
       return `\`${children}\``;
     }
+    case "table": {
+      const rows = Array.from(el.querySelectorAll("tr")) as HTMLTableRowElement[];
+      if (rows.length === 0) return "";
+      const parseRow = (tr: HTMLTableRowElement) =>
+        Array.from(tr.querySelectorAll("th, td")).map((cell) =>
+          (cell.textContent || "").replace(/\|/g, "\\|").replace(/\n/g, " ").trim() || " "
+        );
+      const header = parseRow(rows[0]);
+      const body = rows.slice(1).map(parseRow);
+      const headerCells = Array.from(rows[0].querySelectorAll("th, td")) as HTMLTableCellElement[];
+      const bodyRow = rows[1] ?? rows[0];
+      const bodyCells = Array.from(bodyRow.querySelectorAll("th, td")) as HTMLTableCellElement[];
+      const sep = headerCells.map((_, i) => {
+        const align = (bodyCells[i]?.style.textAlign || "center").toLowerCase();
+        if (align === "right") return "---:";
+        if (align === "left") return ":---";
+        return ":---:";
+      });
+      const lines = [
+        `| ${header.join(" | ")} |`,
+        `| ${sep.join(" | ")} |`,
+        ...body.map((r) => `| ${r.join(" | ")} |`),
+      ];
+      return `\n${lines.join("\n")}\n`;
+    }
+    case "thead":
+    case "tbody":
+    case "tr":
+    case "th":
+    case "td":
+      return children;
     default:
       return children;
   }

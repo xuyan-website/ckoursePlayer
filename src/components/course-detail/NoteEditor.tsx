@@ -12,6 +12,12 @@ import {
   ArrowSquareOutIcon as ArrowSquareOut,
   ArrowSquareInIcon as ArrowSquareIn,
   CodeIcon as Code,
+  TableIcon as Table,
+  PlusIcon as Plus,
+  MinusIcon as Minus,
+  TextAlignLeftIcon as TextAlignLeft,
+  TextAlignCenterIcon as TextAlignCenter,
+  TextAlignRightIcon as TextAlignRight,
 } from "@phosphor-icons/react";
 import { open } from "@tauri-apps/plugin-dialog";
 import { convertFileSrc } from "@tauri-apps/api/core";
@@ -100,6 +106,15 @@ export const NoteEditor = forwardRef<NoteEditorHandle, NoteEditorProps>(function
     y: number;
     language: string;
   } | null>(null);
+  const [tableDialog, setTableDialog] = useState(false);
+  const [tableRows, setTableRows] = useState(3);
+  const [tableCols, setTableCols] = useState(3);
+  const [tableToolbar, setTableToolbar] = useState<{
+    table: HTMLTableElement;
+    x: number;
+    y: number;
+  } | null>(null);
+  const savedRangeRef = useRef<Range | null>(null);
 
   const handlePickImage = useCallback(async () => {
     try {
@@ -184,6 +199,7 @@ export const NoteEditor = forwardRef<NoteEditorHandle, NoteEditorProps>(function
       if (editorRef.current?.contains(document.activeElement) || editorRef.current === document.activeElement) {
         updateActiveFormats();
         updateCodeToolbar();
+        updateTableToolbar();
         cleanupEmptyCodeBlocks(true);
       }
     };
@@ -283,6 +299,248 @@ export const NoteEditor = forwardRef<NoteEditorHandle, NoteEditorProps>(function
     editorRef.current?.focus();
     setLangMenu(null);
     updateCodeToolbar();
+  }
+
+  function getCurrentCell(): HTMLTableCellElement | null {
+    const sel = window.getSelection();
+    if (!sel || sel.rangeCount === 0) return null;
+    let node: Node | null = sel.getRangeAt(0).startContainer;
+    const root = editorRef.current;
+    while (node && node !== root) {
+      if (node.nodeType === Node.ELEMENT_NODE) {
+        const el = node as HTMLElement;
+        if (el.tagName === "TD" || el.tagName === "TH") {
+          return el as HTMLTableCellElement;
+        }
+      }
+      node = node.parentNode;
+    }
+    return null;
+  }
+
+  function placeCaretInCell(cell: HTMLTableCellElement, atEnd: boolean) {
+    const sel = window.getSelection();
+    if (!sel) return;
+    const range = document.createRange();
+    range.selectNodeContents(cell);
+    range.collapse(!atEnd);
+    sel.removeAllRanges();
+    sel.addRange(range);
+    cell.focus();
+  }
+
+  function insertTable(rows: number, cols: number) {
+    const editor = editorRef.current;
+    if (!editor) return;
+    const sel = window.getSelection();
+    let range: Range;
+    if (sel && sel.rangeCount && editor.contains(sel.getRangeAt(0).startContainer)) {
+      range = sel.getRangeAt(0);
+    } else if (savedRangeRef.current && editor.contains(savedRangeRef.current.startContainer)) {
+      range = savedRangeRef.current;
+    } else {
+      range = document.createRange();
+      range.selectNodeContents(editor);
+      range.collapse(false);
+    }
+    range.deleteContents();
+
+    const table = document.createElement("table");
+    table.className = "note-table";
+
+    const thead = document.createElement("thead");
+    const headRow = document.createElement("tr");
+    for (let c = 0; c < cols; c++) {
+      const th = document.createElement("th");
+      th.innerHTML = "<br>";
+      th.style.textAlign = "center";
+      headRow.appendChild(th);
+    }
+    thead.appendChild(headRow);
+    table.appendChild(thead);
+
+    const tbody = document.createElement("tbody");
+    for (let r = 1; r < rows; r++) {
+      const tr = document.createElement("tr");
+      for (let c = 0; c < cols; c++) {
+        const td = document.createElement("td");
+        td.innerHTML = "<br>";
+        tr.appendChild(td);
+      }
+      tbody.appendChild(tr);
+    }
+    table.appendChild(tbody);
+
+    range.insertNode(table);
+
+    const after = document.createElement("div");
+    after.innerHTML = "<br>";
+    table.after(after);
+
+    const firstTh = table.querySelector("th");
+    if (firstTh) {
+      const newRange = document.createRange();
+      newRange.setStart(firstTh, 0);
+      newRange.collapse(true);
+      sel?.removeAllRanges();
+      sel?.addRange(newRange);
+    }
+
+    editor.focus();
+    setTableDialog(false);
+    updateTableToolbar();
+  }
+
+  function addTableRow() {
+    const cell = getCurrentCell();
+    const table = cell?.closest("table") as HTMLTableElement | null;
+    if (!cell || !table) return;
+    const currentTr = cell.parentElement as HTMLTableRowElement;
+    const colCount = currentTr.querySelectorAll("th, td").length;
+    const newTr = document.createElement("tr");
+    for (let c = 0; c < colCount; c++) {
+      const td = document.createElement("td");
+      td.innerHTML = "<br>";
+      newTr.appendChild(td);
+    }
+    if (currentTr.parentElement?.tagName === "THEAD") {
+      let tbody = table.querySelector("tbody");
+      if (!tbody) {
+        tbody = document.createElement("tbody");
+        table.appendChild(tbody);
+      }
+      tbody.insertBefore(newTr, tbody.firstChild);
+    } else {
+      currentTr.after(newTr);
+    }
+    placeCaretInCell(newTr.firstElementChild as HTMLTableCellElement, false);
+    editorRef.current?.focus();
+  }
+
+  function addTableCol() {
+    const cell = getCurrentCell();
+    const table = cell?.closest("table") as HTMLTableElement | null;
+    if (!cell || !table) return;
+    const currentTr = cell.parentElement as HTMLTableRowElement;
+    const cells = Array.from(currentTr.querySelectorAll("th, td")) as HTMLTableCellElement[];
+    const colIdx = cells.indexOf(cell);
+    table.querySelectorAll("tr").forEach((tr) => {
+      const trCells = Array.from(tr.querySelectorAll("th, td")) as HTMLTableCellElement[];
+      const ref = trCells[colIdx];
+      if (!ref) return;
+      const isHead = tr.parentElement?.tagName === "THEAD";
+      const newCell = document.createElement(isHead ? "th" : "td");
+      newCell.innerHTML = "<br>";
+      ref.after(newCell);
+    });
+    placeCaretInCell(cell.nextElementSibling as HTMLTableCellElement, false);
+    editorRef.current?.focus();
+  }
+
+  function deleteTableRow() {
+    const cell = getCurrentCell();
+    const table = cell?.closest("table") as HTMLTableElement | null;
+    if (!cell || !table) return;
+    const currentTr = cell.parentElement as HTMLTableRowElement;
+    const isInHead = currentTr.parentElement?.tagName === "THEAD";
+    const tbody = table.querySelector("tbody");
+    if (isInHead) {
+      if (tbody && tbody.firstElementChild) {
+        const firstBodyRow = tbody.firstElementChild as HTMLTableRowElement;
+        firstBodyRow.querySelectorAll("td").forEach((td) => {
+          const th = document.createElement("th");
+          th.innerHTML = td.innerHTML;
+          td.replaceWith(th);
+        });
+        currentTr.remove();
+        table.querySelector("thead")!.appendChild(firstBodyRow);
+      } else {
+        deleteTable();
+        return;
+      }
+    } else {
+      currentTr.remove();
+      if (!tbody || !tbody.firstElementChild) {
+        deleteTable();
+        return;
+      }
+    }
+    editorRef.current?.focus();
+  }
+
+  function deleteTableCol() {
+    const cell = getCurrentCell();
+    const table = cell?.closest("table") as HTMLTableElement | null;
+    if (!cell || !table) return;
+    const currentTr = cell.parentElement as HTMLTableRowElement;
+    const cells = Array.from(currentTr.querySelectorAll("th, td")) as HTMLTableCellElement[];
+    const colIdx = cells.indexOf(cell);
+    if (cells.length <= 1) {
+      deleteTable();
+      return;
+    }
+    table.querySelectorAll("tr").forEach((tr) => {
+      const trCells = Array.from(tr.querySelectorAll("th, td")) as HTMLTableCellElement[];
+      trCells[colIdx]?.remove();
+    });
+    const remaining = Array.from(currentTr.querySelectorAll("th, td")) as HTMLTableCellElement[];
+    const newCell = remaining[Math.min(colIdx, remaining.length - 1)];
+    if (newCell) placeCaretInCell(newCell, false);
+    editorRef.current?.focus();
+  }
+
+  function deleteTable() {
+    const cell = getCurrentCell();
+    const table = (cell?.closest("table") as HTMLTableElement | null) ?? tableToolbar?.table;
+    if (!table) return;
+    const next = table.nextElementSibling;
+    table.remove();
+    if (next) {
+      const sel = window.getSelection();
+      const range = document.createRange();
+      range.selectNodeContents(next);
+      range.collapse(true);
+      sel?.removeAllRanges();
+      sel?.addRange(range);
+    }
+    setTableToolbar(null);
+    editorRef.current?.focus();
+  }
+
+  function setColumnAlign(align: "left" | "center" | "right") {
+    const cell = getCurrentCell();
+    const table = cell?.closest("table") as HTMLTableElement | null;
+    if (!cell || !table) return;
+    const currentTr = cell.parentElement as HTMLTableRowElement;
+    const cells = Array.from(currentTr.querySelectorAll("th, td")) as HTMLTableCellElement[];
+    const colIdx = cells.indexOf(cell);
+    table.querySelectorAll("tr").forEach((tr) => {
+      const trCells = Array.from(tr.querySelectorAll("th, td")) as HTMLTableCellElement[];
+      if (trCells[colIdx] && trCells[colIdx].tagName === "TD") {
+        trCells[colIdx].style.textAlign = align;
+      }
+    });
+    editorRef.current?.focus();
+  }
+
+  function updateTableToolbar() {
+    const cell = getCurrentCell();
+    if (!cell) {
+      setTableToolbar(null);
+      return;
+    }
+    const table = cell.closest("table") as HTMLTableElement | null;
+    if (!table || !table.classList.contains("note-table")) {
+      setTableToolbar(null);
+      return;
+    }
+    const editorRect = editorRef.current?.getBoundingClientRect();
+    if (!editorRect) {
+      setTableToolbar(null);
+      return;
+    }
+    const tableRect = table.getBoundingClientRect();
+    setTableToolbar({ table, x: tableRect.left - editorRect.left, y: tableRect.top - editorRect.top });
   }
 
   function changeCodeBlockLanguage(pre: HTMLPreElement, language: string) {
@@ -545,9 +803,35 @@ export const NoteEditor = forwardRef<NoteEditorHandle, NoteEditorProps>(function
     }
 
     if (e.key === "Tab") {
+      const cell = getCurrentCell();
+      if (cell) {
+        const table = cell.closest("table") as HTMLTableElement | null;
+        if (table) {
+          e.preventDefault();
+          const allCells = Array.from(table.querySelectorAll("th, td")) as HTMLTableCellElement[];
+          const idx = allCells.indexOf(cell);
+          if (e.shiftKey) {
+            const prev = allCells[idx - 1];
+            if (prev) placeCaretInCell(prev, true);
+          } else {
+            const next = allCells[idx + 1];
+            if (next) placeCaretInCell(next, false);
+          }
+          return;
+        }
+      }
       e.preventDefault();
       document.execCommand("insertText", false, "    ");
       return;
+    }
+
+    if (e.key === "Enter" && e.altKey) {
+      const cell = getCurrentCell();
+      if (cell) {
+        e.preventDefault();
+        addTableRow();
+        return;
+      }
     }
 
     // Inside code block: Enter inserts a newline instead of a new block
@@ -618,6 +902,21 @@ export const NoteEditor = forwardRef<NoteEditorHandle, NoteEditorProps>(function
           className="rounded p-1 text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground"
         >
           <Code className="size-3.5" />
+        </button>
+
+        <button
+          onMouseDown={(e) => {
+            e.preventDefault();
+            const sel = window.getSelection();
+            if (sel && sel.rangeCount) {
+              savedRangeRef.current = sel.getRangeAt(0).cloneRange();
+            }
+            setTableDialog(true);
+          }}
+          title={t("noteEditor.table")}
+          className="rounded p-1 text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground"
+        >
+          <Table className="size-3.5" />
         </button>
 
         <span className="ml-2 font-mono text-[10px] text-muted-foreground/40">
@@ -706,6 +1005,73 @@ export const NoteEditor = forwardRef<NoteEditorHandle, NoteEditorProps>(function
           >
             {getLanguageLabel(codeToolbar.language)}
           </button>
+        )}
+
+        {tableToolbar && (
+          <div
+            className="absolute z-20 flex items-center gap-0.5 rounded bg-[#ffffff] p-0.5 shadow-sm"
+            style={{ left: tableToolbar.x, top: tableToolbar.y - 22 }}
+          >
+            <button
+              onMouseDown={(e) => { e.preventDefault(); addTableRow(); }}
+              title={t("noteEditor.addRow")}
+              className="rounded p-0.5 text-[#8b949e] transition-colors hover:text-[#000000]"
+            >
+              <Plus className="size-3" />
+            </button>
+            <button
+              onMouseDown={(e) => { e.preventDefault(); addTableCol(); }}
+              title={t("noteEditor.addCol")}
+              className="rounded p-0.5 text-[#8b949e] transition-colors hover:text-[#000000]"
+            >
+              <Plus className="size-3 rotate-90" />
+            </button>
+            <span className="mx-0.5 h-3 w-px bg-[#d0d7de]" />
+            <button
+              onMouseDown={(e) => { e.preventDefault(); deleteTableRow(); }}
+              title={t("noteEditor.deleteRow")}
+              className="rounded p-0.5 text-[#8b949e] transition-colors hover:text-[#000000]"
+            >
+              <Minus className="size-3" />
+            </button>
+            <button
+              onMouseDown={(e) => { e.preventDefault(); deleteTableCol(); }}
+              title={t("noteEditor.deleteCol")}
+              className="rounded p-0.5 text-[#8b949e] transition-colors hover:text-[#000000]"
+            >
+              <Minus className="size-3 rotate-90" />
+            </button>
+            <span className="mx-0.5 h-3 w-px bg-[#d0d7de]" />
+            <button
+              onMouseDown={(e) => { e.preventDefault(); setColumnAlign("left"); }}
+              title={t("noteEditor.alignLeft")}
+              className="rounded p-0.5 text-[#8b949e] transition-colors hover:text-[#000000]"
+            >
+              <TextAlignLeft className="size-3" />
+            </button>
+            <button
+              onMouseDown={(e) => { e.preventDefault(); setColumnAlign("center"); }}
+              title={t("noteEditor.alignCenter")}
+              className="rounded p-0.5 text-[#8b949e] transition-colors hover:text-[#000000]"
+            >
+              <TextAlignCenter className="size-3" />
+            </button>
+            <button
+              onMouseDown={(e) => { e.preventDefault(); setColumnAlign("right"); }}
+              title={t("noteEditor.alignRight")}
+              className="rounded p-0.5 text-[#8b949e] transition-colors hover:text-[#000000]"
+            >
+              <TextAlignRight className="size-3" />
+            </button>
+            <span className="mx-0.5 h-3 w-px bg-[#d0d7de]" />
+            <button
+              onMouseDown={(e) => { e.preventDefault(); deleteTable(); }}
+              title={t("noteEditor.deleteTable")}
+              className="rounded p-0.5 text-[#8b949e] transition-colors hover:text-red-500"
+            >
+              <Trash className="size-3" />
+            </button>
+          </div>
         )}
 
         {menu && suggestions.length > 0 && (
@@ -803,6 +1169,59 @@ export const NoteEditor = forwardRef<NoteEditorHandle, NoteEditorProps>(function
           {t("common.save")}
         </button>
       </div>
+
+      {tableDialog && (
+        <div
+          className="absolute inset-0 z-50 flex items-center justify-center bg-black/20"
+          onMouseDown={(e) => { if (e.target === e.currentTarget) setTableDialog(false); }}
+        >
+          <div
+            className="rounded-lg border border-border bg-card p-4 shadow-lg"
+            onMouseDown={(e) => e.stopPropagation()}
+          >
+            <div className="mb-3 text-xs font-medium text-foreground">{t("noteEditor.insertTable")}</div>
+            <div className="flex items-center gap-3">
+              <label className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                {t("noteEditor.rows")}
+                <input
+                  type="number"
+                  min={1}
+                  max={20}
+                  value={tableRows}
+                  onChange={(e) => setTableRows(Math.max(1, Math.min(20, Number(e.target.value) || 1)))}
+                  className="w-16 rounded border border-border bg-transparent px-1.5 py-0.5 text-xs text-foreground outline-none"
+                />
+              </label>
+              <label className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                {t("noteEditor.cols")}
+                <input
+                  type="number"
+                  min={1}
+                  max={10}
+                  value={tableCols}
+                  onChange={(e) => setTableCols(Math.max(1, Math.min(10, Number(e.target.value) || 1)))}
+                  className="w-16 rounded border border-border bg-transparent px-1.5 py-0.5 text-xs text-foreground outline-none"
+                />
+              </label>
+            </div>
+            <div className="mt-3 flex justify-end gap-1.5">
+              <button
+                onClick={() => setTableDialog(false)}
+                className="rounded-md px-2 py-1 text-xs text-muted-foreground transition-colors hover:bg-secondary"
+              >
+                {t("common.cancel")}
+              </button>
+              <button
+                onMouseDown={(e) => e.preventDefault()}
+                onClick={() => insertTable(tableRows, tableCols)}
+                className="rounded-md bg-primary px-2 py-1 text-xs font-medium text-primary-foreground transition-opacity hover:opacity-90"
+              >
+                {t("common.confirm")}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {langMenu && (
         <div className="absolute inset-0 z-40" onMouseDown={() => setLangMenu(null)} />

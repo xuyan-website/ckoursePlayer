@@ -277,6 +277,31 @@
     color:#1a1a1a !important;
 }
 
+/* Table styles — editor and rendered notes */
+.note-editable table.note-table,
+.note-content table.note-table {
+  border-collapse: collapse;
+  table-layout: fixed;
+  width: 100%;
+  margin: 4px 0;
+  font-size: inherit;
+}
+.note-editable table.note-table th,
+.note-editable table.note-table td,
+.note-content table.note-table th,
+.note-content table.note-table td {
+  border: 1px solid var(--border);
+  padding: 4px 8px;
+  text-align: center;
+  vertical-align: top;
+  overflow-wrap: break-word;
+}
+.note-editable table.note-table th,
+.note-content table.note-table th {
+  background: var(--secondary);
+  font-weight: 600;
+}
+
 /* Inline timestamp pill — used in both editor and rendered notes */
 .note-timestamp {
   display: inline-flex;
