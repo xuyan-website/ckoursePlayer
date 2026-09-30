@@ -3,6 +3,9 @@ import { Crepe } from "@milkdown/crepe";
 import { EditorView } from "@codemirror/view";
 import { convertFileSrc } from "@tauri-apps/api/core";
 import { saveReviewImageData } from "@/lib/store";
+import { editorViewCtx } from "@milkdown/kit/core";
+import { addRowAfter, isInTable } from "@milkdown/kit/prose/tables";
+import { TextSelection } from "@milkdown/kit/prose/state";
 
 import "@milkdown/crepe/theme/common/style.css";
 import "@milkdown/crepe/theme/frame.css";
@@ -86,6 +89,59 @@ export function MilkdownEditor({
       });
     });
 
+    const getView = () => {
+      const crepe = crepeRef.current;
+      if (!crepe) return null;
+      return crepe.editor.action((ctx) => ctx.get(editorViewCtx));
+    };
+
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (!rootRef.current) return;
+      if (!rootRef.current.contains(e.target as Node)) return;
+      if (e.key === "Enter" && e.altKey && !e.shiftKey && !e.metaKey && !e.ctrlKey) {
+        const view = getView();
+        if (view && isInTable(view.state)) {
+          e.preventDefault();
+          addRowAfter(view.state, view.dispatch);
+        }
+      }
+    };
+
+    const handleTableClick = (e: MouseEvent) => {
+      if (!rootRef.current) return;
+      if (!rootRef.current.contains(e.target as Node)) return;
+      if (e.shiftKey || e.metaKey || e.ctrlKey) return;
+      const target = e.target as HTMLElement;
+      if (!target.closest("td, th")) return;
+      const view = getView();
+      if (!view) return;
+      const sel = view.state.selection;
+      const name = sel.constructor.name;
+      const node = (sel as any).node;
+      if (name === "CellSelection") {
+        const coords = view.posAtCoords({ left: e.clientX, top: e.clientY });
+        if (coords == null) return;
+        const $pos = view.state.doc.resolve(coords.pos);
+        view.dispatch(view.state.tr.setSelection(TextSelection.near($pos)));
+      } else if (name === "NodeSelection" && node?.isTextblock) {
+        const coords = view.posAtCoords({ left: e.clientX, top: e.clientY });
+        let pos: number;
+        if (coords == null) {
+          pos = sel.to - 1;
+        } else if (coords.pos <= sel.from) {
+          pos = sel.from + 1;
+        } else if (coords.pos >= sel.to) {
+          pos = sel.to - 1;
+        } else {
+          pos = coords.pos;
+        }
+        view.dispatch(view.state.tr.setSelection(TextSelection.create(view.state.doc, pos)));
+      }
+    };
+
+    document.addEventListener("keydown", handleKeyDown, true);
+    document.addEventListener("click", handleTableClick, true);
+
     crepe.create().then(() => {
       if (!rootRef.current) return;
       skipFirstRef.current = false;
@@ -102,6 +158,8 @@ export function MilkdownEditor({
 
     return () => {
       if (focusTimer) clearTimeout(focusTimer);
+      document.removeEventListener("keydown", handleKeyDown, true);
+      document.removeEventListener("click", handleTableClick, true);
       crepe.destroy();
       crepeRef.current = null;
     };

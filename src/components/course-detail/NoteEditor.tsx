@@ -116,6 +116,7 @@ export const NoteEditor = forwardRef<NoteEditorHandle, NoteEditorProps>(function
   const [clipboardDialog, setClipboardDialog] = useState(false);
   const [clipboardImages, setClipboardImages] = useState<string[]>([]);
   const clipboardPasteRef = useRef<HTMLDivElement>(null);
+  const [clipboardLightbox, setClipboardLightbox] = useState<string | null>(null);
   const [tableToolbar, setTableToolbar] = useState<{
     table: HTMLTableElement;
     x: number;
@@ -1341,8 +1342,9 @@ export const NoteEditor = forwardRef<NoteEditorHandle, NoteEditorProps>(function
                     <div key={idx} className="group/clip relative overflow-hidden rounded-md border border-border/50">
                       <img
                         src={dataUrl}
-                        className="h-20 w-full object-cover"
+                        className="h-20 w-full cursor-zoom-in object-cover"
                         alt={`clipboard-${idx}`}
+                        onClick={() => setClipboardLightbox(dataUrl)}
                       />
                       <button
                         onClick={() => setClipboardImages((prev) => prev.filter((_, i) => i !== idx))}
@@ -1375,6 +1377,9 @@ export const NoteEditor = forwardRef<NoteEditorHandle, NoteEditorProps>(function
               </button>
             </div>
           </div>
+          {clipboardLightbox && (
+            <ImageLightbox src={clipboardLightbox} onClose={() => setClipboardLightbox(null)} />
+          )}
         </div>,
         document.body,
       )}
