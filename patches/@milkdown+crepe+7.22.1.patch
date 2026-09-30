@@ -1,0 +1,88 @@
+diff --git a/node_modules/@milkdown/crepe/lib/cjs/feature/block-edit/index.js b/node_modules/@milkdown/crepe/lib/cjs/feature/block-edit/index.js
+index 69a885d..1e3bf7c 100644
+--- a/node_modules/@milkdown/crepe/lib/cjs/feature/block-edit/index.js
++++ b/node_modules/@milkdown/crepe/lib/cjs/feature/block-edit/index.js
+@@ -992,8 +992,6 @@ class MenuView {
+       content: __privateGet$1(this, _content$1),
+       debounce: 20,
+       shouldShow(view2) {
+-        if (isInCodeBlock(view2.state.selection) || isInList(view2.state.selection))
+-          return false;
+         const currentText = this.getContent(
+           view2,
+           (node) => ["paragraph", "heading"].includes(node.type.name)
+@@ -1013,6 +1011,8 @@ class MenuView {
+           }
+           return true;
+         }
++        if (isInCodeBlock(view2.state.selection) || isInList(view2.state.selection))
++          return false;
+         if (!currentText.startsWith("/")) return false;
+         return true;
+       },
+diff --git a/node_modules/@milkdown/crepe/lib/cjs/index.js b/node_modules/@milkdown/crepe/lib/cjs/index.js
+index e3207df..a7a4236 100644
+--- a/node_modules/@milkdown/crepe/lib/cjs/index.js
++++ b/node_modules/@milkdown/crepe/lib/cjs/index.js
+@@ -2756,8 +2756,6 @@ class MenuView {
+       content: __privateGet$5(this, _content$3),
+       debounce: 20,
+       shouldShow(view2) {
+-        if (isInCodeBlock(view2.state.selection) || isInList(view2.state.selection))
+-          return false;
+         const currentText = this.getContent(
+           view2,
+           (node) => ["paragraph", "heading"].includes(node.type.name)
+@@ -2777,6 +2775,8 @@ class MenuView {
+           }
+           return true;
+         }
++        if (isInCodeBlock(view2.state.selection) || isInList(view2.state.selection))
++          return false;
+         if (!currentText.startsWith("/")) return false;
+         return true;
+       },
+diff --git a/node_modules/@milkdown/crepe/lib/esm/feature/block-edit/index.js b/node_modules/@milkdown/crepe/lib/esm/feature/block-edit/index.js
+index e10bae8..1cd03bb 100644
+--- a/node_modules/@milkdown/crepe/lib/esm/feature/block-edit/index.js
++++ b/node_modules/@milkdown/crepe/lib/esm/feature/block-edit/index.js
+@@ -990,8 +990,6 @@ class MenuView {
+       content: __privateGet$1(this, _content$1),
+       debounce: 20,
+       shouldShow(view2) {
+-        if (isInCodeBlock(view2.state.selection) || isInList(view2.state.selection))
+-          return false;
+         const currentText = this.getContent(
+           view2,
+           (node) => ["paragraph", "heading"].includes(node.type.name)
+@@ -1011,6 +1009,8 @@ class MenuView {
+           }
+           return true;
+         }
++        if (isInCodeBlock(view2.state.selection) || isInList(view2.state.selection))
++          return false;
+         if (!currentText.startsWith("/")) return false;
+         return true;
+       },
+diff --git a/node_modules/@milkdown/crepe/lib/esm/index.js b/node_modules/@milkdown/crepe/lib/esm/index.js
+index 481d056..8eb16fc 100644
+--- a/node_modules/@milkdown/crepe/lib/esm/index.js
++++ b/node_modules/@milkdown/crepe/lib/esm/index.js
+@@ -2754,8 +2754,6 @@ class MenuView {
+       content: __privateGet$5(this, _content$3),
+       debounce: 20,
+       shouldShow(view2) {
+-        if (isInCodeBlock(view2.state.selection) || isInList(view2.state.selection))
+-          return false;
+         const currentText = this.getContent(
+           view2,
+           (node) => ["paragraph", "heading"].includes(node.type.name)
+@@ -2775,6 +2773,8 @@ class MenuView {
+           }
+           return true;
+         }
++        if (isInCodeBlock(view2.state.selection) || isInList(view2.state.selection))
++          return false;
+         if (!currentText.startsWith("/")) return false;
+         return true;
+       },
