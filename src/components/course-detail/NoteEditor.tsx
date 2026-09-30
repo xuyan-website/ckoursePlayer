@@ -1,4 +1,5 @@
 import { useState, useRef, useEffect, useCallback, forwardRef, useImperativeHandle } from "react";
+import { createPortal } from "react-dom";
 import {
   PaperPlaneTiltIcon as PaperPlaneTilt,
   XIcon as X,
@@ -23,7 +24,7 @@ import { open } from "@tauri-apps/plugin-dialog";
 import { convertFileSrc } from "@tauri-apps/api/core";
 import { cn } from "@/lib/utils";
 import { buildTimestampHtml, formatTimestamp, parseTimeString } from "@/lib/format";
-import { copyImageToScreenshot, deleteFile } from "@/lib/store";
+import { copyImageToScreenshot, deleteFile, saveScreenshot } from "@/lib/store";
 import { SNAPPY, EASE_OUT } from "@/lib/constants";
 import { useTranslation } from "react-i18next";
 import { ImageLightbox } from "./ImageLightbox";
@@ -44,6 +45,7 @@ interface NoteEditorProps {
   initialContent?: string;
   initialImagePaths?: string[];
   onSubmit: (content: string, imagePaths: string[]) => void;
+  onSaveOnly?: (content: string, imagePaths: string[]) => void | Promise<void>;
   onCancel?: () => void;
   onDetach?: () => void;
   detached?: boolean;
@@ -66,6 +68,7 @@ export const NoteEditor = forwardRef<NoteEditorHandle, NoteEditorProps>(function
   initialContent = "",
   initialImagePaths = [],
   onSubmit,
+  onSaveOnly,
   onCancel,
   onDetach,
   detached = false,
@@ -109,6 +112,10 @@ export const NoteEditor = forwardRef<NoteEditorHandle, NoteEditorProps>(function
   const [tableDialog, setTableDialog] = useState(false);
   const [tableRows, setTableRows] = useState(3);
   const [tableCols, setTableCols] = useState(3);
+  const [imageSourceDialog, setImageSourceDialog] = useState(false);
+  const [clipboardDialog, setClipboardDialog] = useState(false);
+  const [clipboardImages, setClipboardImages] = useState<string[]>([]);
+  const clipboardPasteRef = useRef<HTMLDivElement>(null);
   const [tableToolbar, setTableToolbar] = useState<{
     table: HTMLTableElement;
     x: number;
@@ -138,6 +145,45 @@ export const NoteEditor = forwardRef<NoteEditorHandle, NoteEditorProps>(function
     }
   }, []);
 
+  const handleClipboardPaste = useCallback((e: React.ClipboardEvent) => {
+    const items = e.clipboardData?.items;
+    if (!items) return;
+    let hasImage = false;
+    for (const item of items) {
+      if (item.type.startsWith("image/")) {
+        const file = item.getAsFile();
+        if (!file) continue;
+        hasImage = true;
+        const reader = new FileReader();
+        reader.onload = () => {
+          const dataUrl = reader.result as string;
+          setClipboardImages((prev) => [...prev, dataUrl]);
+        };
+        reader.readAsDataURL(file);
+      }
+    }
+    if (hasImage) e.preventDefault();
+  }, []);
+
+  const handleConfirmClipboardImages = useCallback(async () => {
+    for (const dataUrl of clipboardImages) {
+      try {
+        const newPath = await saveScreenshot(dataUrl);
+        newImagePathsRef.current.push(newPath);
+        setImagePaths((prev) => [...prev, newPath]);
+      } catch (err) {
+        console.error("save clipboard image failed", err);
+      }
+    }
+    setClipboardImages([]);
+    setClipboardDialog(false);
+  }, [clipboardImages]);
+
+  const handleCancelClipboardDialog = useCallback(() => {
+    setClipboardImages([]);
+    setClipboardDialog(false);
+  }, []);
+
   const updateActiveFormats = useCallback(() => {
     const formats = new Set<string>();
     for (const cmd of ["bold", "italic", "underline", "strikeThrough"]) {
@@ -149,6 +195,12 @@ export const NoteEditor = forwardRef<NoteEditorHandle, NoteEditorProps>(function
   useEffect(() => {
     videoTimeRef.current = videoTime;
   }, [videoTime]);
+
+  useEffect(() => {
+    if (clipboardDialog) {
+      clipboardPasteRef.current?.focus();
+    }
+  }, [clipboardDialog]);
 
   useEffect(() => {
     const el = editorRef.current;
@@ -957,6 +1009,15 @@ export const NoteEditor = forwardRef<NoteEditorHandle, NoteEditorProps>(function
       }
     }
 
+    if ((e.metaKey || e.ctrlKey) && (e.key === "s" || e.key === "S")) {
+      e.preventDefault();
+      if (onSaveOnly && (!isEmpty() || imagePaths.length > 0)) {
+        const html = editorRef.current?.innerHTML ?? "";
+        onSaveOnly(html, imagePaths);
+      }
+      return;
+    }
+
     if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) {
       e.preventDefault();
       handleSubmit();
@@ -1066,7 +1127,7 @@ export const NoteEditor = forwardRef<NoteEditorHandle, NoteEditorProps>(function
           </div>
         )}
         <button
-          onClick={handlePickImage}
+          onClick={() => setImageSourceDialog(true)}
           className="flex items-center gap-1.5 self-start rounded-md px-1.5 py-0.5 font-sans text-[11px] text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground"
         >
           <Camera className="size-3.5" />
@@ -1215,7 +1276,110 @@ export const NoteEditor = forwardRef<NoteEditorHandle, NoteEditorProps>(function
       </div>
 
       <div className="relative flex items-center justify-end gap-1.5 border-t border-border/50 px-3 py-1.5">
-        {langMenu && (
+      {imageSourceDialog && createPortal(
+        <div
+          className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/60"
+          onClick={(e) => { if (e.target === e.currentTarget) setImageSourceDialog(false); }}
+        >
+          <div
+            className="mx-4 w-full max-w-sm rounded-xl border border-border bg-card p-5"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <h3 className="font-heading text-sm font-bold text-foreground">{t("noteEditor.addImage")}</h3>
+            <div className="mt-4 flex flex-col gap-1.5">
+              <button
+                onClick={() => { setImageSourceDialog(false); handlePickImage(); }}
+                className="rounded-md border border-border/60 px-3 py-2 text-left text-xs text-foreground transition-colors hover:bg-secondary"
+              >
+                {t("noteEditor.addImageFromFile")}
+              </button>
+              <button
+                onClick={() => { setImageSourceDialog(false); setClipboardDialog(true); }}
+                className="rounded-md border border-border/60 px-3 py-2 text-left text-xs text-foreground transition-colors hover:bg-secondary"
+              >
+                {t("noteEditor.addImageFromClipboard")}
+              </button>
+            </div>
+            <div className="mt-4 flex justify-end">
+              <button
+                onClick={() => setImageSourceDialog(false)}
+                className="rounded-lg px-3 py-1.5 font-sans text-xs font-medium text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground"
+              >
+                {t("common.cancel")}
+              </button>
+            </div>
+          </div>
+        </div>,
+        document.body,
+      )}
+
+      {clipboardDialog && createPortal(
+        <div
+          className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/60"
+          onClick={(e) => { if (e.target === e.currentTarget) handleCancelClipboardDialog(); }}
+        >
+          <div
+            className="mx-4 w-full max-w-md rounded-xl border border-border bg-card p-5"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <h3 className="font-heading text-sm font-bold text-foreground">
+              {t("noteEditor.addImageFromClipboard")}
+            </h3>
+            <div
+              ref={clipboardPasteRef}
+              onPaste={handleClipboardPaste}
+              tabIndex={0}
+              className="mt-3 min-h-24 rounded-lg border border-dashed border-border/60 p-3 focus:outline-none focus:border-primary/50"
+            >
+              {clipboardImages.length === 0 ? (
+                <p className="py-4 text-center font-sans text-xs text-muted-foreground/60">
+                  {t("noteEditor.clipboardPasteHint")}
+                </p>
+              ) : (
+                <div className="grid grid-cols-3 gap-1.5">
+                  {clipboardImages.map((dataUrl, idx) => (
+                    <div key={idx} className="group/clip relative overflow-hidden rounded-md border border-border/50">
+                      <img
+                        src={dataUrl}
+                        className="h-20 w-full object-cover"
+                        alt={`clipboard-${idx}`}
+                      />
+                      <button
+                        onClick={() => setClipboardImages((prev) => prev.filter((_, i) => i !== idx))}
+                        title={t("noteEditor.removeImage")}
+                        className="absolute top-1 right-1 flex size-5 items-center justify-center rounded-md bg-black/50 text-white opacity-0 transition-opacity group-hover/clip:opacity-100 hover:bg-red-500/80"
+                      >
+                        <Trash className="size-3" />
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+            <p className="mt-2 font-sans text-[10px] text-muted-foreground/50">
+              {t("noteEditor.clipboardPasteHint")}
+            </p>
+            <div className="mt-4 flex items-center justify-end gap-2">
+              <button
+                onClick={handleCancelClipboardDialog}
+                className="rounded-lg px-3 py-1.5 font-sans text-xs font-medium text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground"
+              >
+                {t("common.cancel")}
+              </button>
+              <button
+                onClick={handleConfirmClipboardImages}
+                disabled={clipboardImages.length === 0}
+                className="rounded-lg bg-primary px-3 py-1.5 font-sans text-xs font-medium text-primary-foreground transition-opacity hover:opacity-90 disabled:opacity-40"
+              >
+                {t("common.confirm")}
+              </button>
+            </div>
+          </div>
+        </div>,
+        document.body,
+      )}
+
+      {langMenu && (
           <div className="absolute bottom-full left-3 z-50 max-h-60 w-48 overflow-y-auto rounded-lg border border-border bg-card shadow-lg">
             <div className="sticky top-0 border-b border-border/50 bg-card px-2 py-1.5">
               <input

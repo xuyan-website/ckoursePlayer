@@ -13,6 +13,7 @@ import { highlightAllCodeBlocks } from "@/lib/highlight";
 import { useDetachableWindow } from "@/hooks/useDetachableWindow";
 import type { Note } from "@/types";
 import { useTranslation } from "react-i18next";
+import { formatDateTime } from "@/lib/format";
 
 interface NotesPanelProps {
   notes: Note[];
@@ -21,6 +22,8 @@ interface NotesPanelProps {
   showEditor: boolean;
   onAdd: (content: string) => void;
   onEdit: (noteId: number, content: string, imagePaths: string[]) => void;
+  onSaveOnlyEdit?: (noteId: number, content: string, imagePaths: string[]) => void | Promise<void>;
+  onSaveOnlyAdd?: (content: string, imagePaths: string[]) => Promise<number | null>;
   onDelete: (noteId: number) => void;
   onSetEditing: (id: number | null) => void;
   onSetShowEditor: (show: boolean) => void;
@@ -35,6 +38,8 @@ export function NotesPanel({
   showEditor,
   onAdd,
   onEdit,
+  onSaveOnlyEdit,
+  onSaveOnlyAdd,
   onDelete,
   onSetEditing,
   onSetShowEditor,
@@ -48,6 +53,13 @@ export function NotesPanel({
         <DetachableInlineEditor
           videoTime={videoTime}
           onSubmit={onAdd}
+          onSaveOnly={onSaveOnlyAdd ? async (content, imagePaths) => {
+            const id = await onSaveOnlyAdd(content, imagePaths);
+            if (id !== null) {
+              onSetShowEditor(false);
+              onSetEditing(id);
+            }
+          } : undefined}
           onCancel={() => onSetShowEditor(false)}
           onRegisterUnsaved={onRegisterUnsaved}
         />
@@ -75,6 +87,7 @@ export function NotesPanel({
           videoTime={videoTime}
           isEditing={editingNoteId === note.id}
           onEdit={onEdit}
+          onSaveOnly={onSaveOnlyEdit ? (content, imagePaths) => onSaveOnlyEdit(note.id, content, imagePaths) : undefined}
           onDelete={onDelete}
           onStartEdit={() => onSetEditing(note.id)}
           onCancelEdit={() => onSetEditing(null)}
@@ -91,6 +104,7 @@ interface NoteCardProps {
   videoTime: number;
   isEditing: boolean;
   onEdit: (noteId: number, content: string, imagePaths: string[]) => void;
+  onSaveOnly?: (content: string, imagePaths: string[]) => void | Promise<void>;
   onDelete: (noteId: number) => void;
   onStartEdit: () => void;
   onCancelEdit: () => void;
@@ -103,6 +117,7 @@ function NoteCard({
   videoTime,
   isEditing,
   onEdit,
+  onSaveOnly,
   onDelete,
   onStartEdit,
   onCancelEdit,
@@ -116,18 +131,14 @@ function NoteCard({
         initialContent={note.content}
         initialImagePaths={note.imagePaths}
         onSubmit={(content, imagePaths) => onEdit(note.id, content, imagePaths)}
+        onSaveOnly={onSaveOnly}
         onCancel={onCancelEdit}
         onRegisterUnsaved={onRegisterUnsaved}
       />
     );
   }
 
-  const date = new Date(note.updatedAt);
-  const formatted = date.toLocaleDateString("zh-CH", {
-    year: "numeric",
-    month: "numeric",
-    day: "numeric",
-  });
+  const formatted = formatDateTime(note.updatedAt);
 
   return (
     <div
@@ -185,6 +196,7 @@ interface DetachableInlineEditorProps {
   initialContent?: string;
   initialImagePaths?: string[];
   onSubmit: (content: string, imagePaths: string[]) => void;
+  onSaveOnly?: (content: string, imagePaths: string[]) => void | Promise<void>;
   onCancel?: () => void;
   onRegisterUnsaved?: (api: { check: () => boolean; save: () => void } | null) => void;
 }
@@ -194,6 +206,7 @@ function DetachableInlineEditor({
   initialContent,
   initialImagePaths,
   onSubmit,
+  onSaveOnly,
   onCancel,
   onRegisterUnsaved,
 }: DetachableInlineEditorProps) {
@@ -217,6 +230,7 @@ function DetachableInlineEditor({
       onDetach={handleDetach}
       detached={detached}
       onSubmit={onSubmit}
+      onSaveOnly={onSaveOnly}
       onCancel={onCancel}
       onRegisterUnsaved={onRegisterUnsaved}
     />

@@ -34,7 +34,7 @@ import { NoteEditor } from "@/components/course-detail/NoteEditor";
 import { CollapsibleImages } from "@/components/course-detail/CollapsibleImages";
 import { useUnsavedGuard } from "@/hooks/useUnsavedGuard";
 import { EASE_OUT, SNAPPY } from "@/lib/constants";
-import { extractFirstTimestamp } from "@/lib/format";
+import { extractFirstTimestamp, formatDateTime } from "@/lib/format";
 import { htmlToMarkdown } from "@/lib/htmlToMarkdown";
 import { highlightAllCodeBlocks } from "@/lib/highlight";
 import { toast } from "sonner";
@@ -126,6 +126,22 @@ export function Notes({ className }: NotesProps) {
         toast.success(t("courseDetail.saved"));
       } catch (err) {
         console.error("updateNote failed", err);
+        toast.error(t("courseDetail.couldntUpdateNote"), {
+          description: t("courseDetail.changesNotSaved"),
+        });
+      }
+    },
+    [reload, t],
+  );
+
+  const handleSaveOnly = useCallback(
+    async (noteId: number, content: string, imagePaths: string[]) => {
+      try {
+        await updateNote(noteId, content, imagePaths);
+        await reload();
+        toast.success(t("courseDetail.saved"));
+      } catch (err) {
+        console.error("updateNote (saveOnly) failed", err);
         toast.error(t("courseDetail.couldntUpdateNote"), {
           description: t("courseDetail.changesNotSaved"),
         });
@@ -487,9 +503,10 @@ export function Notes({ className }: NotesProps) {
                   initialContent={note.content}
                   initialImagePaths={note.imagePaths}
                   onSubmit={(content, imagePaths) => handleEdit(note.id, content, imagePaths)}
+                  onSaveOnly={(content, imagePaths) => handleSaveOnly(note.id, content, imagePaths)}
                   onCancel={() => setEditingNoteId(null)}
                   onRegisterUnsaved={(api) => {
-                    guard?.registerGuard("notes-page", api ? { ...api, type: "note" as const } : null);
+                    guard?.registerGuard("notes-page", api ? { ...api, type: "note" as const, discard: () => setEditingNoteId(null) } : null);
                   }}
                 />
               ) : (
@@ -518,12 +535,7 @@ function NoteItem({
 }) {
   const { t } = useTranslation();
   const navigate = useNavigate();
-  const updated = new Date(note.updatedAt);
-  const formatted = updated.toLocaleDateString("zh-CN", {
-    month: "numeric",
-    day: "numeric",
-    year: "numeric",
-  });
+  const formatted = formatDateTime(note.updatedAt);
 
   // Compare the note's saved videoTime with the first timestamp embedded in
   // its content. If they differ, jump to the first timestamp's position.

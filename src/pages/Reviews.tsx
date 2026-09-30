@@ -32,6 +32,7 @@ import { SquircleSearch } from "@/components/ui/SquircleSearch";
 import { reportError } from "@/lib/posthog";
 import { cn } from "@/lib/utils";
 import { EASE_OUT, SNAPPY } from "@/lib/constants";
+import { formatDateTime } from "@/lib/format";
 
 function extractTitle(content: string): string {
   for (const line of content.split("\n")) {
@@ -150,10 +151,39 @@ export function Reviews() {
   handleSaveEditRef.current = handleSaveEdit;
 
   useEffect(() => {
+    if (editingId === null) return;
+    const handleDocKeyDown = (e: KeyboardEvent) => {
+      if (!(e.ctrlKey || e.metaKey) || (e.key !== "s" && e.key !== "S")) return;
+      e.preventDefault();
+      const currentContent = editContentRef.current;
+      if (!currentContent.trim()) return;
+      const title = extractTitle(currentContent);
+      updateReview(editingId, title, currentContent)
+        .then(() => {
+          setReviews((prev) =>
+            prev.map((r) =>
+              r.id === editingId
+                ? { ...r, title, content: currentContent, updatedAt: new Date().toISOString() }
+                : r,
+            ),
+          );
+          toast.success(t("courseDetail.saved"));
+        })
+        .catch((err) => {
+          reportError(err, "Reviews.handleSaveOnlyEdit");
+          toast.error(t("reviews.exportFailed"));
+        });
+    };
+    document.addEventListener("keydown", handleDocKeyDown);
+    return () => document.removeEventListener("keydown", handleDocKeyDown);
+  }, [editingId, t]);
+
+  useEffect(() => {
     if (editingId !== null) {
       guard?.registerGuard("reviews-page", {
         check: () => editingId !== null && editContentRef.current.trim().length > 0,
         save: () => handleSaveEditRef.current(),
+        discard: () => { setEditingId(null); setEditContent(""); },
         type: "review" as const,
       });
     } else {
@@ -405,7 +435,7 @@ export function Reviews() {
                     </div>
                     <div className="flex shrink-0 items-center gap-0.5">
                       <button
-                        onClick={() => navigate(`/course/${review.courseId}`)}
+                        onClick={() => navigate(`/course/${review.courseId}?lesson=${review.lessonId}&tab=reviews&from=/reviews`)}
                         className="rounded-md p-1 text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground"
                         title={t("reviews.goToLesson")}
                       >
@@ -438,7 +468,7 @@ export function Reviews() {
                     {review.content.replace(/[#*_`~\[\]()!]/g, "").trim().slice(0, 200)}
                   </p>
                   <p className="mt-1.5 font-sans text-[10px] text-muted-foreground/60">
-                    {review.courseTitle} · {review.updatedAt}
+                    {review.courseTitle} · {formatDateTime(review.updatedAt)}
                   </p>
                 </>
               )}

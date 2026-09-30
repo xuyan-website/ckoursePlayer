@@ -128,6 +128,7 @@ export function CourseDetail({ className }: CourseDetailProps) {
   const lessonParam = searchParams.get("lesson");
   const fromParam = searchParams.get("from") || "/";
   const timeParam = searchParams.get("time");
+  const tabParam = searchParams.get("tab");
 
   const [course, setCourse] = useState<Course | null>(null);
   const [courseData, setCourseData] = useState<CourseDetailData | null>(null);
@@ -226,6 +227,7 @@ export function CourseDetail({ className }: CourseDetailProps) {
         await toggleBookmark(course.id);
         await reload();
       }}
+      initialTab={tabParam === "reviews" ? "reviews" : tabParam === "resources" ? "resources" : undefined}
       className={className}
     />
   );
@@ -241,6 +243,7 @@ function CourseDetailInner({
   onDataChange,
   onEdit,
   onToggleBookmark,
+  initialTab,
   className,
 }: {
   course: Course;
@@ -252,6 +255,7 @@ function CourseDetailInner({
   onDataChange: () => Promise<void>;
   onEdit: () => void;
   onToggleBookmark: () => Promise<void>;
+  initialTab?: "resources" | "notes" | "reviews";
   className?: string;
 }) {
   const { t } = useTranslation();
@@ -291,7 +295,9 @@ function CourseDetailInner({
   }, [activeLessonId]);
   const [subtitles, setSubtitles] = useState<Subtitle[]>([]);
   const [mounted, setMounted] = useState(false);
-  const [activeTab, setActiveTab] = useState<"resources" | "notes" | "reviews">("notes");
+  const [activeTab, setActiveTab] = useState<"resources" | "notes" | "reviews">(
+    initialTab ?? "notes",
+  );
   const [lessonResources, setLessonResources] = useState<Resource[]>([]);
   const [selectedFile, setSelectedFile] = useState<{ name: string; path: string } | null>(null);
   const [notes, setNotes] = useState<Note[]>([]);
@@ -557,8 +563,8 @@ function CourseDetailInner({
     [activeLesson, onDataChange],
   );
 
-  async function handleAddNote(content: string, imagePaths: string[] = []): Promise<boolean> {
-    if (!activeLesson) return false;
+  async function handleAddNote(content: string, imagePaths: string[] = []): Promise<number | null> {
+    if (!activeLesson) return null;
     try {
       const note = await storeAddNote(
         course.id,
@@ -571,7 +577,7 @@ function CourseDetailInner({
       setNotes((prev) => [note, ...prev]);
       setShowEditor(false);
       toast.success(t("courseDetail.saved"));
-      return true;
+      return note.id;
     } catch (err) {
       // Keep editor open so the user doesn't lose your content.
       console.error("addNote failed", err);
@@ -583,7 +589,7 @@ function CourseDetailInner({
       toast.error(t("courseDetail.couldntSaveNote"), {
         description: t("courseDetail.contentStillInEditor"),
       });
-      return false;
+      return null;
     }
   }
 
@@ -609,6 +615,54 @@ function CourseDetailInner({
       toast.error(t("courseDetail.couldntUpdateNote"), {
         description: t("courseDetail.changesNotSaved"),
       });
+    }
+  }
+
+  async function handleSaveOnlyEditNote(noteId: number, content: string, imagePaths: string[] = []) {
+    try {
+      await storeUpdateNote(noteId, content, imagePaths);
+      setNotes((prev) =>
+        prev.map((n) =>
+          n.id === noteId
+            ? { ...n, content, imagePaths, updatedAt: new Date().toISOString() }
+            : n,
+        ),
+      );
+      toast.success(t("courseDetail.saved"));
+    } catch (err) {
+      console.error("updateNote (saveOnly) failed", err);
+      reportError(err, "CourseDetail.handleSaveOnlyEditNote", { noteId, contentLength: content.length });
+      toast.error(t("courseDetail.couldntUpdateNote"), {
+        description: t("courseDetail.changesNotSaved"),
+      });
+    }
+  }
+
+  async function handleSaveOnlyAddNote(content: string, imagePaths: string[] = []): Promise<number | null> {
+    if (!activeLesson) return null;
+    try {
+      const note = await storeAddNote(
+        course.id,
+        activeLesson.id,
+        activeLesson.title,
+        content,
+        videoTimeRef.current,
+        imagePaths,
+      );
+      setNotes((prev) => [note, ...prev]);
+      toast.success(t("courseDetail.saved"));
+      return note.id;
+    } catch (err) {
+      console.error("addNote (saveOnly) failed", err);
+      reportError(err, "CourseDetail.handleSaveOnlyAddNote", {
+        courseId: course.id,
+        lessonId: activeLesson.id,
+        contentLength: content.length,
+      });
+      toast.error(t("courseDetail.couldntSaveNote"), {
+        description: t("courseDetail.contentStillInEditor"),
+      });
+      return null;
     }
   }
 
@@ -686,24 +740,25 @@ function CourseDetailInner({
     : undefined;
 
   const handleAddReview = useCallback(
-    (title: string, content: string) => {
-      if (!activeLesson) return;
-      storeAddReview(
-        course.id,
-        activeLesson.id,
-        activeSection?.title ?? "",
-        activeLesson.title,
-        title,
-        content,
-      )
-        .then((review) => {
-          setReviews((prev) => [review, ...prev]);
-        })
-        .catch((err) => {
-          console.error("add review failed", err);
-          reportError(err, "CourseDetail.handleAddReview");
-          toast.error(t("courseDetail.couldntSaveReview"));
-        });
+    async (title: string, content: string): Promise<number | null> => {
+      if (!activeLesson) return null;
+      try {
+        const review = await storeAddReview(
+          course.id,
+          activeLesson.id,
+          activeSection?.title ?? "",
+          activeLesson.title,
+          title,
+          content,
+        );
+        setReviews((prev) => [review, ...prev]);
+        return review.id;
+      } catch (err) {
+        console.error("add review failed", err);
+        reportError(err, "CourseDetail.handleAddReview");
+        toast.error(t("courseDetail.couldntSaveReview"));
+        return null;
+      }
     },
     [activeLesson, activeSection, course.id, t],
   );
@@ -1042,6 +1097,27 @@ function CourseDetailInner({
             onEnded={handleVideoEnded}
             onNext={handleNextLesson}
             onAddNote={handleAddNote}
+            onUpdateNote={async (noteId, content, imagePaths) => {
+              try {
+                await storeUpdateNote(noteId, content, imagePaths);
+                setNotes((prev) =>
+                  prev.map((n) =>
+                    n.id === noteId
+                      ? { ...n, content, imagePaths, updatedAt: new Date().toISOString() }
+                      : n,
+                  ),
+                );
+                toast.success(t("courseDetail.saved"));
+                return true;
+              } catch (err) {
+                console.error("updateNote (video) failed", err);
+                reportError(err, "CourseDetail.onUpdateNote", { noteId, contentLength: content.length });
+                toast.error(t("courseDetail.couldntUpdateNote"), {
+                  description: t("courseDetail.changesNotSaved"),
+                });
+                return false;
+              }
+            }}
           />
 
           {activeLesson && (
@@ -1287,6 +1363,8 @@ function CourseDetailInner({
                 showEditor={showEditor}
                 onAdd={handleAddNote}
                 onEdit={handleEditNote}
+                onSaveOnlyEdit={handleSaveOnlyEditNote}
+                onSaveOnlyAdd={handleSaveOnlyAddNote}
                 onDelete={handleDeleteNote}
                 onSetEditing={setEditingNoteId}
                 onSetShowEditor={setShowEditor}

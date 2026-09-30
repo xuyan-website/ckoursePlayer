@@ -61,7 +61,8 @@ interface VideoPlayerProps {
   onPlayStateChange?: (playing: boolean) => void;
   onEnded?: () => void;
   onNext?: () => void;
-  onAddNote?: (content: string, imagePaths: string[]) => Promise<boolean>;
+  onAddNote?: (content: string, imagePaths: string[]) => Promise<number | null>;
+  onUpdateNote?: (noteId: number, content: string, imagePaths: string[]) => Promise<boolean>;
 }
 
 const SPEED_OPTIONS = [0.5, 0.75, 1, 1.25, 1.5, 1.75, 2];
@@ -216,6 +217,7 @@ export const VideoPlayer = forwardRef<VideoPlayerHandle, VideoPlayerProps>(funct
   onEnded,
   onNext,
   onAddNote,
+  onUpdateNote,
 }, ref) {
   const navigate = useNavigate();
   const { t } = useTranslation();
@@ -258,6 +260,7 @@ export const VideoPlayer = forwardRef<VideoPlayerHandle, VideoPlayerProps>(funct
   const noteTipTimerRef = useRef<ReturnType<typeof setTimeout>>(null);
   const [showScreenshotDialog, setShowScreenshotDialog] = useState(false);
   const [screenshotImagePath, setScreenshotImagePath] = useState<string | null>(null);
+  const [savedNoteId, setSavedNoteId] = useState<number | null>(null);
   const [showVolumeSlider, setShowVolumeSlider] = useState(false);
   const [showSpeedMenu, setShowSpeedMenu] = useState(false);
   const [showSubtitleMenu, setShowSubtitleMenu] = useState(false);
@@ -499,6 +502,7 @@ export const VideoPlayer = forwardRef<VideoPlayerHandle, VideoPlayerProps>(funct
       const savedPath = await captureVideoFrame(lesson.videoPath, video.currentTime);
       setScreenshotImagePath(savedPath);
       setShowScreenshotDialog(true);
+      setSavedNoteId(null);
       if (!video.paused) video.pause();
     } catch (err) {
       console.error("screenshot failed", err);
@@ -507,12 +511,13 @@ export const VideoPlayer = forwardRef<VideoPlayerHandle, VideoPlayerProps>(funct
   }, [lesson?.videoPath]);
 
   const closeScreenshotDialog = useCallback(async () => {
-    if (screenshotImagePath) {
+    if (screenshotImagePath && savedNoteId === null) {
       await deleteFile(screenshotImagePath).catch(() => {});
     }
     setShowScreenshotDialog(false);
     setScreenshotImagePath(null);
-  }, [screenshotImagePath]);
+    setSavedNoteId(null);
+  }, [screenshotImagePath, savedNoteId]);
 
   useEffect(() => {
     function handleKeyDown(e: KeyboardEvent) {
@@ -1352,6 +1357,7 @@ export const VideoPlayer = forwardRef<VideoPlayerHandle, VideoPlayerProps>(funct
         <button
           onClick={() => {
             setShowNoteDialog(true);
+            setSavedNoteId(null);
             if (videoRef.current && !videoRef.current.paused) {
               videoRef.current.pause();
             }
@@ -1701,16 +1707,40 @@ export const VideoPlayer = forwardRef<VideoPlayerHandle, VideoPlayerProps>(funct
         <DetachableEditorDialog
           videoTime={Math.floor(videoTime)}
           onSubmit={async (content: string, imagePaths: string[]) => {
-            const ok = onAddNote ? await onAddNote(content, imagePaths) : true;
-            if (ok) {
+            let success = false;
+            if (savedNoteId !== null && onUpdateNote) {
+              success = await onUpdateNote(savedNoteId, content, imagePaths);
+            } else {
+              const id = onAddNote ? await onAddNote(content, imagePaths) : null;
+              success = id !== null;
+            }
+            if (success) {
               setShowNoteDialog(false);
+              setSavedNoteId(null);
               setNoteSavedTip(true);
               if (noteTipTimerRef.current) clearTimeout(noteTipTimerRef.current);
               noteTipTimerRef.current = setTimeout(() => setNoteSavedTip(false), 2000);
             }
           }}
-          onCancel={() => setShowNoteDialog(false)}
-          onClose={() => setShowNoteDialog(false)}
+          onSaveOnly={async (content: string, imagePaths: string[]) => {
+            let success = false;
+            if (savedNoteId !== null && onUpdateNote) {
+              success = await onUpdateNote(savedNoteId, content, imagePaths);
+            } else {
+              const id = onAddNote ? await onAddNote(content, imagePaths) : null;
+              if (id !== null) {
+                setSavedNoteId(id);
+                success = true;
+              }
+            }
+            if (success) {
+              setNoteSavedTip(true);
+              if (noteTipTimerRef.current) clearTimeout(noteTipTimerRef.current);
+              noteTipTimerRef.current = setTimeout(() => setNoteSavedTip(false), 2000);
+            }
+          }}
+          onCancel={() => { setShowNoteDialog(false); setSavedNoteId(null); }}
+          onClose={() => { setShowNoteDialog(false); setSavedNoteId(null); }}
         />
       )}
 
@@ -1725,10 +1755,34 @@ export const VideoPlayer = forwardRef<VideoPlayerHandle, VideoPlayerProps>(funct
           videoTime={Math.floor(videoTime)}
           initialImagePaths={screenshotImagePath ? [screenshotImagePath] : []}
           onSubmit={async (content: string, imagePaths: string[]): Promise<void> => {
-            const ok = onAddNote ? await onAddNote(content, imagePaths) : true;
-            if (ok) {
+            let success = false;
+            if (savedNoteId !== null && onUpdateNote) {
+              success = await onUpdateNote(savedNoteId, content, imagePaths);
+            } else {
+              const id = onAddNote ? await onAddNote(content, imagePaths) : null;
+              success = id !== null;
+            }
+            if (success) {
               setShowScreenshotDialog(false);
               setScreenshotImagePath(null);
+              setSavedNoteId(null);
+              setNoteSavedTip(true);
+              if (noteTipTimerRef.current) clearTimeout(noteTipTimerRef.current);
+              noteTipTimerRef.current = setTimeout(() => setNoteSavedTip(false), 2000);
+            }
+          }}
+          onSaveOnly={async (content: string, imagePaths: string[]): Promise<void> => {
+            let success = false;
+            if (savedNoteId !== null && onUpdateNote) {
+              success = await onUpdateNote(savedNoteId, content, imagePaths);
+            } else {
+              const id = onAddNote ? await onAddNote(content, imagePaths) : null;
+              if (id !== null) {
+                setSavedNoteId(id);
+                success = true;
+              }
+            }
+            if (success) {
               setNoteSavedTip(true);
               if (noteTipTimerRef.current) clearTimeout(noteTipTimerRef.current);
               noteTipTimerRef.current = setTimeout(() => setNoteSavedTip(false), 2000);
@@ -1750,12 +1804,14 @@ function DetachableEditorDialog({
   videoTime,
   initialImagePaths,
   onSubmit,
+  onSaveOnly,
   onCancel,
   onClose,
 }: {
   videoTime: number;
   initialImagePaths?: string[];
   onSubmit: (content: string, imagePaths: string[]) => void;
+  onSaveOnly?: (content: string, imagePaths: string[]) => void | Promise<void>;
   onCancel?: () => void;
   onClose: () => void;
 }) {
@@ -1825,6 +1881,7 @@ function DetachableEditorDialog({
             onDetach={handleDetach}
             detached={detached}
             onSubmit={onSubmit}
+            onSaveOnly={onSaveOnly}
             onCancel={onCancel}
           />
         </div>

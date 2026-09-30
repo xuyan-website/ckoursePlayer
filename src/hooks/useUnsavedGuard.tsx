@@ -6,6 +6,7 @@ import { useTranslation } from "react-i18next";
 export interface UnsavedApi {
   check: () => boolean;
   save: () => void;
+  discard?: () => void;
   type: "note" | "review";
 }
 
@@ -27,6 +28,7 @@ export function UnsavedGuardProvider({ children }: { children: ReactNode }) {
   const [dialogState, setDialogState] = useState<{
     type: "note" | "review";
     save: () => void;
+    discard?: () => void;
     target: string;
   } | null>(null);
 
@@ -41,7 +43,7 @@ export function UnsavedGuardProvider({ children }: { children: ReactNode }) {
   const guardedNavigate = useCallback((target: string) => {
     for (const api of guardsRef.current.values()) {
       if (api.check()) {
-        setDialogState({ type: api.type, save: api.save, target });
+        setDialogState({ type: api.type, save: api.save, discard: api.discard, target });
         return;
       }
     }
@@ -72,6 +74,7 @@ export function UnsavedGuardProvider({ children }: { children: ReactNode }) {
               </button>
               <button
                 onClick={() => {
+                  dialogState.discard?.();
                   const target = dialogState.target;
                   setDialogState(null);
                   navigate(target);

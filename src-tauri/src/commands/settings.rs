@@ -148,6 +148,16 @@ pub fn import_from_file(
     let dest_review_dir = review_img_dir()?;
     std::fs::create_dir_all(&dest_review_dir).map_err(|e| e.to_string())?;
 
+    // When replacing all data, clear old image folders first to avoid stale files
+    if mode == "replace" {
+        for dir in [&dest_shot_dir, &dest_review_dir] {
+            if dir.exists() {
+                std::fs::remove_dir_all(dir).map_err(|e| e.to_string())?;
+            }
+            std::fs::create_dir_all(dir).map_err(|e| e.to_string())?;
+        }
+    }
+
     for i in 0..archive.len() {
         let mut entry = archive.by_index(i).map_err(|e| e.to_string())?;
         let name = entry.name().to_string();

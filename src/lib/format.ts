@@ -42,3 +42,10 @@ export function extractFirstTimestamp(html: string): number | null {
   const seconds = Number(match[1]);
   return isNaN(seconds) ? null : seconds;
 }
+
+export function formatDateTime(iso: string): string {
+  const d = new Date(iso);
+  if (isNaN(d.getTime())) return iso;
+  const pad = (n: number) => String(n).padStart(2, "0");
+  return `${d.getFullYear()}-${d.getMonth() + 1}-${d.getDate()} ${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`;
+}

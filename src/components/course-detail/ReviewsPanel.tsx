@@ -1,4 +1,4 @@
-import { useState, useCallback, useEffect } from "react";
+import { useState, useCallback, useEffect, useRef } from "react";
 import { createPortal } from "react-dom";
 import { TrashIcon as Trash, PencilSimpleIcon as PencilSimple, PlusIcon as Plus, XIcon as X, ArrowsOutSimpleIcon as ArrowsOutSimple, EyeIcon as Eye } from "@phosphor-icons/react";
 import type { Review } from "@/types";
@@ -8,10 +8,11 @@ import { useTranslation } from "react-i18next";
 import { cn } from "@/lib/utils";
 import { SNAPPY } from "@/lib/constants";
 import { toast } from "sonner";
+import { formatDateTime } from "@/lib/format";
 
 interface ReviewsPanelProps {
   reviews: Review[];
-  onAdd: (title: string, content: string) => void;
+  onAdd: (title: string, content: string) => Promise<number | null>;
   onEdit: (reviewId: number, title: string, content: string) => void;
   onDelete: (reviewId: number) => void;
   onRegisterUnsaved?: (api: { check: () => boolean; save: () => void } | null) => void;
@@ -98,6 +99,42 @@ export function ReviewsPanel({
       }
     }
   }, [handleSave, expanded]);
+
+  const contentRef = useRef(content);
+  contentRef.current = content;
+  const editingIdRef = useRef(editingId);
+  editingIdRef.current = editingId;
+  const showEditorRef = useRef(showEditor);
+  showEditorRef.current = showEditor;
+  const onEditRef = useRef(onEdit);
+  onEditRef.current = onEdit;
+  const onAddRef = useRef(onAdd);
+  onAddRef.current = onAdd;
+
+  useEffect(() => {
+    const handleDocKeyDown = (e: KeyboardEvent) => {
+      if (!(e.ctrlKey || e.metaKey) || (e.key !== "s" && e.key !== "S")) return;
+      if (editingIdRef.current === null && !showEditorRef.current) return;
+      e.preventDefault();
+      const currentContent = contentRef.current;
+      if (!currentContent.trim()) return;
+      const title = extractTitle(currentContent);
+      if (editingIdRef.current !== null) {
+        onEditRef.current(editingIdRef.current, title, currentContent);
+        toast.success(t("courseDetail.saved"));
+      } else if (showEditorRef.current) {
+        onAddRef.current(title, currentContent).then((id) => {
+          if (id !== null) {
+            setShowEditor(false);
+            setEditingId(id);
+            toast.success(t("courseDetail.saved"));
+          }
+        });
+      }
+    };
+    document.addEventListener("keydown", handleDocKeyDown);
+    return () => document.removeEventListener("keydown", handleDocKeyDown);
+  }, [t]);
 
   const handleDelete = useCallback(
     (reviewId: number) => {
@@ -215,7 +252,7 @@ export function ReviewsPanel({
                   {previewText(review.content) || t("reviewsPanel.emptyContent")}
                 </p>
                 <p className="mt-1 font-sans text-[10px] text-muted-foreground/70">
-                  {review.updatedAt}
+                  {formatDateTime(review.updatedAt)}
                 </p>
               </>
             )}

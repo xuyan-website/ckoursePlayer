@@ -72,6 +72,28 @@ pub fn delete_review(
     review_id: i64,
 ) -> Result<(), String> {
     let conn = state.conn.lock().map_err(|e| e.to_string())?;
+
+    let content: String = conn
+        .query_row(
+            "SELECT content FROM reviews WHERE id = ?1",
+            rusqlite::params![review_id],
+            |row| row.get(0),
+        )
+        .map_err(|e| e.to_string())?;
+
+    for img_rel in extract_image_paths(&content) {
+        let pure_path = img_rel.split(" \"").next().unwrap_or(img_rel.as_str());
+        let unescaped = unescape_markdown(pure_path);
+        let actual_path = if std::path::Path::new(&unescaped).is_absolute() {
+            std::path::PathBuf::from(&unescaped)
+        } else {
+            let exe = std::env::current_exe().map_err(|e| e.to_string())?;
+            let exe_dir = exe.parent().ok_or("cannot resolve exe parent dir")?;
+            exe_dir.join(&unescaped)
+        };
+        let _ = std::fs::remove_file(&actual_path);
+    }
+
     db::delete_review(&conn, review_id).map_err(|e| e.to_string())
 }
 
