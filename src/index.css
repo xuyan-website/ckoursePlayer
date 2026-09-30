@@ -358,3 +358,17 @@
 .light .language-javascript{
     color:#005cc5 !important;
 }
+
+/* Milkdown 表格拖动：修复定位上下文，隐藏位置不正确的 drag-preview 横条，
+   保留由 @floating-ui computePosition 定位的 line-handle 指示线 */
+.milkdown-table-block {
+  position: relative;
+}
+.milkdown-table-block .drag-preview {
+  display: none !important;
+}
+
+/* 隐藏块级 drop indicator（位置不正确），两个 class 在同一 div 上 */
+.crepe-drop-cursor.milkdown-drop-indicator {
+  display: none !important;
+}
