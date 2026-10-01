@@ -96,6 +96,7 @@ export const NoteEditor = forwardRef<NoteEditorHandle, NoteEditorProps>(function
   const menuRef = useRef<HTMLDivElement>(null);
   const [activeFormats, setActiveFormats] = useState<Set<string>>(new Set());
   const newImagePathsRef = useRef<string[]>([]);
+  const pendingDeletePathsRef = useRef<Set<string>>(new Set());
   const isHighlightingRef = useRef(false);
   const isComposingRef = useRef(false);
   const [langMenu, setLangMenu] = useState<{
@@ -883,6 +884,8 @@ export const NoteEditor = forwardRef<NoteEditorHandle, NoteEditorProps>(function
     if (isEmpty()) return;
     const html = editorRef.current?.innerHTML ?? "";
     onSubmit(html, imagePaths);
+    void Promise.allSettled([...pendingDeletePathsRef.current].map((p) => deleteFile(p)));
+    pendingDeletePathsRef.current = new Set();
     newImagePathsRef.current = [];
     if (editorRef.current) editorRef.current.innerHTML = "";
     setMenu(null);
@@ -890,6 +893,30 @@ export const NoteEditor = forwardRef<NoteEditorHandle, NoteEditorProps>(function
 
   const handleSubmitRef = useRef(handleSubmit);
   handleSubmitRef.current = handleSubmit;
+
+  function performSaveOnly() {
+    if (onSaveOnly && (!isEmpty() || imagePaths.length > 0)) {
+      const html = editorRef.current?.innerHTML ?? "";
+      onSaveOnly(html, imagePaths);
+      void Promise.allSettled([...pendingDeletePathsRef.current].map((p) => deleteFile(p)));
+      pendingDeletePathsRef.current = new Set();
+      newImagePathsRef.current = [];
+    }
+  }
+
+  const performSaveOnlyRef = useRef(performSaveOnly);
+  performSaveOnlyRef.current = performSaveOnly;
+
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => {
+      if (!(e.metaKey || e.ctrlKey) || (e.key !== "s" && e.key !== "S")) return;
+      if (e.defaultPrevented) return;
+      e.preventDefault();
+      performSaveOnlyRef.current();
+    };
+    document.addEventListener("keydown", handler);
+    return () => document.removeEventListener("keydown", handler);
+  }, []);
 
   useEffect(() => {
     onRegisterUnsaved?.({
@@ -903,6 +930,7 @@ export const NoteEditor = forwardRef<NoteEditorHandle, NoteEditorProps>(function
     const newPaths = newImagePathsRef.current;
     await Promise.allSettled(newPaths.map((p) => deleteFile(p)));
     newImagePathsRef.current = [];
+    pendingDeletePathsRef.current = new Set();
     onCancel?.();
   }, [onCancel]);
 
@@ -1012,10 +1040,7 @@ export const NoteEditor = forwardRef<NoteEditorHandle, NoteEditorProps>(function
 
     if ((e.metaKey || e.ctrlKey) && (e.key === "s" || e.key === "S")) {
       e.preventDefault();
-      if (onSaveOnly && (!isEmpty() || imagePaths.length > 0)) {
-        const html = editorRef.current?.innerHTML ?? "";
-        onSaveOnly(html, imagePaths);
-      }
+      performSaveOnly();
       return;
     }
 
@@ -1119,7 +1144,7 @@ export const NoteEditor = forwardRef<NoteEditorHandle, NoteEditorProps>(function
                 <button
                   onClick={() => {
                     const path = imagePaths[idx];
-                    if (path) deleteFile(path);
+                    if (path) pendingDeletePathsRef.current.add(path);
                     setImagePaths((prev) => prev.filter((_, i) => i !== idx));
                   }}
                   title={t("noteEditor.removeImage")}
