@@ -77,6 +77,7 @@ export const NoteEditor = forwardRef<NoteEditorHandle, NoteEditorProps>(function
 }: NoteEditorProps, ref) {
   const { t } = useTranslation();
   const editorRef = useRef<HTMLDivElement>(null);
+  const containerRef = useRef<HTMLDivElement>(null);
   const videoTimeRef = useRef(videoTime);
   const [imagePaths, setImagePaths] = useState<string[]>(initialImagePaths);
   const [lightboxIndex, setLightboxIndex] = useState<number | null>(null);
@@ -911,6 +912,7 @@ export const NoteEditor = forwardRef<NoteEditorHandle, NoteEditorProps>(function
     const handler = (e: KeyboardEvent) => {
       if (!(e.metaKey || e.ctrlKey) || (e.key !== "s" && e.key !== "S")) return;
       if (e.defaultPrevented) return;
+      if (!containerRef.current || !containerRef.current.contains(e.target as Node)) return;
       e.preventDefault();
       performSaveOnlyRef.current();
     };
@@ -1063,7 +1065,7 @@ export const NoteEditor = forwardRef<NoteEditorHandle, NoteEditorProps>(function
   ];
 
   return (
-    <div className={cn("relative rounded-lg border border-border bg-card", className)}>
+    <div ref={containerRef} className={cn("relative rounded-lg border border-border bg-card", className)}>
       <div className="flex items-center gap-0.5 border-b border-border/50 px-2 py-1.5">
         {toolbarButtons.map(({ command, icon: Icon, label }) => (
           <button
