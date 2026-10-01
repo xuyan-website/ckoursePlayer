@@ -17,6 +17,7 @@ interface MilkdownEditorProps {
   readOnly?: boolean;
   className?: string;
   autoFocus?: boolean;
+  onImageImported?: (path: string) => void;
 }
 
 function fileToDataUrl(file: File): Promise<string> {
@@ -34,11 +35,14 @@ export function MilkdownEditor({
   readOnly = false,
   className,
   autoFocus = false,
+  onImageImported,
 }: MilkdownEditorProps) {
   const rootRef = useRef<HTMLDivElement>(null);
   const crepeRef = useRef<Crepe | null>(null);
   const onChangeRef = useRef(onChange);
   onChangeRef.current = onChange;
+  const onImageImportedRef = useRef(onImageImported);
+  onImageImportedRef.current = onImageImported;
   const skipFirstRef = useRef(true);
   const autoFocusRef = useRef(autoFocus);
   autoFocusRef.current = autoFocus;
@@ -61,7 +65,9 @@ export function MilkdownEditor({
         [Crepe.Feature.ImageBlock]: {
           onUpload: async (file: File) => {
             const dataUrl = await fileToDataUrl(file);
-            return await saveReviewImageData(dataUrl);
+            const path = await saveReviewImageData(dataUrl);
+            onImageImportedRef.current?.(path);
+            return path;
           },
           proxyDomURL: (url: string) => {
             if (url.includes("ReviewMDimg")) {
@@ -71,7 +77,9 @@ export function MilkdownEditor({
           },
           blockOnUpload: async (file: File) => {
             const dataUrl = await fileToDataUrl(file);
-            return await saveReviewImageData(dataUrl);
+            const path = await saveReviewImageData(dataUrl);
+            onImageImportedRef.current?.(path);
+            return path;
           },
         },
       },

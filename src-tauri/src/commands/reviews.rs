@@ -63,7 +63,26 @@ pub fn update_review(
     content: String,
 ) -> Result<(), String> {
     let conn = state.conn.lock().map_err(|e| e.to_string())?;
-    db::update_review(&conn, review_id, &title, &content).map_err(|e| e.to_string())
+
+    let old_content: String = conn
+        .query_row(
+            "SELECT content FROM reviews WHERE id = ?1",
+            rusqlite::params![review_id],
+            |row| row.get(0),
+        )
+        .map_err(|e| e.to_string())?;
+
+    db::update_review(&conn, review_id, &title, &content).map_err(|e| e.to_string())?;
+
+    let old_images = extract_image_paths(&old_content);
+    let new_images = extract_image_paths(&content);
+    for img in &old_images {
+        if !new_images.contains(img) {
+            delete_image_file(img);
+        }
+    }
+
+    Ok(())
 }
 
 #[tauri::command]
@@ -82,19 +101,29 @@ pub fn delete_review(
         .map_err(|e| e.to_string())?;
 
     for img_rel in extract_image_paths(&content) {
-        let pure_path = img_rel.split(" \"").next().unwrap_or(img_rel.as_str());
-        let unescaped = unescape_markdown(pure_path);
-        let actual_path = if std::path::Path::new(&unescaped).is_absolute() {
-            std::path::PathBuf::from(&unescaped)
-        } else {
-            let exe = std::env::current_exe().map_err(|e| e.to_string())?;
-            let exe_dir = exe.parent().ok_or("cannot resolve exe parent dir")?;
-            exe_dir.join(&unescaped)
-        };
-        let _ = std::fs::remove_file(&actual_path);
+        delete_image_file(&img_rel);
     }
 
     db::delete_review(&conn, review_id).map_err(|e| e.to_string())
+}
+
+fn delete_image_file(img_rel: &str) {
+    let pure_path = img_rel.split(" \"").next().unwrap_or(img_rel);
+    let unescaped = unescape_markdown(pure_path);
+    let actual_path = if std::path::Path::new(&unescaped).is_absolute() {
+        std::path::PathBuf::from(&unescaped)
+    } else {
+        let exe = match std::env::current_exe() {
+            Ok(e) => e,
+            Err(_) => return,
+        };
+        let exe_dir = match exe.parent() {
+            Some(d) => d,
+            None => return,
+        };
+        exe_dir.join(&unescaped)
+    };
+    let _ = std::fs::remove_file(&actual_path);
 }
 
 fn review_img_dir() -> Result<std::path::PathBuf, String> {

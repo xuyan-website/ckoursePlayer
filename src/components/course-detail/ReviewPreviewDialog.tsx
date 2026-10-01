@@ -4,6 +4,7 @@ import { XIcon as X, PencilSimpleIcon as PencilSimple } from "@phosphor-icons/re
 import { MilkdownEditor } from "./MilkdownEditor";
 import { useTranslation } from "react-i18next";
 import { SNAPPY } from "@/lib/constants";
+import { deleteUnreferencedImportedImages } from "@/lib/store";
 
 interface ReviewPreviewDialogProps {
   content: string;
@@ -20,6 +21,7 @@ export function ReviewPreviewDialog({ content, onClose, onSave }: ReviewPreviewD
   const [contentMinHeight, setContentMinHeight] = useState<number | undefined>(undefined);
   const scrollRef = useRef<HTMLDivElement>(null);
   const savedScrollRef = useRef(0);
+  const importedThisSessionRef = useRef<Set<string>>(new Set());
 
   useEffect(() => {
     const timer = setTimeout(() => {
@@ -41,12 +43,15 @@ export function ReviewPreviewDialog({ content, onClose, onSave }: ReviewPreviewD
   const handleSwitchToEdit = useCallback(() => {
     preserveScroll();
     setEditContent(currentContent);
+    importedThisSessionRef.current = new Set();
     setMode("edit");
     setEditorKey((k) => k + 1);
   }, [currentContent]);
 
-  const handleSave = useCallback(() => {
+  const handleSave = useCallback(async () => {
     if (!editContent.trim()) return;
+    await deleteUnreferencedImportedImages(importedThisSessionRef.current, editContent);
+    importedThisSessionRef.current = new Set();
     preserveScroll();
     onSave(editContent);
     setCurrentContent(editContent);
@@ -54,11 +59,13 @@ export function ReviewPreviewDialog({ content, onClose, onSave }: ReviewPreviewD
     setEditorKey((k) => k + 1);
   }, [editContent, onSave]);
 
-  const handleCancelEdit = useCallback(() => {
+  const handleCancelEdit = useCallback(async () => {
+    await deleteUnreferencedImportedImages(importedThisSessionRef.current, currentContent);
+    importedThisSessionRef.current = new Set();
     preserveScroll();
     setMode("preview");
     setEditorKey((k) => k + 1);
-  }, []);
+  }, [currentContent]);
 
   const handleKeyDown = useCallback((e: React.KeyboardEvent) => {
     if ((e.ctrlKey || e.metaKey) && e.key === "Enter") {
@@ -109,6 +116,7 @@ export function ReviewPreviewDialog({ content, onClose, onSave }: ReviewPreviewD
               onChange={setEditContent}
               readOnly={mode === "preview"}
               className="review-editor min-h-full"
+              onImageImported={(p) => importedThisSessionRef.current.add(p)}
             />
           </div>
         </div>

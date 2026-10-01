@@ -392,6 +392,38 @@ export async function saveReviewImageData(dataUrl: string): Promise<string> {
   return invoke<string>("save_review_image_data", { dataUrl });
 }
 
+export function extractReviewImagePaths(markdown: string): string[] {
+  const paths: string[] = [];
+  let searchFrom = 0;
+  while (true) {
+    const idx = markdown.indexOf("](", searchFrom);
+    if (idx === -1) break;
+    const pathStart = idx + 2;
+    const end = markdown.indexOf(")", pathStart);
+    const pathEnd = end === -1 ? markdown.length : end;
+    const path = markdown.slice(pathStart, pathEnd);
+    if (path.includes("ReviewMDimg") && !paths.includes(path)) {
+      paths.push(path);
+    }
+    searchFrom = pathEnd;
+  }
+  return paths;
+}
+
+export async function deleteUnreferencedImportedImages(
+  imported: Iterable<string>,
+  finalContent: string,
+): Promise<void> {
+  const toDelete: string[] = [];
+  for (const p of imported) {
+    const name = p.replace(/\\\\/g, "\\").split(/[\\/]/).pop();
+    if (!name || !finalContent.includes(name)) {
+      toDelete.push(p);
+    }
+  }
+  await Promise.allSettled(toDelete.map((p) => deleteFile(p)));
+}
+
 export interface ExportReviewItemData {
   sectionTitle: string;
   lessonTitle: string;

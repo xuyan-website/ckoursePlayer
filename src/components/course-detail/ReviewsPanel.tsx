@@ -9,6 +9,7 @@ import { cn } from "@/lib/utils";
 import { SNAPPY } from "@/lib/constants";
 import { toast } from "sonner";
 import { formatDateTime } from "@/lib/format";
+import { deleteUnreferencedImportedImages } from "@/lib/store";
 
 interface ReviewsPanelProps {
   reviews: Review[];
@@ -48,22 +49,30 @@ export function ReviewsPanel({
   const [expanded, setExpanded] = useState(false);
   const [editorKey, setEditorKey] = useState(0);
   const [previewReview, setPreviewReview] = useState<Review | null>(null);
+  const originalContentRef = useRef("");
+  const importedThisSessionRef = useRef<Set<string>>(new Set());
 
   const handleStartAdd = useCallback(() => {
     setShowEditor(true);
     setEditingId(null);
     setContent("");
+    originalContentRef.current = "";
+    importedThisSessionRef.current = new Set();
   }, []);
 
   const handleStartEdit = useCallback((review: Review) => {
     setEditingId(review.id);
     setShowEditor(false);
     setContent(review.content);
+    originalContentRef.current = review.content;
+    importedThisSessionRef.current = new Set();
   }, []);
 
-  const handleSave = useCallback(() => {
+  const handleSave = useCallback(async () => {
     if (!content.trim()) return;
     const title = extractTitle(content);
+    await deleteUnreferencedImportedImages(importedThisSessionRef.current, content);
+    importedThisSessionRef.current = new Set();
     if (editingId !== null) {
       onEdit(editingId, title, content);
       setEditingId(null);
@@ -78,15 +87,20 @@ export function ReviewsPanel({
   useEffect(() => {
     onRegisterUnsaved?.({
       check: () => (showEditor || editingId !== null) && !!content.trim(),
-      save: () => handleSave(),
+      save: () => {
+        void handleSave();
+      },
     });
     return () => onRegisterUnsaved?.(null);
   }, [onRegisterUnsaved, showEditor, editingId, content, handleSave]);
 
-  const handleCancel = useCallback(() => {
+  const handleCancel = useCallback(async () => {
+    await deleteUnreferencedImportedImages(importedThisSessionRef.current, originalContentRef.current);
+    importedThisSessionRef.current = new Set();
     setShowEditor(false);
     setEditingId(null);
     setContent("");
+    originalContentRef.current = "";
   }, []);
 
   const handleKeyDown = useCallback((e: React.KeyboardEvent) => {
@@ -120,11 +134,15 @@ export function ReviewsPanel({
       if (!currentContent.trim()) return;
       const title = extractTitle(currentContent);
       if (editingIdRef.current !== null) {
+        void deleteUnreferencedImportedImages(importedThisSessionRef.current, currentContent);
         onEditRef.current(editingIdRef.current, title, currentContent);
+        originalContentRef.current = currentContent;
         toast.success(t("courseDetail.saved"));
       } else if (showEditorRef.current) {
+        void deleteUnreferencedImportedImages(importedThisSessionRef.current, currentContent);
         onAddRef.current(title, currentContent).then((id) => {
           if (id !== null) {
+            originalContentRef.current = currentContent;
             setShowEditor(false);
             setEditingId(id);
             toast.success(t("courseDetail.saved"));
@@ -170,6 +188,7 @@ export function ReviewsPanel({
               onChange={setContent}
               className="review-editor"
               autoFocus={!content}
+              onImageImported={(p) => importedThisSessionRef.current.add(p)}
             />
             <button
               onClick={handleCancel}
@@ -189,6 +208,7 @@ export function ReviewsPanel({
           <div className="mt-2 flex items-center justify-end gap-1.5">
             <button
               onClick={handleCancel}
+              title={t("common.close")}
               className="rounded-md p-1.5 text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground"
             >
               <X className="size-3.5" />
@@ -294,6 +314,7 @@ export function ReviewsPanel({
                 onChange={setContent}
                 className="review-editor min-h-full"
                 autoFocus={!content}
+                onImageImported={(p) => importedThisSessionRef.current.add(p)}
               />
             </div>
             <div className="flex items-center justify-end gap-1.5 border-t border-border/50 px-3 py-2">

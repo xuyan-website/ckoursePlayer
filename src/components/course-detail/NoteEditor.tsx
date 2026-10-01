@@ -1117,7 +1117,11 @@ export const NoteEditor = forwardRef<NoteEditorHandle, NoteEditorProps>(function
                   alt={`note-image-${idx}`}
                 />
                 <button
-                  onClick={() => setImagePaths((prev) => prev.filter((_, i) => i !== idx))}
+                  onClick={() => {
+                    const path = imagePaths[idx];
+                    if (path) deleteFile(path);
+                    setImagePaths((prev) => prev.filter((_, i) => i !== idx));
+                  }}
                   title={t("noteEditor.removeImage")}
                   className="absolute top-1 right-1 flex size-5 items-center justify-center rounded-md bg-black/50 text-white opacity-0 transition-opacity group-hover/img:opacity-100 hover:bg-red-500/80"
                 >
