@@ -80,13 +80,14 @@ export function ReviewsPanel({
       onAdd(title, content);
       setShowEditor(false);
     }
+    originalContentRef.current = content;
     setContent("");
     toast.success(t("courseDetail.saved"));
   }, [content, editingId, onAdd, onEdit, t]);
 
   useEffect(() => {
     onRegisterUnsaved?.({
-      check: () => (showEditor || editingId !== null) && !!content.trim(),
+      check: () => (showEditor || editingId !== null) && content !== originalContentRef.current,
       save: () => {
         void handleSave();
       },

@@ -322,6 +322,10 @@ function CourseDetailInner({
       setUnsavedType(activeTab === "notes" ? "note" : "review");
       setPendingAction(() => action);
     } else {
+      if (activeTab === "notes") {
+        setShowEditor(false);
+        setEditingNoteId(null);
+      }
       action();
     }
   }, [activeTab]);

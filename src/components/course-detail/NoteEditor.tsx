@@ -79,6 +79,9 @@ export const NoteEditor = forwardRef<NoteEditorHandle, NoteEditorProps>(function
   const editorRef = useRef<HTMLDivElement>(null);
   const videoTimeRef = useRef(videoTime);
   const [imagePaths, setImagePaths] = useState<string[]>(initialImagePaths);
+  const imagePathsRef = useRef(imagePaths);
+  imagePathsRef.current = imagePaths;
+  const lastSavedRef = useRef<{ html: string; imagePaths: string[] } | null>(null);
   const [lightboxIndex, setLightboxIndex] = useState<number | null>(null);
 
   useImperativeHandle(ref, () => ({
@@ -224,6 +227,7 @@ export const NoteEditor = forwardRef<NoteEditorHandle, NoteEditorProps>(function
       sel.removeAllRanges();
       sel.addRange(range);
     }
+    lastSavedRef.current = { html: el.innerHTML, imagePaths: initialImagePaths };
   }, []);
 
   const cleanupEmptyCodeBlocks = useCallback((skipCurrent: boolean) => {
@@ -884,6 +888,7 @@ export const NoteEditor = forwardRef<NoteEditorHandle, NoteEditorProps>(function
   function handleSubmit() {
     if (isEmpty()) return;
     const html = editorRef.current?.innerHTML ?? "";
+    lastSavedRef.current = { html, imagePaths };
     onSubmit(html, imagePaths);
     void Promise.allSettled([...pendingDeletePathsRef.current].map((p) => deleteFile(p)));
     pendingDeletePathsRef.current = new Set();
@@ -898,6 +903,7 @@ export const NoteEditor = forwardRef<NoteEditorHandle, NoteEditorProps>(function
   function performSaveOnly() {
     if (onSaveOnly && (!isEmpty() || imagePaths.length > 0)) {
       const html = editorRef.current?.innerHTML ?? "";
+      lastSavedRef.current = { html, imagePaths };
       onSaveOnly(html, imagePaths);
       void Promise.allSettled([...pendingDeletePathsRef.current].map((p) => deleteFile(p)));
       pendingDeletePathsRef.current = new Set();
@@ -907,7 +913,13 @@ export const NoteEditor = forwardRef<NoteEditorHandle, NoteEditorProps>(function
 
   useEffect(() => {
     onRegisterUnsaved?.({
-      check: () => !isEmpty(),
+      check: () => {
+        if (isEmpty()) return false;
+        const html = editorRef.current?.innerHTML ?? "";
+        const saved = lastSavedRef.current;
+        if (!saved) return true;
+        return html !== saved.html || imagePathsRef.current.join("\n") !== saved.imagePaths.join("\n");
+      },
       save: () => handleSubmitRef.current(),
     });
     return () => onRegisterUnsaved?.(null);

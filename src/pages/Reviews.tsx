@@ -117,6 +117,7 @@ export function Reviews() {
   const handleEdit = (review: ReviewWithCourse) => {
     setEditingId(review.id);
     setEditContent(review.content);
+    lastSavedContentRef.current = review.content;
   };
 
   const handleSaveEdit = () => {
@@ -131,9 +132,10 @@ export function Reviews() {
               : r,
           ),
         );
-        setEditingId(null);
-        setEditContent("");
-      })
+          lastSavedContentRef.current = editContent;
+          setEditingId(null);
+          setEditContent("");
+        })
       .catch((err) => {
         reportError(err, "Reviews.handleSaveEdit");
         toast.error(t("reviews.exportFailed"));
@@ -147,6 +149,7 @@ export function Reviews() {
 
   const editContentRef = useRef(editContent);
   editContentRef.current = editContent;
+  const lastSavedContentRef = useRef("");
   const handleSaveEditRef = useRef(handleSaveEdit);
   handleSaveEditRef.current = handleSaveEdit;
 
@@ -167,6 +170,7 @@ export function Reviews() {
                 : r,
             ),
           );
+          lastSavedContentRef.current = currentContent;
           toast.success(t("courseDetail.saved"));
         })
         .catch((err) => {
@@ -181,7 +185,7 @@ export function Reviews() {
   useEffect(() => {
     if (editingId !== null) {
       guard?.registerGuard("reviews-page", {
-        check: () => editingId !== null && editContentRef.current.trim().length > 0,
+        check: () => editingId !== null && editContentRef.current !== lastSavedContentRef.current,
         save: () => handleSaveEditRef.current(),
         discard: () => { setEditingId(null); setEditContent(""); },
         type: "review" as const,
