@@ -376,7 +376,7 @@ export function Notes({ className }: NotesProps) {
     );
   }
 
-  const SortIcon = sortDir === "desc" ? SortDescending : SortAscending;
+  const SortIcon = sortDir === "desc" ? SortAscending : SortDescending;
 
   return (
     <div className={cn("mx-auto max-w-6xl", className)}>

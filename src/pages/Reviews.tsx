@@ -285,7 +285,7 @@ export function Reviews() {
     );
   }
 
-  const SortIcon = sortDir === "desc" ? SortDescending : SortAscending;
+  const SortIcon = sortDir === "desc" ? SortAscending : SortDescending;
 
   return (
     <div className="mx-auto max-w-6xl">
