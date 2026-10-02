@@ -47,6 +47,9 @@ export function UnsavedGuardProvider({ children }: { children: ReactNode }) {
         return;
       }
     }
+    for (const api of guardsRef.current.values()) {
+      api.discard?.();
+    }
     navigate(target);
   }, [navigate]);
 

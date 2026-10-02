@@ -1375,7 +1375,7 @@ function CourseDetailInner({
                 onTimestampClick={handleTimestampClick}
                 onRegisterUnsaved={(api) => {
                   noteUnsavedRef.current = api;
-                  guard?.registerGuard("courseDetail-note", api ? { ...api, type: "note" as const } : null);
+                  guard?.registerGuard("courseDetail-note", api ? { ...api, type: "note" as const, discard: () => { setShowEditor(false); setEditingNoteId(null); } } : null);
                 }}
               />
             )}
@@ -1560,6 +1560,10 @@ function CourseDetailInner({
               </button>
               <button
                 onClick={() => {
+                  if (unsavedType === "note") {
+                    setShowEditor(false);
+                    setEditingNoteId(null);
+                  }
                   setUnsavedType(null);
                   setPendingAction(null);
                   pendingAction?.();
