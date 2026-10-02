@@ -310,7 +310,9 @@ export const NoteEditor = forwardRef<NoteEditorHandle, NoteEditorProps>(function
         updateActiveFormats();
         updateCodeToolbar();
         updateTableToolbar();
-        cleanupEmptyCodeBlocks(true);
+        if (!isHighlightingRef.current) {
+          cleanupEmptyCodeBlocks(true);
+        }
       }
     };
     document.addEventListener("selectionchange", handler);
@@ -397,7 +399,7 @@ export const NoteEditor = forwardRef<NoteEditorHandle, NoteEditorProps>(function
     isHighlightingRef.current = true;
     const { start, end } = getCaretOffset(code);
     const text = code.textContent ?? "";
-    code.innerHTML = highlightCode(text, language);
+    code.innerHTML = highlightCode(text, language) || "<br>";
     code.className = "hljs language-" + language;
     setCaretOffsetRange(code, start, end);
     isHighlightingRef.current = false;
@@ -873,7 +875,6 @@ export const NoteEditor = forwardRef<NoteEditorHandle, NoteEditorProps>(function
   function handleInput() {
     if (isComposingRef.current) return;
     highlightCurrentCodeBlock();
-    cleanupEmptyCodeBlocks(false);
     // First try to auto-commit completed patterns (after space/punctuation)
     if (tryCommitTimestamp()) return;
     updateMenu();
@@ -1034,8 +1035,15 @@ export const NoteEditor = forwardRef<NoteEditorHandle, NoteEditorProps>(function
       e.preventDefault();
       handleSubmit();
     }
-    if (e.key === "Escape" && onCancel && !menu) {
-      handleCancel();
+    if (e.key === "Escape") {
+      if (langMenu) {
+        e.preventDefault();
+        setLangMenu(null);
+        return;
+      }
+      if (onCancel && !menu) {
+        handleCancel();
+      }
     }
   }
 
@@ -1403,7 +1411,6 @@ export const NoteEditor = forwardRef<NoteEditorHandle, NoteEditorProps>(function
           <div className="absolute bottom-full left-3 z-50 max-h-60 w-48 overflow-y-auto rounded-lg border border-border bg-card shadow-lg">
             <div className="sticky top-0 border-b border-border/50 bg-card px-2 py-1.5">
               <input
-                autoFocus
                 value={langQuery}
                 onChange={(e) => setLangQuery(e.target.value)}
                 onKeyDown={(e) => {

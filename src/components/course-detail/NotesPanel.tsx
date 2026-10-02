@@ -52,14 +52,13 @@ export function NotesPanel({
       {showEditor ? (
         <DetachableInlineEditor
           videoTime={videoTime}
-          onSubmit={onAdd}
-          onSaveOnly={onSaveOnlyAdd ? async (content, imagePaths) => {
-            const id = await onSaveOnlyAdd(content, imagePaths);
-            if (id !== null) {
-              onSetShowEditor(false);
-              onSetEditing(id);
-            }
-          } : undefined}
+          onSubmitAdd={onAdd}
+          onSubmitEdit={(id, content, imagePaths) => {
+            onEdit(id, content, imagePaths);
+            onSetShowEditor(false);
+          }}
+          onSaveOnlyAdd={onSaveOnlyAdd}
+          onSaveOnlyEdit={onSaveOnlyEdit}
           onCancel={() => onSetShowEditor(false)}
           onRegisterUnsaved={onRegisterUnsaved}
         />
@@ -86,8 +85,10 @@ export function NotesPanel({
           note={note}
           videoTime={videoTime}
           isEditing={editingNoteId === note.id}
+          onAdd={onAdd}
           onEdit={onEdit}
-          onSaveOnly={onSaveOnlyEdit ? (content, imagePaths) => onSaveOnlyEdit(note.id, content, imagePaths) : undefined}
+          onSaveOnlyAdd={onSaveOnlyAdd}
+          onSaveOnlyEdit={onSaveOnlyEdit}
           onDelete={onDelete}
           onStartEdit={() => onSetEditing(note.id)}
           onCancelEdit={() => onSetEditing(null)}
@@ -103,8 +104,10 @@ interface NoteCardProps {
   note: Note;
   videoTime: number;
   isEditing: boolean;
+  onAdd: (content: string, imagePaths: string[]) => void;
   onEdit: (noteId: number, content: string, imagePaths: string[]) => void;
-  onSaveOnly?: (content: string, imagePaths: string[]) => void | Promise<void>;
+  onSaveOnlyAdd?: (content: string, imagePaths: string[]) => Promise<number | null>;
+  onSaveOnlyEdit?: (noteId: number, content: string, imagePaths: string[]) => void | Promise<void>;
   onDelete: (noteId: number) => void;
   onStartEdit: () => void;
   onCancelEdit: () => void;
@@ -116,8 +119,10 @@ function NoteCard({
   note,
   videoTime,
   isEditing,
+  onAdd,
   onEdit,
-  onSaveOnly,
+  onSaveOnlyAdd,
+  onSaveOnlyEdit,
   onDelete,
   onStartEdit,
   onCancelEdit,
@@ -128,10 +133,13 @@ function NoteCard({
     return (
       <DetachableInlineEditor
         videoTime={videoTime}
+        initialNoteId={note.id}
         initialContent={note.content}
         initialImagePaths={note.imagePaths}
-        onSubmit={(content, imagePaths) => onEdit(note.id, content, imagePaths)}
-        onSaveOnly={onSaveOnly}
+        onSubmitAdd={onAdd}
+        onSubmitEdit={onEdit}
+        onSaveOnlyAdd={onSaveOnlyAdd}
+        onSaveOnlyEdit={onSaveOnlyEdit}
         onCancel={onCancelEdit}
         onRegisterUnsaved={onRegisterUnsaved}
       />
@@ -195,8 +203,11 @@ interface DetachableInlineEditorProps {
   videoTime: number;
   initialContent?: string;
   initialImagePaths?: string[];
-  onSubmit: (content: string, imagePaths: string[]) => void;
-  onSaveOnly?: (content: string, imagePaths: string[]) => void | Promise<void>;
+  initialNoteId?: number | null;
+  onSubmitAdd: (content: string, imagePaths: string[]) => void;
+  onSubmitEdit: (noteId: number, content: string, imagePaths: string[]) => void;
+  onSaveOnlyAdd?: (content: string, imagePaths: string[]) => Promise<number | null>;
+  onSaveOnlyEdit?: (noteId: number, content: string, imagePaths: string[]) => void | Promise<void>;
   onCancel?: () => void;
   onRegisterUnsaved?: (api: { check: () => boolean; save: () => void } | null) => void;
 }
@@ -205,8 +216,11 @@ function DetachableInlineEditor({
   videoTime,
   initialContent,
   initialImagePaths,
-  onSubmit,
-  onSaveOnly,
+  initialNoteId = null,
+  onSubmitAdd,
+  onSubmitEdit,
+  onSaveOnlyAdd,
+  onSaveOnlyEdit,
   onCancel,
   onRegisterUnsaved,
 }: DetachableInlineEditorProps) {
@@ -214,11 +228,29 @@ function DetachableInlineEditor({
   const { detached, pos, containerRef, handleDetach: toggleDetach, startDrag } = useDetachableWindow();
   const editorRef = useRef<NoteEditorHandle>(null);
   const [snapshot, setSnapshot] = useState<{ html: string; imagePaths: string[] } | null>(null);
+  const [savedNoteId, setSavedNoteId] = useState<number | null>(initialNoteId);
 
   const handleDetach = () => {
     const c = editorRef.current?.getContent();
     if (c) setSnapshot(c);
     toggleDetach();
+  };
+
+  const handleSubmit = (content: string, imagePaths: string[]) => {
+    if (savedNoteId !== null) {
+      onSubmitEdit(savedNoteId, content, imagePaths);
+    } else {
+      onSubmitAdd(content, imagePaths);
+    }
+  };
+
+  const handleSaveOnly = async (content: string, imagePaths: string[]) => {
+    if (savedNoteId !== null) {
+      if (onSaveOnlyEdit) await onSaveOnlyEdit(savedNoteId, content, imagePaths);
+    } else if (onSaveOnlyAdd) {
+      const id = await onSaveOnlyAdd(content, imagePaths);
+      if (id !== null) setSavedNoteId(id);
+    }
   };
 
   const editor = (
@@ -229,8 +261,8 @@ function DetachableInlineEditor({
       initialImagePaths={snapshot?.imagePaths ?? initialImagePaths}
       onDetach={handleDetach}
       detached={detached}
-      onSubmit={onSubmit}
-      onSaveOnly={onSaveOnly}
+      onSubmit={handleSubmit}
+      onSaveOnly={handleSaveOnly}
       onCancel={onCancel}
       onRegisterUnsaved={onRegisterUnsaved}
     />
