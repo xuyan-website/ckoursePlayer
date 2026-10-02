@@ -302,13 +302,17 @@ function CourseDetailInner({
   const [selectedFile, setSelectedFile] = useState<{ name: string; path: string } | null>(null);
   const [notes, setNotes] = useState<Note[]>([]);
   const lessonNotes = activeLesson
-    ? notes.filter((n) => n.lessonId === activeLesson.id)
+    ? notes
+        .filter((n) => n.lessonId === activeLesson.id)
+        .sort((a, b) => b.updatedAt.localeCompare(a.updatedAt))
     : [];
   const [editingNoteId, setEditingNoteId] = useState<number | null>(null);
   const [showEditor, setShowEditor] = useState(false);
   const [reviews, setReviews] = useState<Review[]>([]);
   const lessonReviews = activeLesson
-    ? reviews.filter((r) => r.lessonId === activeLesson.id)
+    ? reviews
+        .filter((r) => r.lessonId === activeLesson.id)
+        .sort((a, b) => b.updatedAt.localeCompare(a.updatedAt))
     : [];
 
   const noteUnsavedRef = useRef<{ check: () => boolean; save: () => void } | null>(null);
