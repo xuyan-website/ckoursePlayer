@@ -70,7 +70,7 @@ function convertNode(node: Node): string {
         `| ${sep.join(" | ")} |`,
         ...body.map((r) => `| ${r.join(" | ")} |`),
       ];
-      return `\n${lines.join("\n")}\n`;
+      return `\n\n${lines.join("\n")}\n\n`;
     }
     case "thead":
     case "tbody":
