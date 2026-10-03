@@ -28,6 +28,7 @@ import { copyImageToScreenshot, deleteFile, saveScreenshot } from "@/lib/store";
 import { SNAPPY, EASE_OUT } from "@/lib/constants";
 import { useTranslation } from "react-i18next";
 import { ImageLightbox } from "./ImageLightbox";
+import { ConfirmUnsavedDialog } from "./ConfirmUnsavedDialog";
 import {
   CODE_LANGUAGES,
   highlightCode,
@@ -50,7 +51,7 @@ interface NoteEditorProps {
   onDetach?: () => void;
   detached?: boolean;
   className?: string;
-  onRegisterUnsaved?: (api: { check: () => boolean; save: () => void } | null) => void;
+  onRegisterUnsaved?: (api: { check: () => boolean; save: () => void; discard?: () => void } | null) => void;
 }
 
 interface Suggestion {
@@ -61,6 +62,7 @@ interface Suggestion {
 
 export interface NoteEditorHandle {
   getContent: () => { html: string; imagePaths: string[] };
+  requestCancel: () => void;
 }
 
 export const NoteEditor = forwardRef<NoteEditorHandle, NoteEditorProps>(function NoteEditor({
@@ -83,12 +85,15 @@ export const NoteEditor = forwardRef<NoteEditorHandle, NoteEditorProps>(function
   imagePathsRef.current = imagePaths;
   const lastSavedRef = useRef<{ html: string; imagePaths: string[] } | null>(null);
   const [lightboxIndex, setLightboxIndex] = useState<number | null>(null);
+  const [confirmDialog, setConfirmDialog] = useState(false);
+  const handleCancelRef = useRef<() => void>(() => {});
 
   useImperativeHandle(ref, () => ({
     getContent: () => ({
       html: editorRef.current?.innerHTML ?? "",
       imagePaths,
     }),
+    requestCancel: () => handleCancelRef.current(),
   }), [imagePaths]);
   const [menu, setMenu] = useState<{
     x: number;
@@ -936,17 +941,46 @@ export const NoteEditor = forwardRef<NoteEditorHandle, NoteEditorProps>(function
         return html !== saved.html || imagePathsRef.current.join("\n") !== saved.imagePaths.join("\n");
       },
       save: () => handleSubmitRef.current(),
+      discard: () => {
+        const newPaths = newImagePathsRef.current;
+        void Promise.allSettled(newPaths.map((p) => deleteFile(p)));
+        newImagePathsRef.current = [];
+        pendingDeletePathsRef.current = new Set();
+      },
     });
     return () => onRegisterUnsaved?.(null);
   }, [onRegisterUnsaved, isEmpty]);
 
-  const handleCancel = useCallback(async () => {
+  const hasUnsavedChanges = useCallback(() => {
+    if (isEmpty()) return false;
+    const html = editorRef.current?.innerHTML ?? "";
+    const saved = lastSavedRef.current;
+    if (!saved) return true;
+    return html !== saved.html || imagePathsRef.current.join("\n") !== saved.imagePaths.join("\n");
+  }, [isEmpty]);
+
+  const discardAndCancel = useCallback(async () => {
     const newPaths = newImagePathsRef.current;
     await Promise.allSettled(newPaths.map((p) => deleteFile(p)));
     newImagePathsRef.current = [];
     pendingDeletePathsRef.current = new Set();
+    setConfirmDialog(false);
     onCancel?.();
   }, [onCancel]);
+
+  const saveAndCancel = useCallback(() => {
+    setConfirmDialog(false);
+    handleSubmitRef.current();
+  }, []);
+
+  const handleCancel = useCallback(() => {
+    if (hasUnsavedChanges()) {
+      setConfirmDialog(true);
+    } else {
+      void discardAndCancel();
+    }
+  }, [hasUnsavedChanges, discardAndCancel]);
+  handleCancelRef.current = handleCancel;
 
   function handleKeyDown(e: React.KeyboardEvent) {
     // Menu navigation
@@ -1548,6 +1582,15 @@ export const NoteEditor = forwardRef<NoteEditorHandle, NoteEditorProps>(function
 
       {lightboxIndex !== null && imagePaths[lightboxIndex] && (
         <ImageLightbox src={convertFileSrc(imagePaths[lightboxIndex])} onClose={() => setLightboxIndex(null)} />
+      )}
+
+      {confirmDialog && (
+        <ConfirmUnsavedDialog
+          type="note"
+          onCancel={() => setConfirmDialog(false)}
+          onDiscard={() => void discardAndCancel()}
+          onSave={saveAndCancel}
+        />
       )}
     </div>
   );

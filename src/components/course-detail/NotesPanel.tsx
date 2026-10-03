@@ -28,7 +28,7 @@ interface NotesPanelProps {
   onSetEditing: (id: number | null) => void;
   onSetShowEditor: (show: boolean) => void;
   onTimestampClick?: (seconds: number, lessonId: number) => void;
-  onRegisterUnsaved?: (api: { check: () => boolean; save: () => void } | null) => void;
+  onRegisterUnsaved?: (api: { check: () => boolean; save: () => void; discard?: () => void } | null) => void;
 }
 
 export function NotesPanel({
@@ -112,7 +112,7 @@ interface NoteCardProps {
   onStartEdit: () => void;
   onCancelEdit: () => void;
   onTimestampClick?: (seconds: number, lessonId: number) => void;
-  onRegisterUnsaved?: (api: { check: () => boolean; save: () => void } | null) => void;
+  onRegisterUnsaved?: (api: { check: () => boolean; save: () => void; discard?: () => void } | null) => void;
 }
 
 function NoteCard({
@@ -209,7 +209,7 @@ interface DetachableInlineEditorProps {
   onSaveOnlyAdd?: (content: string, imagePaths: string[]) => Promise<number | null>;
   onSaveOnlyEdit?: (noteId: number, content: string, imagePaths: string[]) => void | Promise<void>;
   onCancel?: () => void;
-  onRegisterUnsaved?: (api: { check: () => boolean; save: () => void } | null) => void;
+  onRegisterUnsaved?: (api: { check: () => boolean; save: () => void; discard?: () => void } | null) => void;
 }
 
 function DetachableInlineEditor({
@@ -286,7 +286,7 @@ function DetachableInlineEditor({
         </span>
         <button
           onMouseDown={(e) => e.stopPropagation()}
-          onClick={onCancel}
+          onClick={() => editorRef.current?.requestCancel()}
           title={t("common.close")}
           className="ml-auto rounded-md p-1 text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground"
         >

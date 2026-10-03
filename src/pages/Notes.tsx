@@ -506,7 +506,7 @@ export function Notes({ className }: NotesProps) {
                   onSaveOnly={(content, imagePaths) => handleSaveOnly(note.id, content, imagePaths)}
                   onCancel={() => setEditingNoteId(null)}
                   onRegisterUnsaved={(api) => {
-                    guard?.registerGuard("notes-page", api ? { ...api, type: "note" as const, discard: () => setEditingNoteId(null) } : null);
+                    guard?.registerGuard("notes-page", api ? { ...api, type: "note" as const, discard: () => { api.discard?.(); setEditingNoteId(null); } } : null);
                   }}
                 />
               ) : (

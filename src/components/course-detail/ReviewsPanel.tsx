@@ -4,6 +4,7 @@ import { TrashIcon as Trash, PencilSimpleIcon as PencilSimple, PlusIcon as Plus,
 import type { Review } from "@/types";
 import { MilkdownEditor } from "./MilkdownEditor";
 import { ReviewPreviewDialog } from "./ReviewPreviewDialog";
+import { ConfirmUnsavedDialog } from "./ConfirmUnsavedDialog";
 import { useTranslation } from "react-i18next";
 import { cn } from "@/lib/utils";
 import { SNAPPY } from "@/lib/constants";
@@ -16,7 +17,7 @@ interface ReviewsPanelProps {
   onAdd: (title: string, content: string) => Promise<number | null>;
   onEdit: (reviewId: number, title: string, content: string) => void;
   onDelete: (reviewId: number) => void;
-  onRegisterUnsaved?: (api: { check: () => boolean; save: () => void } | null) => void;
+  onRegisterUnsaved?: (api: { check: () => boolean; save: () => void; discard?: () => void } | null) => void;
 }
 
 function extractTitle(content: string): string {
@@ -47,6 +48,7 @@ export function ReviewsPanel({
   const [editingId, setEditingId] = useState<number | null>(null);
   const [content, setContent] = useState("");
   const [expanded, setExpanded] = useState(false);
+  const [confirmDialog, setConfirmDialog] = useState(false);
   const [editorKey, setEditorKey] = useState(0);
   const [previewReview, setPreviewReview] = useState<Review | null>(null);
   const originalContentRef = useRef("");
@@ -91,18 +93,40 @@ export function ReviewsPanel({
       save: () => {
         void handleSave();
       },
+      discard: () => {
+        void deleteUnreferencedImportedImages(importedThisSessionRef.current, originalContentRef.current);
+        importedThisSessionRef.current = new Set();
+      },
     });
     return () => onRegisterUnsaved?.(null);
   }, [onRegisterUnsaved, showEditor, editingId, content, handleSave]);
 
-  const handleCancel = useCallback(async () => {
+  const hasUnsavedChanges = useCallback(() => {
+    return (showEditor || editingId !== null) && content !== originalContentRef.current;
+  }, [showEditor, editingId, content]);
+
+  const discardAndCancel = useCallback(async () => {
     await deleteUnreferencedImportedImages(importedThisSessionRef.current, originalContentRef.current);
     importedThisSessionRef.current = new Set();
+    setConfirmDialog(false);
     setShowEditor(false);
     setEditingId(null);
     setContent("");
     originalContentRef.current = "";
   }, []);
+
+  const saveAndCancel = useCallback(() => {
+    setConfirmDialog(false);
+    void handleSave();
+  }, [handleSave]);
+
+  const handleCancel = useCallback(() => {
+    if (hasUnsavedChanges()) {
+      setConfirmDialog(true);
+    } else {
+      void discardAndCancel();
+    }
+  }, [hasUnsavedChanges, discardAndCancel]);
 
   const handleKeyDown = useCallback((e: React.KeyboardEvent) => {
     if ((e.ctrlKey || e.metaKey) && e.key === "Enter") {
@@ -344,6 +368,15 @@ export function ReviewsPanel({
             onEdit(previewReview.id, title, newContent);
             setPreviewReview((prev) => (prev ? { ...prev, content: newContent, title } : null));
           }}
+        />
+      )}
+
+      {confirmDialog && (
+        <ConfirmUnsavedDialog
+          type="review"
+          onCancel={() => setConfirmDialog(false)}
+          onDiscard={() => void discardAndCancel()}
+          onSave={saveAndCancel}
         />
       )}
     </div>

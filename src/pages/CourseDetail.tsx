@@ -1379,7 +1379,7 @@ function CourseDetailInner({
                 onTimestampClick={handleTimestampClick}
                 onRegisterUnsaved={(api) => {
                   noteUnsavedRef.current = api;
-                  guard?.registerGuard("courseDetail-note", api ? { ...api, type: "note" as const, discard: () => { setShowEditor(false); setEditingNoteId(null); } } : null);
+                  guard?.registerGuard("courseDetail-note", api ? { ...api, type: "note" as const, discard: () => { api.discard?.(); setShowEditor(false); setEditingNoteId(null); } } : null);
                 }}
               />
             )}

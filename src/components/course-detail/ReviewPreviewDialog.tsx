@@ -2,6 +2,7 @@ import { useState, useCallback, useRef, useEffect } from "react";
 import { createPortal } from "react-dom";
 import { XIcon as X, PencilSimpleIcon as PencilSimple } from "@phosphor-icons/react";
 import { MilkdownEditor } from "./MilkdownEditor";
+import { ConfirmUnsavedDialog } from "./ConfirmUnsavedDialog";
 import { useTranslation } from "react-i18next";
 import { SNAPPY } from "@/lib/constants";
 import { deleteUnreferencedImportedImages } from "@/lib/store";
@@ -19,6 +20,7 @@ export function ReviewPreviewDialog({ content, onClose, onSave }: ReviewPreviewD
   const [currentContent, setCurrentContent] = useState(content);
   const [editContent, setEditContent] = useState(content);
   const [editorKey, setEditorKey] = useState(0);
+  const [confirmDialog, setConfirmDialog] = useState(false);
   const [contentMinHeight, setContentMinHeight] = useState<number | undefined>(undefined);
   const scrollRef = useRef<HTMLDivElement>(null);
   const savedScrollRef = useRef(0);
@@ -67,13 +69,27 @@ export function ReviewPreviewDialog({ content, onClose, onSave }: ReviewPreviewD
     setEditorKey((k) => k + 1);
   }, [editContent, onSave]);
 
-  const handleCancelEdit = useCallback(async () => {
+  const discardAndCancelEdit = useCallback(async () => {
     await deleteUnreferencedImportedImages(importedThisSessionRef.current, currentContent);
     importedThisSessionRef.current = new Set();
+    setConfirmDialog(false);
     preserveScroll();
     setMode("preview");
     setEditorKey((k) => k + 1);
   }, [currentContent]);
+
+  const saveAndCancelEdit = useCallback(() => {
+    setConfirmDialog(false);
+    void handleSave();
+  }, [handleSave]);
+
+  const handleCancelEdit = useCallback(() => {
+    if (editContent !== currentContent) {
+      setConfirmDialog(true);
+    } else {
+      void discardAndCancelEdit();
+    }
+  }, [editContent, currentContent, discardAndCancelEdit]);
 
   const handleKeyDown = useCallback((e: React.KeyboardEvent) => {
     if ((e.ctrlKey || e.metaKey) && e.key === "Enter") {
@@ -160,6 +176,15 @@ export function ReviewPreviewDialog({ content, onClose, onSave }: ReviewPreviewD
               {t("common.save")}
             </button>
           </div>
+        )}
+
+        {confirmDialog && (
+          <ConfirmUnsavedDialog
+            type="review"
+            onCancel={() => setConfirmDialog(false)}
+            onDiscard={() => void discardAndCancelEdit()}
+            onSave={saveAndCancelEdit}
+          />
         )}
       </div>
     </div>,

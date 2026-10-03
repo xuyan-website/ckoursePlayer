@@ -22,6 +22,7 @@ import {
   deleteReview,
   exportReviewsZip,
   revealInExplorer,
+  deleteUnreferencedImportedImages,
   type ExportReviewItemData,
 } from "@/lib/store";
 import { usePageVisible } from "@/hooks/usePageVisible";
@@ -118,11 +119,13 @@ export function Reviews() {
     setEditingId(review.id);
     setEditContent(review.content);
     lastSavedContentRef.current = review.content;
+    importedThisSessionRef.current = new Set();
   };
 
   const handleSaveEdit = () => {
     if (editingId === null) return;
     const title = extractTitle(editContent);
+    void deleteUnreferencedImportedImages(importedThisSessionRef.current, editContent);
     updateReview(editingId, title, editContent)
       .then(() => {
         setReviews((prev) =>
@@ -133,6 +136,7 @@ export function Reviews() {
           ),
         );
           lastSavedContentRef.current = editContent;
+          importedThisSessionRef.current = new Set();
           setEditingId(null);
           setEditContent("");
         })
@@ -143,6 +147,8 @@ export function Reviews() {
   };
 
   const handleCancelEdit = () => {
+    void deleteUnreferencedImportedImages(importedThisSessionRef.current, lastSavedContentRef.current);
+    importedThisSessionRef.current = new Set();
     setEditingId(null);
     setEditContent("");
   };
@@ -150,6 +156,7 @@ export function Reviews() {
   const editContentRef = useRef(editContent);
   editContentRef.current = editContent;
   const lastSavedContentRef = useRef("");
+  const importedThisSessionRef = useRef<Set<string>>(new Set());
   const handleSaveEditRef = useRef(handleSaveEdit);
   handleSaveEditRef.current = handleSaveEdit;
 
@@ -161,6 +168,7 @@ export function Reviews() {
       const currentContent = editContentRef.current;
       if (!currentContent.trim()) return;
       const title = extractTitle(currentContent);
+      void deleteUnreferencedImportedImages(importedThisSessionRef.current, currentContent);
       updateReview(editingId, title, currentContent)
         .then(() => {
           setReviews((prev) =>
@@ -171,6 +179,7 @@ export function Reviews() {
             ),
           );
           lastSavedContentRef.current = currentContent;
+          importedThisSessionRef.current = new Set();
           toast.success(t("courseDetail.saved"));
         })
         .catch((err) => {
@@ -187,7 +196,12 @@ export function Reviews() {
       guard?.registerGuard("reviews-page", {
         check: () => editingId !== null && editContentRef.current !== lastSavedContentRef.current,
         save: () => handleSaveEditRef.current(),
-        discard: () => { setEditingId(null); setEditContent(""); },
+        discard: () => {
+          void deleteUnreferencedImportedImages(importedThisSessionRef.current, lastSavedContentRef.current);
+          importedThisSessionRef.current = new Set();
+          setEditingId(null);
+          setEditContent("");
+        },
         type: "review" as const,
       });
     } else {
@@ -410,6 +424,7 @@ export function Reviews() {
                     defaultValue={editContent}
                     onChange={setEditContent}
                     className="review-editor"
+                    onImageImported={(p) => importedThisSessionRef.current.add(p)}
                   />
                   <div className="mt-2 flex items-center justify-end gap-1.5">
                     <button
