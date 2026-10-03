@@ -268,6 +268,7 @@
 .note-content s { text-decoration: line-through; }
 
 /* Code block styles — editor and rendered notes */
+.milkdown .milkdown-code-block .cm-content,
 .note-editable pre.note-codeblock,
 .note-content pre.note-codeblock {
   padding: 6px;
@@ -280,6 +281,9 @@
   font-size: inherit;
   line-height: 1.5;
   tab-size: 2;
+}
+.milkdown .milkdown-code-block .cm-content{
+    font-weight: 600;
 }
 
 .note-editable pre.note-codeblock code,
