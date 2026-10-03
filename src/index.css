@@ -315,7 +315,7 @@
   border: 1px solid var(--border);
   padding: 4px 8px;
   text-align: center;
-  vertical-align: top;
+  vertical-align: middle;
   overflow-wrap: break-word;
 }
 .note-editable table.note-table th,

@@ -213,6 +213,7 @@ export const NoteEditor = forwardRef<NoteEditorHandle, NoteEditorProps>(function
     if (initialContent) {
       el.innerHTML = initialContent;
       highlightAllCodeBlocks(el);
+      ensureParagraphAfterCodeBlocks();
     } else {
       // Auto-insert current video time timestamp when opening a new note
       el.innerHTML = "<div>" + buildTimestampHtml(videoTimeRef.current) + "</div><div><br></div>";
@@ -251,6 +252,19 @@ export const NoteEditor = forwardRef<NoteEditorHandle, NoteEditorProps>(function
           sel?.removeAllRanges();
           sel?.addRange(range);
         }
+      }
+    });
+  }, []);
+
+  const ensureParagraphAfterCodeBlocks = useCallback(() => {
+    const el = editorRef.current;
+    if (!el) return;
+    el.querySelectorAll("pre.note-codeblock").forEach((pre) => {
+      const next = pre.nextElementSibling as HTMLElement | null;
+      if (!next || next.tagName !== "DIV") {
+        const after = document.createElement("div");
+        after.innerHTML = "<br>";
+        pre.after(after);
       }
     });
   }, []);
@@ -878,6 +892,7 @@ export const NoteEditor = forwardRef<NoteEditorHandle, NoteEditorProps>(function
 
   function handleInput() {
     if (isComposingRef.current) return;
+    ensureParagraphAfterCodeBlocks();
     highlightCurrentCodeBlock();
     // First try to auto-commit completed patterns (after space/punctuation)
     if (tryCommitTimestamp()) return;
