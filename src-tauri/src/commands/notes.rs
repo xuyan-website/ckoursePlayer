@@ -53,6 +53,92 @@ fn sanitize_filename(name: &str) -> String {
         .collect()
 }
 
+fn normalize_bold_spaces(content: &str) -> String {
+    let mut result = String::with_capacity(content.len());
+    let mut in_code_block = false;
+
+    for line in content.split_inclusive('\n') {
+        let trimmed = line.trim_start();
+
+        if in_code_block {
+            if trimmed.starts_with("```") || trimmed.starts_with("~~~") {
+                in_code_block = false;
+            }
+            result.push_str(line);
+            continue;
+        }
+
+        if trimmed.starts_with("```") || trimmed.starts_with("~~~") {
+            in_code_block = true;
+            result.push_str(line);
+            continue;
+        }
+
+        let chars: Vec<char> = line.chars().collect();
+        let mut i = 0;
+        let mut in_inline_code = false;
+        while i < chars.len() {
+            if chars[i] == '\\' && i + 1 < chars.len() {
+                result.push(chars[i]);
+                result.push(chars[i + 1]);
+                i += 2;
+                continue;
+            }
+            if chars[i] == '`' {
+                in_inline_code = !in_inline_code;
+                result.push(chars[i]);
+                i += 1;
+                continue;
+            }
+            if !in_inline_code
+                && chars[i] == '*'
+                && i + 1 < chars.len()
+                && chars[i + 1] == '*'
+            {
+                let mut j = i + 2;
+                let mut inner_in_code = false;
+                let mut end: Option<usize> = None;
+                while j < chars.len() {
+                    if chars[j] == '\\' && j + 1 < chars.len() {
+                        j += 2;
+                        continue;
+                    }
+                    if chars[j] == '`' {
+                        inner_in_code = !inner_in_code;
+                        j += 1;
+                        continue;
+                    }
+                    if !inner_in_code
+                        && chars[j] == '*'
+                        && j + 1 < chars.len()
+                        && chars[j + 1] == '*'
+                    {
+                        end = Some(j);
+                        break;
+                    }
+                    j += 1;
+                }
+                if let Some(e) = end {
+                    let inner: String = chars[i + 2..e].iter().collect();
+                    let trimmed_inner = inner.trim_matches(|c: char| c == ' ' || c == '\t');
+                    result.push_str("**");
+                    result.push_str(trimmed_inner);
+                    result.push_str("**");
+                    i = e + 2;
+                    continue;
+                }
+                result.push_str("**");
+                i += 2;
+                continue;
+            }
+            result.push(chars[i]);
+            i += 1;
+        }
+    }
+
+    result
+}
+
 /// Export notes to a ZIP archive. Each doc becomes a Markdown file.
 /// Format: "singleLesson" | "fullCourse" | "searchResult".
 #[tauri::command]
@@ -100,8 +186,12 @@ pub async fn export_notes_to_zip(
                     } else {
                         md.push_str(&format!("## 笔记{}\n\n", label));
                     }
-                    md.push_str(&note.markdown);
-                    md.push('\n');
+                    md.push_str(&normalize_bold_spaces(&note.markdown));
+                    if !md.ends_with('\n') {
+                        md.push_str("\n\n");
+                    } else if !md.ends_with("\n\n") {
+                        md.push('\n');
+                    }
 
                     for img_path in &note.image_paths {
                         let p = std::path::Path::new(img_path);

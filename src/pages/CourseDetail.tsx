@@ -707,8 +707,13 @@ function CourseDetailInner({
       return;
     }
 
+    const sanitize = (s: string) =>
+      s.replace(/[/\\:*?"<>|]/g, "").trim().slice(0, 50);
+    const sectionName = sanitize(activeSection.title) || "section";
+    const lessonName = sanitize(activeLesson.title) || "lesson";
+
     const path = await save({
-      defaultPath: `${activeSection.title}.zip`,
+      defaultPath: `${sectionName}-${lessonName}.zip`,
       filters: [{ name: "ZIP", extensions: ["zip"] }],
     });
     if (!path) return;

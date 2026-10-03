@@ -262,8 +262,12 @@ export function Reviews() {
         content: r.content,
       }));
       await exportReviewsZip(items, outputPath);
-      toast.success(t("reviews.exportSuccess"));
-      await revealInExplorer(outputPath);
+      toast.success(t("reviews.exportSuccess"), {
+        action: {
+          label: t("notes.openFolder"),
+          onClick: () => revealInExplorer(outputPath),
+        },
+      });
     } catch (err) {
       console.error("export reviews failed", err);
       toast.error(t("reviews.exportFailed"));
