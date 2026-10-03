@@ -107,7 +107,7 @@ pub fn delete_review(
     db::delete_review(&conn, review_id).map_err(|e| e.to_string())
 }
 
-fn delete_image_file(img_rel: &str) {
+pub(crate) fn delete_image_file(img_rel: &str) {
     let pure_path = img_rel.split(" \"").next().unwrap_or(img_rel);
     let unescaped = unescape_markdown(pure_path);
     let actual_path = if std::path::Path::new(&unescaped).is_absolute() {
@@ -294,7 +294,7 @@ fn unescape_markdown(s: &str) -> String {
     result
 }
 
-fn extract_image_paths(content: &str) -> Vec<String> {
+pub(crate) fn extract_image_paths(content: &str) -> Vec<String> {
     let mut paths = Vec::new();
     let mut search_from = 0;
     while let Some(idx) = content[search_from..].find("](") {

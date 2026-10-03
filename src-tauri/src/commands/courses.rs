@@ -79,6 +79,21 @@ pub fn reset_course_progress(state: tauri::State<'_, DbState>, course_id: i64) -
 #[tauri::command]
 pub fn delete_course(state: tauri::State<'_, DbState>, course_id: i64) -> Result<(), String> {
     let conn = state.conn.lock().map_err(|e| e.to_string())?;
+
+    let notes = db::get_course_notes(&conn, course_id).map_err(|e| e.to_string())?;
+    for note in &notes {
+        for path in &note.image_paths {
+            let _ = std::fs::remove_file(path);
+        }
+    }
+
+    let reviews = db::get_course_reviews(&conn, course_id).map_err(|e| e.to_string())?;
+    for review in &reviews {
+        for img_rel in super::reviews::extract_image_paths(&review.content) {
+            super::reviews::delete_image_file(&img_rel);
+        }
+    }
+
     db::delete_course(&conn, course_id).map_err(|e| e.to_string())
 }
 
