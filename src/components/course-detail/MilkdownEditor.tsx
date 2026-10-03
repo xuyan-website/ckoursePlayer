@@ -6,10 +6,33 @@ import { saveReviewImageData } from "@/lib/store";
 import { editorViewCtx } from "@milkdown/kit/core";
 import { addRowAfter, isInTable } from "@milkdown/kit/prose/tables";
 import { TextSelection } from "@milkdown/kit/prose/state";
+import { tableCellSchema, tableHeaderSchema } from "@milkdown/kit/preset/gfm";
 
 import "@milkdown/crepe/theme/common/style.css";
 import "@milkdown/crepe/theme/frame.css";
 import "@milkdown/crepe/theme/nord.css";
+
+const centeredTableCellSchema = tableCellSchema.extendSchema((prev) => (ctx) => {
+  const base = prev(ctx);
+  return {
+    ...base,
+    attrs: {
+      ...base.attrs,
+      alignment: { ...(base.attrs as Record<string, any>).alignment, default: "center" },
+    },
+  };
+});
+
+const centeredTableHeaderSchema = tableHeaderSchema.extendSchema((prev) => (ctx) => {
+  const base = prev(ctx);
+  return {
+    ...base,
+    attrs: {
+      ...base.attrs,
+      alignment: { ...(base.attrs as Record<string, any>).alignment, default: "center" },
+    },
+  };
+});
 
 interface MilkdownEditorProps {
   defaultValue?: string;
@@ -84,6 +107,8 @@ export function MilkdownEditor({
         },
       },
     });
+
+    crepe.editor.use([centeredTableCellSchema, centeredTableHeaderSchema] as any);
 
     crepe.setReadonly(readOnly);
 

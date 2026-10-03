@@ -5,6 +5,7 @@ import { MilkdownEditor } from "./MilkdownEditor";
 import { useTranslation } from "react-i18next";
 import { SNAPPY } from "@/lib/constants";
 import { deleteUnreferencedImportedImages } from "@/lib/store";
+import { toast } from "sonner";
 
 interface ReviewPreviewDialogProps {
   content: string;
@@ -22,6 +23,13 @@ export function ReviewPreviewDialog({ content, onClose, onSave }: ReviewPreviewD
   const scrollRef = useRef<HTMLDivElement>(null);
   const savedScrollRef = useRef(0);
   const importedThisSessionRef = useRef<Set<string>>(new Set());
+
+  const modeRef = useRef(mode);
+  modeRef.current = mode;
+  const editContentRef = useRef(editContent);
+  editContentRef.current = editContent;
+  const onSaveRef = useRef(onSave);
+  onSaveRef.current = onSave;
 
   useEffect(() => {
     const timer = setTimeout(() => {
@@ -74,6 +82,22 @@ export function ReviewPreviewDialog({ content, onClose, onSave }: ReviewPreviewD
     }
   }, [handleSave]);
 
+  useEffect(() => {
+    const handleDocKeyDown = (e: KeyboardEvent) => {
+      if (!(e.ctrlKey || e.metaKey) || (e.key !== "s" && e.key !== "S")) return;
+      if (modeRef.current !== "edit") return;
+      e.preventDefault();
+      const c = editContentRef.current;
+      if (!c.trim()) return;
+      void deleteUnreferencedImportedImages(importedThisSessionRef.current, c);
+      onSaveRef.current(c);
+      setCurrentContent(c);
+      toast.success(t("courseDetail.saved"));
+    };
+    document.addEventListener("keydown", handleDocKeyDown);
+    return () => document.removeEventListener("keydown", handleDocKeyDown);
+  }, [t]);
+
   return createPortal(
     <div
       className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/60"
@@ -108,7 +132,7 @@ export function ReviewPreviewDialog({ content, onClose, onSave }: ReviewPreviewD
             </button>
           </div>
         </div>
-        <div ref={scrollRef} className="flex-1 overflow-y-auto" onKeyDown={mode === "edit" ? handleKeyDown : undefined}>
+        <div ref={scrollRef} className="flex-1 overflow-y-auto" onKeyDown={mode === "edit" ? handleKeyDown : undefined} style={{backgroundColor:"#fdfcff"}}>
           <div style={{ minHeight: contentMinHeight }}>
             <MilkdownEditor
               key={editorKey}
