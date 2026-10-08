@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback, useMemo, useContext } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import { usePageVisible, ActivePathContext } from "@/hooks/usePageVisible";
+import { useInfiniteSentinel } from "@/hooks/useInfiniteSentinel";
 import {
   NotepadIcon as Notepad,
   SpinnerGapIcon as SpinnerGap,
@@ -121,6 +122,8 @@ export function Notes({ className }: NotesProps) {
 
     return result;
   }, [notes, courseFilter, search, sortField, sortDir]);
+
+  const { visibleCount, sentinelRef } = useInfiniteSentinel(filtered.length);
 
   const handleEdit = useCallback(
     async (noteId: number, content: string, imagePaths: string[]) => {
@@ -495,11 +498,11 @@ export function Notes({ className }: NotesProps) {
         </div>
       ) : (
         <div className="flex flex-col gap-2">
-          {filtered.map((note, index) => (
+          {filtered.slice(0, visibleCount).map((note, index) => (
             <div
               key={note.id}
               style={{
-                animation: `card-in 350ms ${EASE_OUT} ${100 + index * 30}ms both`,
+                animation: `card-in 350ms ${EASE_OUT} ${Math.min(100 + index * 30, 400)}ms both`,
               }}
             >
               {editingNoteId === note.id ? (
@@ -523,6 +526,11 @@ export function Notes({ className }: NotesProps) {
               )}
             </div>
           ))}
+          {visibleCount < filtered.length && (
+            <div ref={sentinelRef} className="flex justify-center py-4">
+              <div className="h-1 w-8 animate-pulse rounded-full bg-muted-foreground/20" />
+            </div>
+          )}
         </div>
       )}
     </div>

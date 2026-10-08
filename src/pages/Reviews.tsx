@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import { save } from "@tauri-apps/plugin-dialog";
 import { toast } from "sonner";
+import { useInfiniteSentinel } from "@/hooks/useInfiniteSentinel";
 import {
   TrashIcon as Trash,
   PencilSimpleIcon as PencilSimple,
@@ -119,6 +120,8 @@ export function Reviews() {
 
     return result;
   }, [reviews, search, courseFilter, sortField, sortDir]);
+
+  const { visibleCount, sentinelRef } = useInfiniteSentinel(filtered.length);
 
   const handleEdit = (review: ReviewWithCourse) => {
     setEditingId(review.id);
@@ -419,12 +422,12 @@ export function Reviews() {
         </div>
       ) : (
         <div className="flex flex-col gap-2">
-          {filtered.map((review, index) => (
+          {filtered.slice(0, visibleCount).map((review, index) => (
             <div
               key={review.id}
               className="rounded-lg border border-border/60 bg-card p-3 transition-colors hover:border-border"
               style={{
-                animation: `card-in 350ms ${EASE_OUT} ${100 + index * 30}ms both`,
+                animation: `card-in 350ms ${EASE_OUT} ${Math.min(100 + index * 30, 400)}ms both`,
               }}
             >
               {editingId === review.id ? (
@@ -502,6 +505,11 @@ export function Reviews() {
               )}
             </div>
           ))}
+          {visibleCount < filtered.length && (
+            <div ref={sentinelRef} className="flex justify-center py-4">
+              <div className="h-1 w-8 animate-pulse rounded-full bg-muted-foreground/20" />
+            </div>
+          )}
         </div>
       )}
 
