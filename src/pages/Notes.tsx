@@ -1,7 +1,7 @@
-import { useState, useEffect, useCallback, useMemo } from "react";
+import { useState, useEffect, useCallback, useMemo, useContext } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { useTranslation } from "react-i18next";
-import { usePageVisible } from "@/hooks/usePageVisible";
+import { usePageVisible, ActivePathContext } from "@/hooks/usePageVisible";
 import {
   NotepadIcon as Notepad,
   SpinnerGapIcon as SpinnerGap,
@@ -48,6 +48,7 @@ interface NotesProps {
 
 export function Notes({ className }: NotesProps) {
   const { t } = useTranslation();
+  const activePath = useContext(ActivePathContext);
   const guard = useUnsavedGuard();
   const [notes, setNotes] = useState<NoteWithCourse[]>([]);
   const [loading, setLoading] = useState(true);
@@ -66,6 +67,10 @@ export function Notes({ className }: NotesProps) {
   }, [reload]);
 
   usePageVisible("/notes", reload);
+
+  useEffect(() => {
+    if (activePath !== "/notes") setSearch("");
+  }, [activePath]);
 
   const courses = useMemo(() => {
     const map = new Map<number, { id: number; title: string; accentColor: string; count: number }>();

@@ -308,12 +308,6 @@ export function ReviewsPanel({
       {expanded && createPortal(
         <div
           className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/60"
-          onClick={(e) => {
-            if (e.target === e.currentTarget) {
-              setExpanded(false);
-              setEditorKey((k) => k + 1);
-            }
-          }}
         >
           <div
             className="flex h-[85vh] w-[85vw] max-w-5xl flex-col rounded-lg border border-border bg-card shadow-xl"

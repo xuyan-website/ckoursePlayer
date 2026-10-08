@@ -1823,9 +1823,6 @@ function DetachableEditorDialog({
       {!detached && (
         <div
           className="fixed inset-0 z-50 bg-black/60"
-          onClick={(e) => {
-            if (e.target === e.currentTarget) onClose();
-          }}
         />
       )}
       <div
@@ -1836,13 +1833,6 @@ function DetachableEditorDialog({
             : "fixed inset-0 z-50 flex items-center justify-center",
         )}
         style={detached ? { left: pos.x, top: pos.y, width: 480 } : undefined}
-        onClick={
-          detached
-            ? undefined
-            : (e) => {
-                if (e.target === e.currentTarget) onClose();
-              }
-        }
       >
         {detached && (
           <div

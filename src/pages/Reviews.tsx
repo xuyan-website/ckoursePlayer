@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useMemo, useRef } from "react";
+import { useState, useEffect, useCallback, useMemo, useRef, useContext } from "react";
 import { useNavigate } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import { save } from "@tauri-apps/plugin-dialog";
@@ -25,7 +25,7 @@ import {
   deleteUnreferencedImportedImages,
   type ExportReviewItemData,
 } from "@/lib/store";
-import { usePageVisible } from "@/hooks/usePageVisible";
+import { usePageVisible, ActivePathContext } from "@/hooks/usePageVisible";
 import { MilkdownEditor } from "@/components/course-detail/MilkdownEditor";
 import { ReviewPreviewDialog } from "@/components/course-detail/ReviewPreviewDialog";
 import { useUnsavedGuard } from "@/hooks/useUnsavedGuard";
@@ -52,6 +52,7 @@ type SortDir = "desc" | "asc";
 export function Reviews() {
   const { t } = useTranslation();
   const navigate = useNavigate();
+  const activePath = useContext(ActivePathContext);
   const guard = useUnsavedGuard();
   const [reviews, setReviews] = useState<ReviewWithCourse[]>([]);
   const [loading, setLoading] = useState(true);
@@ -75,6 +76,10 @@ export function Reviews() {
   }, [reload]);
 
   usePageVisible("/reviews", reload);
+
+  useEffect(() => {
+    if (activePath !== "/reviews") setSearch("");
+  }, [activePath]);
 
   const courseGroups = reviews.reduce<Map<number, { title: string; count: number; color: string }>>(
     (acc, r) => {
