@@ -361,7 +361,7 @@
 
 /* Milkdown ProseMirror padding */
 .ProseMirror {
-  padding: 30px 75px !important;
+    padding: 30px 75px !important;
 }
 .min-h-full{
     min-height: 100%;
