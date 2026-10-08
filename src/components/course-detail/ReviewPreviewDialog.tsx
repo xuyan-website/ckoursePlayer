@@ -21,6 +21,7 @@ export function ReviewPreviewDialog({ content, onClose, onSave }: ReviewPreviewD
   const [editContent, setEditContent] = useState(content);
   const [editorKey, setEditorKey] = useState(0);
   const [confirmDialog, setConfirmDialog] = useState(false);
+  const [confirmSource, setConfirmSource] = useState<"cancel" | "close">("cancel");
   const [contentMinHeight, setContentMinHeight] = useState<number | undefined>(undefined);
   const scrollRef = useRef<HTMLDivElement>(null);
   const savedScrollRef = useRef(0);
@@ -83,13 +84,35 @@ export function ReviewPreviewDialog({ content, onClose, onSave }: ReviewPreviewD
     void handleSave();
   }, [handleSave]);
 
+  const discardAndClose = useCallback(async () => {
+    await deleteUnreferencedImportedImages(importedThisSessionRef.current, currentContent);
+    importedThisSessionRef.current = new Set();
+    setConfirmDialog(false);
+    onClose();
+  }, [currentContent, onClose]);
+
+  const saveAndClose = useCallback(() => {
+    setConfirmDialog(false);
+    void handleSave().then(() => onClose());
+  }, [handleSave, onClose]);
+
   const handleCancelEdit = useCallback(() => {
     if (editContent !== currentContent) {
+      setConfirmSource("cancel");
       setConfirmDialog(true);
     } else {
       void discardAndCancelEdit();
     }
   }, [editContent, currentContent, discardAndCancelEdit]);
+
+  const handleClose = useCallback(() => {
+    if (mode === "edit" && editContent !== currentContent) {
+      setConfirmSource("close");
+      setConfirmDialog(true);
+    } else {
+      onClose();
+    }
+  }, [mode, editContent, currentContent, onClose]);
 
   const handleKeyDown = useCallback((e: React.KeyboardEvent) => {
     if ((e.ctrlKey || e.metaKey) && e.key === "Enter") {
@@ -137,7 +160,7 @@ export function ReviewPreviewDialog({ content, onClose, onSave }: ReviewPreviewD
               </button>
             )}
             <button
-              onClick={onClose}
+              onClick={handleClose}
               className="rounded p-1 text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground"
               title={t("common.close")}
             >
@@ -179,8 +202,8 @@ export function ReviewPreviewDialog({ content, onClose, onSave }: ReviewPreviewD
           <ConfirmUnsavedDialog
             type="review"
             onCancel={() => setConfirmDialog(false)}
-            onDiscard={() => void discardAndCancelEdit()}
-            onSave={saveAndCancelEdit}
+            onDiscard={confirmSource === "close" ? () => void discardAndClose() : () => void discardAndCancelEdit()}
+            onSave={confirmSource === "close" ? saveAndClose : saveAndCancelEdit}
           />
         )}
       </div>
