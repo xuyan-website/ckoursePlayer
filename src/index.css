@@ -394,6 +394,10 @@
 .milkdown-table-block .drag-preview {
   display: none !important;
 }
+.milkdown-table-block td,
+.milkdown-table-block th {
+  vertical-align: middle !important;
+}
 
 /* 隐藏块级 drop indicator（位置不正确），两个 class 在同一 div 上 */
 .crepe-drop-cursor.milkdown-drop-indicator {

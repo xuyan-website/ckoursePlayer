@@ -303,6 +303,9 @@ export const NoteEditor = forwardRef<NoteEditorHandle, NoteEditorProps>(function
     const language = pre?.getAttribute("data-language") || "plaintext";
     isHighlightingRef.current = true;
     code.innerHTML = highlightCode(snapshot.text, language) || "<br>";
+    if (snapshot.text.endsWith("\n")) {
+      code.append(document.createElement("br"));
+    }
     code.className = "hljs language-" + language;
     setCaretOffsetRange(code, snapshot.caretStart, snapshot.caretEnd);
     isHighlightingRef.current = false;
@@ -321,6 +324,9 @@ export const NoteEditor = forwardRef<NoteEditorHandle, NoteEditorProps>(function
     const language = pre?.getAttribute("data-language") || "plaintext";
     isHighlightingRef.current = true;
     code.innerHTML = highlightCode(snapshot.text, language) || "<br>";
+    if (snapshot.text.endsWith("\n")) {
+      code.append(document.createElement("br"));
+    }
     code.className = "hljs language-" + language;
     setCaretOffsetRange(code, snapshot.caretStart, snapshot.caretEnd);
     isHighlightingRef.current = false;
@@ -423,6 +429,9 @@ export const NoteEditor = forwardRef<NoteEditorHandle, NoteEditorProps>(function
     const { start, end } = getCaretOffset(code);
     const text = code.textContent ?? "";
     code.innerHTML = highlightCode(text, language) || "<br>";
+    if (text.endsWith("\n")) {
+      code.append(document.createElement("br"));
+    }
     code.className = "hljs language-" + language;
     setCaretOffsetRange(code, start, end);
     isHighlightingRef.current = false;
