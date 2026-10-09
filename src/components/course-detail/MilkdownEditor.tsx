@@ -131,6 +131,19 @@ export function MilkdownEditor({
     const handleKeyDown = (e: KeyboardEvent) => {
       if (!rootRef.current) return;
       if (!rootRef.current.contains(e.target as Node)) return;
+      if (e.key === "Enter" && (e.metaKey || e.ctrlKey) && e.shiftKey) {
+        const view = getView();
+        if (view) {
+          e.preventDefault();
+          e.stopPropagation();
+          if (isInTable(view.state)) {
+            const hardBreak = view.state.schema.nodes.hardbreak;
+            if (hardBreak) {
+              view.dispatch(view.state.tr.replaceSelectionWith(hardBreak.create(), false));
+            }
+          }
+        }
+      }
       if (e.key === "Enter" && e.altKey && !e.shiftKey && !e.metaKey && !e.ctrlKey) {
         const view = getView();
         if (view && isInTable(view.state)) {

@@ -1063,6 +1063,26 @@ export const NoteEditor = forwardRef<NoteEditorHandle, NoteEditorProps>(function
       return;
     }
 
+    if (e.key === "Enter" && (e.metaKey || e.ctrlKey) && e.shiftKey) {
+      const cell = getCurrentCell();
+      if (cell) {
+        e.preventDefault();
+        const sel = window.getSelection();
+        if (sel && sel.rangeCount) {
+          const range = sel.getRangeAt(0);
+          range.deleteContents();
+          const br = document.createElement("br");
+          range.insertNode(br);
+          const newRange = document.createRange();
+          newRange.setStartAfter(br);
+          newRange.collapse(true);
+          sel.removeAllRanges();
+          sel.addRange(newRange);
+        }
+        return;
+      }
+    }
+
     if (e.key === "Enter" && e.altKey) {
       const cell = getCurrentCell();
       if (cell) {

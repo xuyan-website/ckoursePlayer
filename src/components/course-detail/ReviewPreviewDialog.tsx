@@ -115,7 +115,7 @@ export function ReviewPreviewDialog({ content, onClose, onSave }: ReviewPreviewD
   }, [mode, editContent, currentContent, onClose]);
 
   const handleKeyDown = useCallback((e: React.KeyboardEvent) => {
-    if ((e.ctrlKey || e.metaKey) && e.key === "Enter") {
+    if ((e.ctrlKey || e.metaKey) && e.key === "Enter" && !e.shiftKey) {
       e.preventDefault();
       handleSave();
     }

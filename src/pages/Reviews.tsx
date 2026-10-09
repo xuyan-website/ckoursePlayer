@@ -168,7 +168,13 @@ export function Reviews() {
   useEffect(() => {
     if (editingId === null) return;
     const handleDocKeyDown = (e: KeyboardEvent) => {
-      if (!(e.ctrlKey || e.metaKey) || (e.key !== "s" && e.key !== "S")) return;
+      if (!(e.ctrlKey || e.metaKey)) return;
+      if (e.key === "Enter" && !e.shiftKey) {
+        e.preventDefault();
+        handleSaveEditRef.current();
+        return;
+      }
+      if (e.key !== "s" && e.key !== "S") return;
       e.preventDefault();
       const currentContent = editContentRef.current;
       if (!currentContent.trim()) return;
