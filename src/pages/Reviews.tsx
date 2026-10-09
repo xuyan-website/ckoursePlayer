@@ -4,6 +4,7 @@ import { useTranslation } from "react-i18next";
 import { save } from "@tauri-apps/plugin-dialog";
 import { toast } from "sonner";
 import { useInfiniteSentinel } from "@/hooks/useInfiniteSentinel";
+import { useSortPreference, type SortField } from "@/hooks/useSortPreference";
 import {
   TrashIcon as Trash,
   PencilSimpleIcon as PencilSimple,
@@ -47,9 +48,6 @@ function extractTitle(content: string): string {
   return content.replace(/\s/g, "").slice(0, 10);
 }
 
-type SortField = "updated" | "created" | "course";
-type SortDir = "desc" | "asc";
-
 export function Reviews() {
   const { t } = useTranslation();
   const navigate = useNavigate();
@@ -62,8 +60,7 @@ export function Reviews() {
   const [editingId, setEditingId] = useState<number | null>(null);
   const [editContent, setEditContent] = useState("");
   const [previewReview, setPreviewReview] = useState<ReviewWithCourse | null>(null);
-  const [sortField, setSortField] = useState<SortField>("updated");
-  const [sortDir, setSortDir] = useState<SortDir>("desc");
+  const { sortField, sortDir, toggleSort } = useSortPreference("reviews");
 
   const reload = useCallback(() => {
     getAllReviews()
@@ -217,18 +214,6 @@ export function Reviews() {
     }
     return () => guard?.registerGuard("reviews-page", null);
   }, [editingId, guard]);
-
-  const toggleSort = useCallback(
-    (field: SortField) => {
-      if (sortField === field) {
-        setSortDir((d) => (d === "desc" ? "asc" : "desc"));
-      } else {
-        setSortField(field);
-        setSortDir("desc");
-      }
-    },
-    [sortField],
-  );
 
   const handleDelete = (reviewId: number) => {
     deleteReview(reviewId)

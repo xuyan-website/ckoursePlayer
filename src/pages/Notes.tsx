@@ -3,6 +3,7 @@ import { Link, useNavigate } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import { usePageVisible, ActivePathContext } from "@/hooks/usePageVisible";
 import { useInfiniteSentinel } from "@/hooks/useInfiniteSentinel";
+import { useSortPreference, type SortField } from "@/hooks/useSortPreference";
 import {
   NotepadIcon as Notepad,
   SpinnerGapIcon as SpinnerGap,
@@ -40,9 +41,6 @@ import { htmlToMarkdown } from "@/lib/htmlToMarkdown";
 import { highlightAllCodeBlocks } from "@/lib/highlight";
 import { toast } from "sonner";
 
-type SortField = "updated" | "created" | "course";
-type SortDir = "desc" | "asc";
-
 interface NotesProps {
   className?: string;
 }
@@ -56,8 +54,7 @@ export function Notes({ className }: NotesProps) {
   const [search, setSearch] = useState("");
   const [courseFilter, setCourseFilter] = useState<number | null>(null);
   const [editingNoteId, setEditingNoteId] = useState<number | null>(null);
-  const [sortField, setSortField] = useState<SortField>("updated");
-  const [sortDir, setSortDir] = useState<SortDir>("desc");
+  const { sortField, sortDir, toggleSort } = useSortPreference("notes");
 
   const reload = useCallback(() => {
     return getAllNotes().then(setNotes);
@@ -342,18 +339,6 @@ export function Notes({ className }: NotesProps) {
       toast.error(t("notes.exportFailed"));
     }
   }, [notes, filtered, search, courseFilter, t]);
-
-  const toggleSort = useCallback(
-    (field: SortField) => {
-      if (sortField === field) {
-        setSortDir((d) => (d === "desc" ? "asc" : "desc"));
-      } else {
-        setSortField(field);
-        setSortDir("desc");
-      }
-    },
-    [sortField],
-  );
 
   if (loading) {
     return (
