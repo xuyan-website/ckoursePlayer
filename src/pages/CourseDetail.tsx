@@ -418,11 +418,11 @@ function CourseDetailInner({
   // Re-fetch notes on mount and when course prop changes (e.g. after returning from Notes page)
   useEffect(() => {
     getCourseNotes(course.id).then(setNotes).catch(() => {});
-  }, [course]);
+  }, [course.id]);
 
   useEffect(() => {
     getCourseReviews(course.id).then(setReviews).catch(() => {});
-  }, [course]);
+  }, [course.id]);
 
   useEffect(() => {
     if (activeLesson) {
@@ -915,7 +915,8 @@ function CourseDetailInner({
       return;
     }
     let cancelled = false;
-    getLessonResources(activeLesson.id)
+    const lessonId = activeLesson.id;
+    getLessonResources(lessonId)
       .then((resources) => {
         if (!cancelled) setLessonResources(resources);
       })
@@ -926,7 +927,7 @@ function CourseDetailInner({
     return () => {
       cancelled = true;
     };
-  }, [activeLesson]);
+  }, [activeLesson?.id]);
 
   const handleAddResource = async () => {
     if (!activeLesson || !course) return;

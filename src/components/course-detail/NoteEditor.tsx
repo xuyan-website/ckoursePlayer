@@ -1100,9 +1100,13 @@ export const NoteEditor = forwardRef<NoteEditorHandle, NoteEditorProps>(function
         saveCodeSnapshot();
         const sel = window.getSelection();
         if (sel && sel.rangeCount) {
+          const { start } = getCaretOffset(currentCode);
+          const text = currentCode.textContent ?? "";
+          const lineStart = text.lastIndexOf("\n", start - 1) + 1;
+          const indent = text.slice(lineStart, start).match(/^[ \t]*/)?.[0] ?? "";
           const range = sel.getRangeAt(0);
           range.deleteContents();
-          const textNode = document.createTextNode("\n");
+          const textNode = document.createTextNode("\n" + indent);
           range.insertNode(textNode);
           const newRange = document.createRange();
           newRange.setStartAfter(textNode);
