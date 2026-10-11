@@ -1058,6 +1058,28 @@ export const NoteEditor = forwardRef<NoteEditorHandle, NoteEditorProps>(function
           return;
         }
       }
+      if (e.shiftKey) {
+        const currentCode = getCurrentCodeElement();
+        if (currentCode) {
+          e.preventDefault();
+          const { start, end } = getCaretOffset(currentCode);
+          const text = currentCode.textContent ?? "";
+          const lineStart = text.lastIndexOf("\n", start - 1) + 1;
+          let leadingSpaces = 0;
+          for (let i = lineStart; i < text.length && text[i] === " "; i++) {
+            leadingSpaces++;
+          }
+          const toRemove = Math.min(4, leadingSpaces);
+          if (toRemove === 0) return;
+          saveCodeSnapshot();
+          currentCode.textContent = text.slice(0, lineStart) + text.slice(lineStart + toRemove);
+          const newStart = start > lineStart ? start - toRemove : start;
+          const newEnd = end > lineStart ? end - toRemove : end;
+          setCaretOffsetRange(currentCode, newStart, newEnd);
+          highlightCurrentCodeBlock();
+          return;
+        }
+      }
       e.preventDefault();
       document.execCommand("insertText", false, "    ");
       return;
