@@ -52,6 +52,7 @@ interface NoteEditorProps {
   detached?: boolean;
   className?: string;
   onRegisterUnsaved?: (api: { check: () => boolean; save: () => void; discard?: () => void } | null) => void;
+  externalImage?: { path: string; nonce: number } | null;
 }
 
 interface Suggestion {
@@ -76,6 +77,7 @@ export const NoteEditor = forwardRef<NoteEditorHandle, NoteEditorProps>(function
   detached = false,
   className,
   onRegisterUnsaved,
+  externalImage,
 }: NoteEditorProps, ref) {
   const { t } = useTranslation();
   const editorRef = useRef<HTMLDivElement>(null);
@@ -87,6 +89,15 @@ export const NoteEditor = forwardRef<NoteEditorHandle, NoteEditorProps>(function
   const [lightboxIndex, setLightboxIndex] = useState<number | null>(null);
   const [confirmDialog, setConfirmDialog] = useState(false);
   const handleCancelRef = useRef<() => void>(() => {});
+  const consumedNonceRef = useRef<number>(0);
+
+  useEffect(() => {
+    if (externalImage && externalImage.nonce > 0 && consumedNonceRef.current !== externalImage.nonce) {
+      consumedNonceRef.current = externalImage.nonce;
+      newImagePathsRef.current.push(externalImage.path);
+      setImagePaths((prev) => [...prev, externalImage.path]);
+    }
+  }, [externalImage?.nonce]);
 
   useImperativeHandle(ref, () => ({
     getContent: () => ({

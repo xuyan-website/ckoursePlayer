@@ -29,6 +29,7 @@ interface NotesPanelProps {
   onSetShowEditor: (show: boolean) => void;
   onTimestampClick?: (seconds: number, lessonId: number) => void;
   onRegisterUnsaved?: (api: { check: () => boolean; save: () => void; discard?: () => void } | null) => void;
+  externalImage?: { path: string; nonce: number } | null;
 }
 
 export function NotesPanel({
@@ -45,6 +46,7 @@ export function NotesPanel({
   onSetShowEditor,
   onTimestampClick,
   onRegisterUnsaved,
+  externalImage,
 }: NotesPanelProps) {
     const { t } = useTranslation();
   return (
@@ -61,6 +63,7 @@ export function NotesPanel({
           onSaveOnlyEdit={onSaveOnlyEdit}
           onCancel={() => onSetShowEditor(false)}
           onRegisterUnsaved={onRegisterUnsaved}
+          externalImage={externalImage}
         />
       ) : (
         <button
@@ -94,6 +97,7 @@ export function NotesPanel({
           onCancelEdit={() => onSetEditing(null)}
           onTimestampClick={onTimestampClick}
           onRegisterUnsaved={onRegisterUnsaved}
+          externalImage={editingNoteId === note.id ? externalImage : undefined}
         />
       ))}
     </div>
@@ -113,6 +117,7 @@ interface NoteCardProps {
   onCancelEdit: () => void;
   onTimestampClick?: (seconds: number, lessonId: number) => void;
   onRegisterUnsaved?: (api: { check: () => boolean; save: () => void; discard?: () => void } | null) => void;
+  externalImage?: { path: string; nonce: number } | null;
 }
 
 function NoteCard({
@@ -128,6 +133,7 @@ function NoteCard({
   onCancelEdit,
   onTimestampClick,
   onRegisterUnsaved,
+  externalImage,
 }: NoteCardProps) {
   if (isEditing) {
     return (
@@ -142,6 +148,7 @@ function NoteCard({
         onSaveOnlyEdit={onSaveOnlyEdit}
         onCancel={onCancelEdit}
         onRegisterUnsaved={onRegisterUnsaved}
+        externalImage={externalImage}
       />
     );
   }
@@ -210,6 +217,7 @@ interface DetachableInlineEditorProps {
   onSaveOnlyEdit?: (noteId: number, content: string, imagePaths: string[]) => void | Promise<void>;
   onCancel?: () => void;
   onRegisterUnsaved?: (api: { check: () => boolean; save: () => void; discard?: () => void } | null) => void;
+  externalImage?: { path: string; nonce: number } | null;
 }
 
 function DetachableInlineEditor({
@@ -223,6 +231,7 @@ function DetachableInlineEditor({
   onSaveOnlyEdit,
   onCancel,
   onRegisterUnsaved,
+  externalImage,
 }: DetachableInlineEditorProps) {
   const { t } = useTranslation();
   const { detached, pos, containerRef, handleDetach: toggleDetach, startDrag } = useDetachableWindow();
@@ -265,6 +274,7 @@ function DetachableInlineEditor({
       onSaveOnly={handleSaveOnly}
       onCancel={onCancel}
       onRegisterUnsaved={onRegisterUnsaved}
+      externalImage={externalImage}
     />
   );
 

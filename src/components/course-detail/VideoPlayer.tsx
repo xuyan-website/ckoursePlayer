@@ -63,6 +63,8 @@ interface VideoPlayerProps {
   onNext?: () => void;
   onAddNote?: (content: string, imagePaths: string[]) => Promise<number | null>;
   onUpdateNote?: (noteId: number, content: string, imagePaths: string[]) => Promise<boolean>;
+  isNoteEditing?: boolean;
+  onScreenshotForNote?: (path: string) => void;
 }
 
 const SPEED_OPTIONS = [0.5, 0.75, 1, 1.25, 1.5, 1.75, 2];
@@ -218,6 +220,8 @@ export const VideoPlayer = forwardRef<VideoPlayerHandle, VideoPlayerProps>(funct
   onNext,
   onAddNote,
   onUpdateNote,
+  isNoteEditing,
+  onScreenshotForNote,
 }, ref) {
   const navigate = useNavigate();
   const { t } = useTranslation();
@@ -261,6 +265,13 @@ export const VideoPlayer = forwardRef<VideoPlayerHandle, VideoPlayerProps>(funct
   const [showScreenshotDialog, setShowScreenshotDialog] = useState(false);
   const [screenshotImagePath, setScreenshotImagePath] = useState<string | null>(null);
   const [savedNoteId, setSavedNoteId] = useState<number | null>(null);
+  const [screenshotForDialog, setScreenshotForDialog] = useState<{ path: string; nonce: number } | null>(null);
+  useEffect(() => {
+    if (screenshotForDialog) {
+      const id = requestAnimationFrame(() => setScreenshotForDialog(null));
+      return () => cancelAnimationFrame(id);
+    }
+  }, [screenshotForDialog]);
   const [showVolumeSlider, setShowVolumeSlider] = useState(false);
   const [showSpeedMenu, setShowSpeedMenu] = useState(false);
   const [showSubtitleMenu, setShowSubtitleMenu] = useState(false);
@@ -500,6 +511,16 @@ export const VideoPlayer = forwardRef<VideoPlayerHandle, VideoPlayerProps>(funct
     if (!video || !lesson?.videoPath) return;
     try {
       const savedPath = await captureVideoFrame(lesson.videoPath, video.currentTime);
+      if (isNoteEditing && onScreenshotForNote) {
+        onScreenshotForNote(savedPath);
+        if (!video.paused) video.pause();
+        return;
+      }
+      if (showScreenshotDialog || showNoteDialog) {
+        setScreenshotForDialog({ path: savedPath, nonce: Date.now() });
+        if (!video.paused) video.pause();
+        return;
+      }
       setScreenshotImagePath(savedPath);
       setShowScreenshotDialog(true);
       setSavedNoteId(null);
@@ -508,7 +529,7 @@ export const VideoPlayer = forwardRef<VideoPlayerHandle, VideoPlayerProps>(funct
       console.error("screenshot failed", err);
       reportError(err, "VideoPlayer.handleScreenshot");
     }
-  }, [lesson?.videoPath]);
+  }, [lesson?.videoPath, isNoteEditing, onScreenshotForNote, showScreenshotDialog, showNoteDialog]);
 
   const closeScreenshotDialog = useCallback(async () => {
     if (screenshotImagePath && savedNoteId === null) {
@@ -1706,6 +1727,7 @@ export const VideoPlayer = forwardRef<VideoPlayerHandle, VideoPlayerProps>(funct
       {showNoteDialog && onAddNote && (
         <DetachableEditorDialog
           videoTime={Math.floor(videoTime)}
+          externalImage={screenshotForDialog}
           onSubmit={async (content: string, imagePaths: string[]) => {
             let success = false;
             if (savedNoteId !== null && onUpdateNote) {
@@ -1754,6 +1776,7 @@ export const VideoPlayer = forwardRef<VideoPlayerHandle, VideoPlayerProps>(funct
         <DetachableEditorDialog
           videoTime={Math.floor(videoTime)}
           initialImagePaths={screenshotImagePath ? [screenshotImagePath] : []}
+          externalImage={screenshotForDialog}
           onSubmit={async (content: string, imagePaths: string[]): Promise<void> => {
             let success = false;
             if (savedNoteId !== null && onUpdateNote) {
@@ -1803,6 +1826,7 @@ export const VideoPlayer = forwardRef<VideoPlayerHandle, VideoPlayerProps>(funct
 function DetachableEditorDialog({
   videoTime,
   initialImagePaths,
+  externalImage,
   onSubmit,
   onSaveOnly,
   onCancel,
@@ -1810,6 +1834,7 @@ function DetachableEditorDialog({
 }: {
   videoTime: number;
   initialImagePaths?: string[];
+  externalImage?: { path: string; nonce: number } | null;
   onSubmit: (content: string, imagePaths: string[]) => void;
   onSaveOnly?: (content: string, imagePaths: string[]) => void | Promise<void>;
   onCancel?: () => void;
@@ -1868,6 +1893,7 @@ function DetachableEditorDialog({
           <NoteEditor
             videoTime={videoTime}
             initialImagePaths={initialImagePaths}
+            externalImage={externalImage}
             onDetach={handleDetach}
             detached={detached}
             onSubmit={onSubmit}

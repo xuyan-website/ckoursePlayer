@@ -307,6 +307,13 @@ function CourseDetailInner({
     : [];
   const [editingNoteId, setEditingNoteId] = useState<number | null>(null);
   const [showEditor, setShowEditor] = useState(false);
+  const [screenshotForNote, setScreenshotForNote] = useState<{ path: string; nonce: number } | null>(null);
+  useEffect(() => {
+    if (screenshotForNote) {
+      const id = requestAnimationFrame(() => setScreenshotForNote(null));
+      return () => cancelAnimationFrame(id);
+    }
+  }, [screenshotForNote]);
   const [reviews, setReviews] = useState<Review[]>([]);
   const lessonReviews = activeLesson
     ? reviews
@@ -1113,6 +1120,8 @@ function CourseDetailInner({
             onEnded={handleVideoEnded}
             onNext={handleNextLesson}
             onAddNote={handleAddNote}
+            isNoteEditing={editingNoteId !== null || showEditor}
+            onScreenshotForNote={(path) => setScreenshotForNote({ path, nonce: Date.now() })}
             onUpdateNote={async (noteId, content, imagePaths) => {
               try {
                 await storeUpdateNote(noteId, content, imagePaths);
@@ -1396,6 +1405,7 @@ function CourseDetailInner({
                 onSetEditing={setEditingNoteId}
                 onSetShowEditor={setShowEditor}
                 onTimestampClick={handleTimestampClick}
+                externalImage={screenshotForNote}
                 onRegisterUnsaved={(api) => {
                   noteUnsavedRef.current = api;
                   guard?.registerGuard("courseDetail-note", api ? { ...api, type: "note" as const, discard: () => { api.discard?.(); setShowEditor(false); setEditingNoteId(null); } } : null);
