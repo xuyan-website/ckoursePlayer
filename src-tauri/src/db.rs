@@ -639,6 +639,22 @@ pub fn delete_resource(conn: &Connection, resource_id: i64) -> SqlResult<()> {
     Ok(())
 }
 
+pub fn get_resource_path(conn: &Connection, resource_id: i64) -> SqlResult<String> {
+    conn.query_row(
+        "SELECT path FROM resources WHERE id = ?1",
+        params![resource_id],
+        |row| row.get(0),
+    )
+}
+
+pub fn get_resource_lesson_id(conn: &Connection, resource_id: i64) -> SqlResult<i64> {
+    conn.query_row(
+        "SELECT lesson_id FROM resources WHERE id = ?1",
+        params![resource_id],
+        |row| row.get(0),
+    )
+}
+
 pub fn update_resource_path(
     conn: &Connection,
     resource_id: i64,

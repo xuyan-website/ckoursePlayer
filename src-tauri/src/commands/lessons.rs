@@ -223,7 +223,12 @@ pub fn delete_resource(
     resource_id: i64,
 ) -> Result<(), String> {
     let conn = state.conn.lock().map_err(|e| e.to_string())?;
-    db::delete_resource(&conn, resource_id).map_err(|e| e.to_string())
+    let path = db::get_resource_path(&conn, resource_id).ok();
+    db::delete_resource(&conn, resource_id).map_err(|e| e.to_string())?;
+    if let Some(p) = path {
+        let _ = std::fs::remove_file(&p);
+    }
+    Ok(())
 }
 
 #[tauri::command]
@@ -232,11 +237,31 @@ pub fn update_resource_path(
     resource_id: i64,
     path: String,
 ) -> Result<(), String> {
-    let p = std::path::Path::new(&path);
-    let ext = p.extension().and_then(|e| e.to_str()).unwrap_or("");
-    let title = resource_title_from_path(&path);
-    let resource_type = classify_resource_type(ext);
     let conn = state.conn.lock().map_err(|e| e.to_string())?;
-    db::update_resource_path(&conn, resource_id, &title, &path, &resource_type)
-        .map_err(|e| e.to_string())
+
+    let old_path = db::get_resource_path(&conn, resource_id).ok();
+    let lesson_id = db::get_resource_lesson_id(&conn, resource_id).map_err(|e| e.to_string())?;
+
+    let video_path = db::get_lesson_video_path(&conn, lesson_id).unwrap_or_default();
+    let video_dir = std::path::Path::new(&video_path).parent();
+    let final_path = match video_dir {
+        Some(dir) if !dir.as_os_str().is_empty() => copy_into_dir(&path, &dir.join("resource"))?,
+        _ => path.clone(),
+    };
+
+    let p = std::path::Path::new(&final_path);
+    let ext = p.extension().and_then(|e| e.to_str()).unwrap_or("");
+    let title = resource_title_from_path(&final_path);
+    let resource_type = classify_resource_type(ext);
+
+    db::update_resource_path(&conn, resource_id, &title, &final_path, &resource_type)
+        .map_err(|e| e.to_string())?;
+
+    if let Some(old) = old_path {
+        if old != final_path {
+            let _ = std::fs::remove_file(&old);
+        }
+    }
+
+    Ok(())
 }

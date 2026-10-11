@@ -299,7 +299,6 @@ function CourseDetailInner({
     initialTab ?? "notes",
   );
   const [lessonResources, setLessonResources] = useState<Resource[]>([]);
-  const [selectedFile, setSelectedFile] = useState<{ name: string; path: string } | null>(null);
   const [notes, setNotes] = useState<Note[]>([]);
   const lessonNotes = activeLesson
     ? notes
@@ -911,7 +910,6 @@ function CourseDetailInner({
   };
 
   useEffect(() => {
-    if (activeTab !== "resources") return;
     if (!activeLesson) {
       setLessonResources([]);
       return;
@@ -928,17 +926,21 @@ function CourseDetailInner({
     return () => {
       cancelled = true;
     };
-  }, [activeTab, activeLesson]);
+  }, [activeLesson]);
 
   const handleAddResource = async () => {
     if (!activeLesson || !course) return;
     try {
       const selected = await openDialog({
-        multiple: false,
+        multiple: true,
         title: t("courseDetail.selectFile"),
       });
-      if (!selected || typeof selected !== "string") return;
-      await addLessonResource(course.id, activeLesson.id, selected);
+      if (!selected) return;
+      const paths = Array.isArray(selected) ? selected : [selected];
+      if (paths.length === 0) return;
+      for (const p of paths) {
+        await addLessonResource(course.id, activeLesson.id, p);
+      }
       const resources = await getLessonResources(activeLesson.id);
       setLessonResources(resources);
     } catch (err) {
@@ -1224,6 +1226,11 @@ function CourseDetailInner({
                   <span className="flex items-center gap-1.5">
                     <FolderOpen className="size-3.5" />
                     {t("courseDetail.resources")}
+                    {lessonResources.length > 0 && (
+                      <span className="font-mono text-[10px] text-muted-foreground">
+                        {lessonResources.length}
+                      </span>
+                    )}
                   </span>
                 </button>
               )}
@@ -1310,7 +1317,7 @@ function CourseDetailInner({
                           >
                             <div className="flex items-center gap-2">
                               <button
-                                onClick={() => setSelectedFile({ name: fileName, path: resource.path })}
+                                onClick={() => handleOpenFile(resource.path)}
                                 className="flex flex-1 items-center gap-2 text-left"
                               >
                                 <Icon className="size-3.5 shrink-0 text-muted-foreground" />
@@ -1319,6 +1326,12 @@ function CourseDetailInner({
                                 </span>
                               </button>
                               <div className="flex shrink-0 items-center gap-0.5 opacity-0 transition-opacity group-hover:opacity-100">
+                                <button
+                                  onClick={() => handleRevealFile(resource.path)}
+                                  className="rounded-md p-1 text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground"
+                                >
+                                  <FolderOpen className="size-3" />
+                                </button>
                                 <button
                                   onClick={() => handleReplaceResource(resource.id)}
                                   className="rounded-md p-1 text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground"
@@ -1492,59 +1505,6 @@ function CourseDetailInner({
               }
             }
           `}</style>
-        </div>
-      )}
-
-      {selectedFile && (
-        <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-background/60 backdrop-blur-sm"
-          onClick={() => setSelectedFile(null)}
-        >
-          <div
-            className="mx-4 w-full max-w-sm rounded-xl border border-border bg-card p-5"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <h3 className="font-heading text-sm font-bold text-foreground">
-              {t("courseDetail.chooseAction")}
-            </h3>
-            <p className="mt-1 truncate font-sans text-xs text-muted-foreground">
-              {selectedFile.name}
-            </p>
-            <div className="mt-4 space-y-2">
-              <button
-                onClick={() => {
-                  handleRevealFile(selectedFile.path);
-                  setSelectedFile(null);
-                }}
-                className="flex w-full items-center gap-2 rounded-lg border border-border px-3 py-2 text-left transition-colors hover:bg-secondary"
-              >
-                <FolderOpen className="size-4 text-muted-foreground" />
-                <span className="font-sans text-xs font-medium text-foreground">
-                  {t("courseDetail.openLocation")}
-                </span>
-              </button>
-              <button
-                onClick={() => {
-                  handleOpenFile(selectedFile.path);
-                  setSelectedFile(null);
-                }}
-                className="flex w-full items-center gap-2 rounded-lg border border-border px-3 py-2 text-left transition-colors hover:bg-secondary"
-              >
-                <FileText className="size-4 text-muted-foreground" />
-                <span className="font-sans text-xs font-medium text-foreground">
-                  {t("courseDetail.openWithDefault")}
-                </span>
-              </button>
-            </div>
-            <div className="mt-4 flex items-center justify-end">
-              <button
-                onClick={() => setSelectedFile(null)}
-                className="rounded-lg px-3 py-1.5 font-sans text-xs font-medium text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground"
-              >
-                {t("common.cancel")}
-              </button>
-            </div>
-          </div>
         </div>
       )}
 
