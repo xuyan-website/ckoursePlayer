@@ -30,6 +30,7 @@ import {
 import { usePageVisible, ActivePathContext } from "@/hooks/usePageVisible";
 import { MilkdownEditor } from "@/components/course-detail/MilkdownEditor";
 import { ReviewPreviewDialog } from "@/components/course-detail/ReviewPreviewDialog";
+import { ConfirmUnsavedDialog } from "@/components/course-detail/ConfirmUnsavedDialog";
 import { useUnsavedGuard } from "@/hooks/useUnsavedGuard";
 import { SquircleSearch } from "@/components/ui/SquircleSearch";
 import { reportError } from "@/lib/posthog";
@@ -60,6 +61,7 @@ export function Reviews() {
   const [editingId, setEditingId] = useState<number | null>(null);
   const [editContent, setEditContent] = useState("");
   const [previewReview, setPreviewReview] = useState<ReviewWithCourse | null>(null);
+  const [confirmDialog, setConfirmDialog] = useState(false);
   const { sortField, sortDir, toggleSort } = useSortPreference("reviews");
 
   const reload = useCallback(() => {
@@ -151,11 +153,25 @@ export function Reviews() {
       });
   };
 
-  const handleCancelEdit = () => {
+  const discardAndCancelEdit = () => {
     void deleteUnreferencedImportedImages(importedThisSessionRef.current, lastSavedContentRef.current);
     importedThisSessionRef.current = new Set();
+    setConfirmDialog(false);
     setEditingId(null);
     setEditContent("");
+  };
+
+  const saveAndCancelEdit = () => {
+    setConfirmDialog(false);
+    handleSaveEdit();
+  };
+
+  const handleCancelEdit = () => {
+    if (editingId !== null && editContent !== lastSavedContentRef.current) {
+      setConfirmDialog(true);
+    } else {
+      discardAndCancelEdit();
+    }
   };
 
   const editContentRef = useRef(editContent);
@@ -526,6 +542,15 @@ export function Reviews() {
                 toast.error(t("reviews.exportFailed"));
               });
           }}
+        />
+      )}
+
+      {confirmDialog && (
+        <ConfirmUnsavedDialog
+          type="review"
+          onCancel={() => setConfirmDialog(false)}
+          onDiscard={discardAndCancelEdit}
+          onSave={saveAndCancelEdit}
         />
       )}
     </div>
