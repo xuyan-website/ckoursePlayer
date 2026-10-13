@@ -41,6 +41,39 @@ import {
 // Matches @current or @m:ss / @h:mm:ss followed by a word boundary (space, end, punctuation)
 const TIMESTAMP_COMMIT_RE = /@(current|\d{1,2}(?::\d{2}){1,2})(?=[\s,.\-!?;:]|$)/;
 
+function scrollCaretIntoView(editor: HTMLElement, fallbackEl?: HTMLElement) {
+  const sel = window.getSelection();
+  let caretTop = Infinity;
+  let caretBottom = -Infinity;
+  if (sel && sel.rangeCount) {
+    const range = sel.getRangeAt(0);
+    const rects = range.getClientRects();
+    if (rects.length > 0) {
+      caretTop = rects[0].top;
+      caretBottom = rects[rects.length - 1].bottom;
+    } else {
+      const rect = range.getBoundingClientRect();
+      if (rect.top || rect.bottom) {
+        caretTop = rect.top;
+        caretBottom = rect.bottom || rect.top;
+      }
+    }
+  }
+  if (caretTop === Infinity && fallbackEl) {
+    const r = fallbackEl.getBoundingClientRect();
+    caretTop = r.top;
+    caretBottom = r.bottom;
+  }
+  if (caretTop === Infinity) return;
+  const editorRect = editor.getBoundingClientRect();
+  const margin = 4;
+  if (caretBottom > editorRect.bottom - margin) {
+    editor.scrollTop += caretBottom - (editorRect.bottom - margin);
+  } else if (caretTop < editorRect.top + margin) {
+    editor.scrollTop -= (editorRect.top + margin) - caretTop;
+  }
+}
+
 interface NoteEditorProps {
   videoTime: number;
   initialContent?: string;
@@ -592,7 +625,9 @@ export const NoteEditor = forwardRef<NoteEditorHandle, NoteEditorProps>(function
       currentTr.after(newTr);
     }
     placeCaretInCell(newTr.firstElementChild as HTMLTableCellElement, false);
-    editorRef.current?.focus();
+    const editor = editorRef.current;
+    editor?.focus();
+    if (editor) scrollCaretIntoView(editor, newTr);
   }
 
   function addTableCol() {
@@ -1148,6 +1183,8 @@ export const NoteEditor = forwardRef<NoteEditorHandle, NoteEditorProps>(function
           sel.addRange(newRange);
         }
         highlightCurrentCodeBlock();
+        const editor = editorRef.current;
+        if (editor) scrollCaretIntoView(editor, currentCode);
         return;
       }
     }
