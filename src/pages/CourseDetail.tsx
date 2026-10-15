@@ -321,8 +321,8 @@ function CourseDetailInner({
         .sort((a, b) => b.updatedAt.localeCompare(a.updatedAt))
     : [];
 
-  const noteUnsavedRef = useRef<{ check: () => boolean; save: () => void } | null>(null);
-  const reviewUnsavedRef = useRef<{ check: () => boolean; save: () => void } | null>(null);
+  const noteUnsavedRef = useRef<{ check: () => boolean; save: () => void; discard?: () => void } | null>(null);
+  const reviewUnsavedRef = useRef<{ check: () => boolean; save: () => void; discard?: () => void } | null>(null);
   const [unsavedType, setUnsavedType] = useState<"note" | "review" | null>(null);
   const [pendingAction, setPendingAction] = useState<(() => void | Promise<void>) | null>(null);
 
@@ -1541,8 +1541,11 @@ function CourseDetailInner({
               <button
                 onClick={() => {
                   if (unsavedType === "note") {
+                    noteUnsavedRef.current?.discard?.();
                     setShowEditor(false);
                     setEditingNoteId(null);
+                  } else {
+                    reviewUnsavedRef.current?.discard?.();
                   }
                   setUnsavedType(null);
                   setPendingAction(null);
