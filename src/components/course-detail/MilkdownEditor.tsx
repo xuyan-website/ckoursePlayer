@@ -7,6 +7,9 @@ import { editorViewCtx } from "@milkdown/kit/core";
 import { addRowAfter, isInTable } from "@milkdown/kit/prose/tables";
 import { TextSelection } from "@milkdown/kit/prose/state";
 import { tableCellSchema, tableHeaderSchema } from "@milkdown/kit/preset/gfm";
+import { hardbreakSchema } from "@milkdown/kit/preset/commonmark";
+import { $remark } from "@milkdown/utils";
+import { visit } from "unist-util-visit";
 
 import "@milkdown/crepe/theme/common/style.css";
 import "@milkdown/crepe/theme/frame.css";
@@ -33,6 +36,39 @@ const centeredTableHeaderSchema = tableHeaderSchema.extendSchema((prev) => (ctx)
     },
   };
 });
+
+const tableSafeHardbreakSchema = hardbreakSchema.extendSchema((prev) => (ctx) => {
+  const base = prev(ctx);
+  return {
+    ...base,
+    toMarkdown: {
+      ...base.toMarkdown,
+      runner: (state: any, node: any) => {
+        const elements = (state as any).elements as { type: string }[] | undefined;
+        const inTable = !!elements?.some((el) => el.type === "tableCell");
+        if (inTable) {
+          state.addNode("html", undefined, "<br data-break>");
+          return;
+        }
+        if (node.attrs?.isInline) state.addNode("text", undefined, "\n");
+        else state.addNode("break");
+      },
+    },
+  };
+});
+
+const brToBreakRemark = $remark(
+  "brToBreak",
+  () => () => (tree: any) => {
+    visit(tree, "html", (node: any, index: number | undefined, parent: any) => {
+      if (!parent || index === undefined) return;
+      if (!/^<br\s+data-break\s*\/?>$/i.test((node.value ?? "").trim())) return;
+      if (!node.position) return;
+      parent.children.splice(index, 1, { type: "break", position: node.position });
+      return index + 1;
+    });
+  }
+);
 
 interface MilkdownEditorProps {
   defaultValue?: string;
@@ -108,7 +144,12 @@ export function MilkdownEditor({
       },
     });
 
-    crepe.editor.use([centeredTableCellSchema, centeredTableHeaderSchema] as any);
+    crepe.editor.use([
+      centeredTableCellSchema,
+      centeredTableHeaderSchema,
+      tableSafeHardbreakSchema,
+      brToBreakRemark,
+    ] as any);
 
     crepe.setReadonly(readOnly);
 
