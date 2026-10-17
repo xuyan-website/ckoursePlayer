@@ -124,6 +124,31 @@ export function QuickListDialog({ onClose, onInsert }: QuickListDialogProps) {
       }
     }
 
+    if ((e.key === "Backspace" || e.key === "Delete") && !e.ctrlKey && !e.metaKey && !e.altKey) {
+      const caret = Math.min(selectionStart, selectionEnd);
+      const caretEnd = Math.max(selectionStart, selectionEnd);
+      const lineStart = value.lastIndexOf("\n", caret - 1) + 1;
+      let lineEnd = value.indexOf("\n", lineStart);
+      if (lineEnd === -1) lineEnd = value.length;
+      const lineText = value.slice(lineStart, lineEnd);
+      const leadingMatch = lineText.match(/^(\s*)/);
+      const leadingLen = leadingMatch ? leadingMatch[1].length : 0;
+      const offset = caret - lineStart;
+      if (selectionStart === selectionEnd) {
+        if (e.key === "Backspace" && offset > 0 && offset <= leadingLen) {
+          e.preventDefault();
+          return;
+        }
+        if (e.key === "Delete" && offset < leadingLen) {
+          e.preventDefault();
+          return;
+        }
+      } else if (caretEnd - lineStart <= leadingLen) {
+        e.preventDefault();
+        return;
+      }
+    }
+
     if (e.key === "Enter" && !e.shiftKey && !e.ctrlKey && !e.metaKey && !e.altKey) {
       e.preventDefault();
       const start = Math.min(selectionStart, selectionEnd);
