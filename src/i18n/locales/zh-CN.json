@@ -480,7 +480,10 @@
     "expand": "放大编辑",
     "editExpanded": "编辑复习",
     "preview": "预览",
-    "previewExpanded": "复习预览"
+    "previewExpanded": "复习预览",
+    "quickList": "快速列表",
+    "quickListPlaceholder": "输入多行文字，用 Tab/Shift+Tab 调整缩进（每级 4 空格）\n0 级 → 一级标题\n1 级 → 二级标题（一、二、…）\n2 级 → 三级标题（1）2）…）\n3 级 → 四级标题（1、2、…）\n4 级及以上 → 列表项",
+    "quickListInsert": "插入"
   },
   "reviews": {
     "title": "复习",

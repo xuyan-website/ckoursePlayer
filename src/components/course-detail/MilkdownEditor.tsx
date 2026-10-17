@@ -1,9 +1,9 @@
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, forwardRef, useImperativeHandle, useCallback } from "react";
 import { Crepe } from "@milkdown/crepe";
 import { EditorView } from "@codemirror/view";
 import { convertFileSrc } from "@tauri-apps/api/core";
 import { saveReviewImageData } from "@/lib/store";
-import { editorViewCtx } from "@milkdown/kit/core";
+import { editorViewCtx, parserCtx } from "@milkdown/kit/core";
 import { addRowAfter, isInTable } from "@milkdown/kit/prose/tables";
 import { TextSelection } from "@milkdown/kit/prose/state";
 import { tableCellSchema, tableHeaderSchema } from "@milkdown/kit/preset/gfm";
@@ -79,6 +79,10 @@ interface MilkdownEditorProps {
   onImageImported?: (path: string) => void;
 }
 
+export interface MilkdownEditorHandle {
+  insertMarkdown: (text: string) => void;
+}
+
 function fileToDataUrl(file: File): Promise<string> {
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
@@ -88,14 +92,14 @@ function fileToDataUrl(file: File): Promise<string> {
   });
 }
 
-export function MilkdownEditor({
+export const MilkdownEditor = forwardRef<MilkdownEditorHandle, MilkdownEditorProps>(function MilkdownEditor({
   defaultValue = "",
   onChange,
   readOnly = false,
   className,
   autoFocus = false,
   onImageImported,
-}: MilkdownEditorProps) {
+}, ref) {
   const rootRef = useRef<HTMLDivElement>(null);
   const crepeRef = useRef<Crepe | null>(null);
   const onChangeRef = useRef(onChange);
@@ -105,6 +109,24 @@ export function MilkdownEditor({
   const skipFirstRef = useRef(true);
   const autoFocusRef = useRef(autoFocus);
   autoFocusRef.current = autoFocus;
+
+  const insertMarkdown = useCallback((text: string) => {
+    const crepe = crepeRef.current;
+    if (!crepe) return;
+    crepe.editor.action((ctx) => {
+      const view = ctx.get(editorViewCtx);
+      const parser = ctx.get(parserCtx);
+      const doc = parser(text);
+      if (!doc) return;
+      const tr = view.state.tr;
+      tr.replaceSelection(doc.slice(0));
+      tr.scrollIntoView();
+      view.dispatch(tr);
+      view.focus();
+    });
+  }, []);
+
+  useImperativeHandle(ref, () => ({ insertMarkdown }), [insertMarkdown]);
 
   useEffect(() => {
     if (!rootRef.current) return;
@@ -268,7 +290,7 @@ export function MilkdownEditor({
   }, []);
 
   return <div ref={rootRef} className={className} />;
-}
+});
 
 export function getMarkdown(crepe: Crepe | null): string {
   return crepe?.getMarkdown() ?? "";

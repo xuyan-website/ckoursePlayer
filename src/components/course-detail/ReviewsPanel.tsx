@@ -1,9 +1,11 @@
 import { useState, useCallback, useEffect, useRef } from "react";
 import { createPortal } from "react-dom";
-import { TrashIcon as Trash, PencilSimpleIcon as PencilSimple, PlusIcon as Plus, XIcon as X, ArrowsOutSimpleIcon as ArrowsOutSimple, EyeIcon as Eye } from "@phosphor-icons/react";
+import { TrashIcon as Trash, PencilSimpleIcon as PencilSimple, PlusIcon as Plus, XIcon as X, ArrowsOutSimpleIcon as ArrowsOutSimple, EyeIcon as Eye, ListNumbersIcon as ListNumbers } from "@phosphor-icons/react";
 import type { Review } from "@/types";
 import { MilkdownEditor } from "./MilkdownEditor";
+import type { MilkdownEditorHandle } from "./MilkdownEditor";
 import { ReviewPreviewDialog } from "./ReviewPreviewDialog";
+import { QuickListDialog } from "./QuickListDialog";
 import { ConfirmUnsavedDialog } from "./ConfirmUnsavedDialog";
 import { useTranslation } from "react-i18next";
 import { cn } from "@/lib/utils";
@@ -51,8 +53,16 @@ export function ReviewsPanel({
   const [confirmDialog, setConfirmDialog] = useState(false);
   const [editorKey, setEditorKey] = useState(0);
   const [previewReview, setPreviewReview] = useState<Review | null>(null);
+  const [quickListOpen, setQuickListOpen] = useState(false);
   const originalContentRef = useRef("");
   const importedThisSessionRef = useRef<Set<string>>(new Set());
+  const inlineEditorRef = useRef<MilkdownEditorHandle>(null);
+  const expandedEditorRef = useRef<MilkdownEditorHandle>(null);
+
+  const handleQuickListInsert = useCallback((markdown: string) => {
+    const editorRef = expanded ? expandedEditorRef : inlineEditorRef;
+    editorRef.current?.insertMarkdown(markdown);
+  }, [expanded]);
 
   const handleStartAdd = useCallback(() => {
     setShowEditor(true);
@@ -209,12 +219,20 @@ export function ReviewsPanel({
           <div className="relative">
             <MilkdownEditor
               key={editorKey}
+              ref={inlineEditorRef}
               defaultValue={content}
               onChange={setContent}
               className="review-editor"
               autoFocus={!content}
               onImageImported={(p) => importedThisSessionRef.current.add(p)}
             />
+            <button
+              onClick={() => setQuickListOpen(true)}
+              title={t("reviewsPanel.quickList")}
+              className="absolute top-1 right-[3.75rem] z-10 rounded p-1 text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground"
+            >
+              <ListNumbers className="size-4" />
+            </button>
             <button
               onClick={handleCancel}
               title={t("common.close")}
@@ -317,18 +335,28 @@ export function ReviewsPanel({
               <span className="font-sans text-sm font-medium text-foreground">
                 {t("reviewsPanel.editExpanded")}
               </span>
-              <button
-                onClick={() => {
-                  setExpanded(false);
-                  setEditorKey((k) => k + 1);
-                }}
-                className="rounded p-1 text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground"
-              >
-                <X className="size-4" />
-              </button>
+              <div className="flex items-center gap-1">
+                <button
+                  onClick={() => setQuickListOpen(true)}
+                  title={t("reviewsPanel.quickList")}
+                  className="rounded p-1 text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground"
+                >
+                  <ListNumbers className="size-4" />
+                </button>
+                <button
+                  onClick={() => {
+                    setExpanded(false);
+                    setEditorKey((k) => k + 1);
+                  }}
+                  className="rounded p-1 text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground"
+                >
+                  <X className="size-4" />
+                </button>
+              </div>
             </div>
             <div className="flex-1 overflow-y-auto" onKeyDown={handleKeyDown}>
               <MilkdownEditor
+                ref={expandedEditorRef}
                 defaultValue={content}
                 onChange={setContent}
                 className="review-editor min-h-full"
@@ -371,6 +399,13 @@ export function ReviewsPanel({
           onCancel={() => setConfirmDialog(false)}
           onDiscard={() => void discardAndCancel()}
           onSave={saveAndCancel}
+        />
+      )}
+
+      {quickListOpen && (
+        <QuickListDialog
+          onClose={() => setQuickListOpen(false)}
+          onInsert={handleQuickListInsert}
         />
       )}
     </div>

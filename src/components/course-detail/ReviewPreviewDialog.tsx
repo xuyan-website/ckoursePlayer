@@ -1,8 +1,10 @@
 import { useState, useCallback, useRef, useEffect } from "react";
 import { createPortal } from "react-dom";
-import { XIcon as X, PencilSimpleIcon as PencilSimple } from "@phosphor-icons/react";
+import { XIcon as X, PencilSimpleIcon as PencilSimple, ListNumbersIcon as ListNumbers } from "@phosphor-icons/react";
 import { MilkdownEditor } from "./MilkdownEditor";
+import type { MilkdownEditorHandle } from "./MilkdownEditor";
 import { ConfirmUnsavedDialog } from "./ConfirmUnsavedDialog";
+import { QuickListDialog } from "./QuickListDialog";
 import { useTranslation } from "react-i18next";
 import { SNAPPY } from "@/lib/constants";
 import { deleteUnreferencedImportedImages } from "@/lib/store";
@@ -26,6 +28,8 @@ export function ReviewPreviewDialog({ content, onClose, onSave }: ReviewPreviewD
   const scrollRef = useRef<HTMLDivElement>(null);
   const savedScrollRef = useRef(0);
   const importedThisSessionRef = useRef<Set<string>>(new Set());
+  const editorRef = useRef<MilkdownEditorHandle>(null);
+  const [quickListOpen, setQuickListOpen] = useState(false);
 
   const modeRef = useRef(mode);
   modeRef.current = mode;
@@ -150,6 +154,15 @@ export function ReviewPreviewDialog({ content, onClose, onSave }: ReviewPreviewD
             {mode === "preview" ? t("reviewsPanel.previewExpanded") : t("reviewsPanel.editExpanded")}
           </span>
           <div className="flex items-center gap-1">
+            {mode === "edit" && (
+              <button
+                onClick={() => setQuickListOpen(true)}
+                title={t("reviewsPanel.quickList")}
+                className="rounded p-1 text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground"
+              >
+                <ListNumbers className="size-4" />
+              </button>
+            )}
             {mode === "preview" && (
               <button
                 onClick={handleSwitchToEdit}
@@ -172,6 +185,7 @@ export function ReviewPreviewDialog({ content, onClose, onSave }: ReviewPreviewD
           <div style={{ minHeight: contentMinHeight }}>
             <MilkdownEditor
               key={editorKey}
+              ref={editorRef}
               defaultValue={mode === "preview" ? currentContent : editContent}
               onChange={setEditContent}
               readOnly={mode === "preview"}
@@ -204,6 +218,13 @@ export function ReviewPreviewDialog({ content, onClose, onSave }: ReviewPreviewD
             onCancel={() => setConfirmDialog(false)}
             onDiscard={confirmSource === "close" ? () => void discardAndClose() : () => void discardAndCancelEdit()}
             onSave={confirmSource === "close" ? saveAndClose : saveAndCancelEdit}
+          />
+        )}
+
+        {quickListOpen && (
+          <QuickListDialog
+            onClose={() => setQuickListOpen(false)}
+            onInsert={(markdown) => editorRef.current?.insertMarkdown(markdown)}
           />
         )}
       </div>

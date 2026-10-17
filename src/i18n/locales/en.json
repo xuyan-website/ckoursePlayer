@@ -479,7 +479,10 @@
     "expand": "Expand editor",
     "editExpanded": "Edit review",
     "preview": "Preview",
-    "previewExpanded": "Review preview"
+    "previewExpanded": "Review preview",
+    "quickList": "Quick list",
+    "quickListPlaceholder": "Enter multiline text, use Tab/Shift+Tab to indent (4 spaces per level)\nLevel 0 → H1\nLevel 1 → H2 (一、二、…)\nLevel 2 → H3 (1) 2)…)\nLevel 3 → H4 (1、2、…)\nLevel 4+ → list items",
+    "quickListInsert": "Insert"
   },
   "reviews": {
     "title": "Reviews",
