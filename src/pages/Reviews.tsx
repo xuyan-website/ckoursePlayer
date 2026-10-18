@@ -63,6 +63,7 @@ export function Reviews() {
   const [previewReview, setPreviewReview] = useState<ReviewWithCourse | null>(null);
   const [confirmDialog, setConfirmDialog] = useState(false);
   const { sortField, sortDir, toggleSort } = useSortPreference("reviews");
+  const pendingSortFieldRef = useRef<SortField | null>(null);
 
   const reload = useCallback(() => {
     getAllReviews()
@@ -122,6 +123,17 @@ export function Reviews() {
 
   const { visibleCount, sentinelRef } = useInfiniteSentinel(filtered.length);
 
+  const handleSortToggle = (field: SortField) => {
+    if (editingId !== null && editContent !== lastSavedContentRef.current) {
+      pendingSortFieldRef.current = field;
+      setConfirmDialog(true);
+    } else {
+      setEditingId(null);
+      setEditContent("");
+      toggleSort(field);
+    }
+  };
+
   const handleEdit = (review: ReviewWithCourse) => {
     setEditingId(review.id);
     setEditContent(review.content);
@@ -146,6 +158,9 @@ export function Reviews() {
           importedThisSessionRef.current = new Set();
           setEditingId(null);
           setEditContent("");
+          const pending = pendingSortFieldRef.current;
+          pendingSortFieldRef.current = null;
+          if (pending) toggleSort(pending);
         })
       .catch((err) => {
         reportError(err, "Reviews.handleSaveEdit");
@@ -159,6 +174,9 @@ export function Reviews() {
     setConfirmDialog(false);
     setEditingId(null);
     setEditContent("");
+    const pending = pendingSortFieldRef.current;
+    pendingSortFieldRef.current = null;
+    if (pending) toggleSort(pending);
   };
 
   const saveAndCancelEdit = () => {
@@ -360,7 +378,7 @@ export function Reviews() {
           {(["updated", "created", "course"] as SortField[]).map((field) => (
             <button
               key={field}
-              onClick={() => toggleSort(field)}
+              onClick={() => handleSortToggle(field)}
               className={cn(
                 "flex items-center gap-1 rounded-md px-2 py-1.5 font-sans text-xs font-medium transition-colors",
                 sortField === field
@@ -548,7 +566,7 @@ export function Reviews() {
       {confirmDialog && (
         <ConfirmUnsavedDialog
           type="review"
-          onCancel={() => setConfirmDialog(false)}
+          onCancel={() => { setConfirmDialog(false); pendingSortFieldRef.current = null; }}
           onDiscard={discardAndCancelEdit}
           onSave={saveAndCancelEdit}
         />

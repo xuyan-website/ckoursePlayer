@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useMemo, useContext } from "react";
+import { useState, useEffect, useCallback, useMemo, useContext, useRef } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import { usePageVisible, ActivePathContext } from "@/hooks/usePageVisible";
@@ -34,6 +34,7 @@ import {
 } from "@/lib/store";
 import { NoteEditor } from "@/components/course-detail/NoteEditor";
 import { CollapsibleImages } from "@/components/course-detail/CollapsibleImages";
+import { ConfirmUnsavedDialog } from "@/components/course-detail/ConfirmUnsavedDialog";
 import { useUnsavedGuard } from "@/hooks/useUnsavedGuard";
 import { EASE_OUT, SNAPPY } from "@/lib/constants";
 import { extractFirstTimestamp, formatDateTime } from "@/lib/format";
@@ -54,7 +55,10 @@ export function Notes({ className }: NotesProps) {
   const [search, setSearch] = useState("");
   const [courseFilter, setCourseFilter] = useState<number | null>(null);
   const [editingNoteId, setEditingNoteId] = useState<number | null>(null);
+  const [confirmDialog, setConfirmDialog] = useState(false);
   const { sortField, sortDir, toggleSort } = useSortPreference("notes");
+  const pendingSortFieldRef = useRef<SortField | null>(null);
+  const editorUnsavedApiRef = useRef<{ check: () => boolean; save: () => void; discard?: () => void } | null>(null);
 
   const reload = useCallback(() => {
     return getAllNotes().then(setNotes);
@@ -121,6 +125,20 @@ export function Notes({ className }: NotesProps) {
   }, [notes, courseFilter, search, sortField, sortDir]);
 
   const { visibleCount, sentinelRef } = useInfiniteSentinel(filtered.length);
+
+  const handleSortToggle = (field: SortField) => {
+    if (editingNoteId !== null) {
+      if (editorUnsavedApiRef.current?.check()) {
+        pendingSortFieldRef.current = field;
+        setConfirmDialog(true);
+      } else {
+        setEditingNoteId(null);
+        toggleSort(field);
+      }
+    } else {
+      toggleSort(field);
+    }
+  };
 
   const handleEdit = useCallback(
     async (noteId: number, content: string, imagePaths: string[]) => {
@@ -411,7 +429,7 @@ export function Notes({ className }: NotesProps) {
           {(["updated", "created", "course"] as SortField[]).map((field) => (
             <button
               key={field}
-              onClick={() => toggleSort(field)}
+              onClick={() => handleSortToggle(field)}
               className={cn(
                 "flex items-center gap-1 rounded-md px-2 py-1.5 font-sans text-xs font-medium transition-colors",
                 sortField === field
@@ -499,6 +517,7 @@ export function Notes({ className }: NotesProps) {
                   onSaveOnly={(content, imagePaths) => handleSaveOnly(note.id, content, imagePaths)}
                   onCancel={() => setEditingNoteId(null)}
                   onRegisterUnsaved={(api) => {
+                    editorUnsavedApiRef.current = api;
                     guard?.registerGuard("notes-page", api ? { ...api, type: "note" as const, discard: () => { api.discard?.(); setEditingNoteId(null); } } : null);
                   }}
                 />
@@ -518,6 +537,28 @@ export function Notes({ className }: NotesProps) {
             </div>
           )}
         </div>
+      )}
+
+      {confirmDialog && (
+        <ConfirmUnsavedDialog
+          type="note"
+          onCancel={() => { setConfirmDialog(false); pendingSortFieldRef.current = null; }}
+          onDiscard={() => {
+            editorUnsavedApiRef.current?.discard?.();
+            setEditingNoteId(null);
+            setConfirmDialog(false);
+            const pending = pendingSortFieldRef.current;
+            pendingSortFieldRef.current = null;
+            if (pending) toggleSort(pending);
+          }}
+          onSave={() => {
+            editorUnsavedApiRef.current?.save();
+            setConfirmDialog(false);
+            const pending = pendingSortFieldRef.current;
+            pendingSortFieldRef.current = null;
+            if (pending) toggleSort(pending);
+          }}
+        />
       )}
     </div>
   );
