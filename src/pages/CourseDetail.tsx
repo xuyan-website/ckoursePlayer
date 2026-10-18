@@ -292,19 +292,23 @@ function CourseDetailInner({
 
   const activeLesson = allLessons.find((l) => l.id === activeLessonId) ?? allLessons[0];
 
+  const activeSectionId = courseData.sections.find((s) =>
+    s.lessons.some((l) => l.id === activeLessonId),
+  )?.id;
+
   const curriculumScrollRef = useRef<HTMLDivElement>(null);
   const hasScrolledRef = useRef(false);
   useEffect(() => {
     if (isVisible) hasScrolledRef.current = false;
   }, [isVisible]);
   useEffect(() => {
-    if (!isVisible || !activeLessonId || hasScrolledRef.current) return;
+    if (!isVisible || !activeSectionId || hasScrolledRef.current) return;
     hasScrolledRef.current = true;
     const raf = requestAnimationFrame(() => {
       requestAnimationFrame(() => {
         const container = curriculumScrollRef.current;
         const el = container?.querySelector(
-          `[data-lesson-id="${activeLessonId}"]`,
+          `[data-section-id="${activeSectionId}"]`,
         ) as HTMLElement | null;
         if (container && el) {
           const containerRect = container.getBoundingClientRect();
@@ -317,7 +321,7 @@ function CourseDetailInner({
       });
     });
     return () => cancelAnimationFrame(raf);
-  }, [isVisible, activeLessonId]);
+  }, [isVisible, activeSectionId]);
 
   // Reset note editor when switching lessons
   useEffect(() => {
