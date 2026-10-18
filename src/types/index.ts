@@ -7,6 +7,7 @@ export type {
   Lesson,
   Resource,
   Note,
+  Keyframe,
   Subtitle,
   SaveCourseConfig,
   NoteWithCourse,

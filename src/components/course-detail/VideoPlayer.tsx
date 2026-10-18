@@ -29,14 +29,15 @@ import {
   NotePencilIcon as NotePencil,
   CameraIcon as Camera,
   ArrowSquareInIcon as ArrowSquareIn,
+  MapPinIcon as MapPin,
   XIcon as X,
 } from "@phosphor-icons/react";
 import { useTranslation } from "react-i18next";
 import { createPortal } from "react-dom";
 import { cn } from "@/lib/utils";
 import { formatVideoTime } from "@/lib/format";
-import type { Lesson, Subtitle, VideoPlayerHandle } from "@/types";
-import { getSubtitleVtt, captureVideoFrame, deleteFile } from "@/lib/store";
+import type { Lesson, Subtitle, VideoPlayerHandle, Keyframe } from "@/types";
+import { getSubtitleVtt, captureVideoFrame, deleteFile, getLessonKeyframes, addKeyframe, deleteKeyframe } from "@/lib/store";
 import { driveAuthStatus, driveConnect, driveCredentialsStatus } from "@/lib/drive";
 import { reportError } from "@/lib/posthog";
 import { EASE_OUT } from "@/lib/constants";
@@ -293,6 +294,9 @@ export const VideoPlayer = forwardRef<VideoPlayerHandle, VideoPlayerProps>(funct
     speed: number;
     direction: "forward" | "backward";
   } | null>(null);
+  const [keyframes, setKeyframes] = useState<Keyframe[]>([]);
+  const [showKeyframeDialog, setShowKeyframeDialog] = useState(false);
+  const [keyframeText, setKeyframeText] = useState("");
 
   // Auto-skip countdown when video ends
   const autoSkipFiredRef = useRef(false);
@@ -530,6 +534,46 @@ export const VideoPlayer = forwardRef<VideoPlayerHandle, VideoPlayerProps>(funct
       reportError(err, "VideoPlayer.handleScreenshot");
     }
   }, [lesson?.videoPath, isNoteEditing, onScreenshotForNote, showScreenshotDialog, showNoteDialog]);
+
+  useEffect(() => {
+    if (!lesson) {
+      setKeyframes([]);
+      return;
+    }
+    getLessonKeyframes(lesson.id).then(setKeyframes).catch(() => {});
+  }, [lesson?.id]);
+
+  const handleConfirmKeyframe = useCallback(async () => {
+    const video = videoRef.current;
+    if (!video || !lesson) return;
+    const position = video.currentTime;
+    try {
+      const kf = await addKeyframe(lesson.id, position, keyframeText.trim());
+      setKeyframes((prev) => [...prev, kf].sort((a, b) => a.position - b.position));
+    } catch (err) {
+      reportError(err, "VideoPlayer.addKeyframe");
+    }
+    setKeyframeText("");
+    setShowKeyframeDialog(false);
+  }, [lesson, keyframeText]);
+
+  const handleDeleteKeyframe = useCallback(async (id: number) => {
+    try {
+      await deleteKeyframe(id);
+      setKeyframes((prev) => prev.filter((k) => k.id !== id));
+    } catch (err) {
+      reportError(err, "VideoPlayer.deleteKeyframe");
+    }
+  }, []);
+
+  const handleSeekToKeyframe = useCallback((position: number) => {
+    const video = videoRef.current;
+    if (!video) return;
+    video.currentTime = position;
+    setVideoTime(position);
+    onTimeUpdate?.(position);
+    if (video.paused) video.play();
+  }, [onTimeUpdate]);
 
   const closeScreenshotDialog = useCallback(async () => {
     if (screenshotImagePath && savedNoteId === null) {
@@ -1404,6 +1448,22 @@ export const VideoPlayer = forwardRef<VideoPlayerHandle, VideoPlayerProps>(funct
         <Camera className="size-5" weight="bold" />
       </button>
 
+      <button
+        onClick={() => {
+          setShowKeyframeDialog(true);
+          setKeyframeText("");
+          const video = videoRef.current;
+          if (video && !video.paused) video.pause();
+        }}
+        title={t("courseDetail.keyframe")}
+        className={cn(
+          "absolute right-4 top-[calc(50%+3.25rem)] z-10 flex size-11 items-center justify-center rounded-full bg-black/40 text-white/90 backdrop-blur-md transition-all duration-300 hover:scale-105 hover:bg-black/60 hover:text-white",
+          showControls || isSeeking ? "opacity-100" : "opacity-0 pointer-events-none",
+        )}
+      >
+        <MapPin className="size-5" weight="bold" />
+      </button>
+
       <div
         className={cn(
           "absolute inset-x-0 bottom-0 flex flex-col bg-linear-to-t from-black/80 via-black/40 to-transparent px-3 pb-2.5 pt-10 transition-opacity duration-300",
@@ -1430,6 +1490,24 @@ export const VideoPlayer = forwardRef<VideoPlayerHandle, VideoPlayerProps>(funct
             style={{ left: `${progress}%` }}
           />
           <div className="absolute -inset-y-1 inset-x-0 group-hover/seek:-inset-y-0.5" />
+          {videoDuration > 0 && keyframes.map((kf) => (
+            <div
+              key={kf.id}
+              className="absolute top-1/2 z-10 size-3 -translate-x-1/2 -translate-y-1/2 rotate-45 cursor-pointer rounded-[1px] bg-orange-500 shadow-sm transition-transform hover:scale-150"
+              style={{ left: `${(kf.position / videoDuration) * 100}%` }}
+              title={`${formatVideoTime(kf.position)}${kf.text ? " · " + kf.text : ""}\n${t("courseDetail.keyframeDeleteHint")}`}
+              onMouseDown={(e) => e.stopPropagation()}
+              onClick={(e) => {
+                e.stopPropagation();
+                handleSeekToKeyframe(kf.position);
+              }}
+              onContextMenu={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                handleDeleteKeyframe(kf.id);
+              }}
+            />
+          ))}
           {seekPreviewTime !== null && (
             <div
               className="absolute -top-8 -translate-x-1/2 rounded bg-black/90 px-1.5 py-0.5 font-mono text-[10px] text-white"
@@ -1818,6 +1896,49 @@ export const VideoPlayer = forwardRef<VideoPlayerHandle, VideoPlayerProps>(funct
             closeScreenshotDialog();
           }}
         />
+      )}
+
+      {showKeyframeDialog && createPortal(
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/60"
+          onClick={() => setShowKeyframeDialog(false)}
+        >
+          <div
+            className="w-80 rounded-lg border border-border bg-card p-4 shadow-2xl"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <h3 className="mb-3 font-sans text-sm font-semibold text-foreground">
+              {t("courseDetail.keyframe")}
+            </h3>
+            <input
+              type="text"
+              value={keyframeText}
+              onChange={(e) => setKeyframeText(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") handleConfirmKeyframe();
+                if (e.key === "Escape") setShowKeyframeDialog(false);
+              }}
+              placeholder={t("courseDetail.keyframePlaceholder")}
+              autoFocus
+              className="mb-3 w-full rounded-md border border-border bg-background px-3 py-2 font-sans text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary"
+            />
+            <div className="flex justify-end gap-2">
+              <button
+                onClick={() => setShowKeyframeDialog(false)}
+                className="rounded-md px-3 py-1.5 font-sans text-xs text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground"
+              >
+                {t("common.cancel")}
+              </button>
+              <button
+                onClick={handleConfirmKeyframe}
+                className="rounded-md bg-primary px-3 py-1.5 font-sans text-xs text-primary-foreground transition-colors hover:bg-primary/90"
+              >
+                {t("common.confirm")}
+              </button>
+            </div>
+          </div>
+        </div>,
+        document.body,
       )}
     </div>
   );

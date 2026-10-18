@@ -60,6 +60,14 @@ export interface Note {
   updatedAt: string;
 }
 
+export interface Keyframe {
+  id: number;
+  lessonId: number;
+  position: number;
+  text: string;
+  createdAt: string;
+}
+
 export interface Subtitle {
   id: number;
   lessonId: number;

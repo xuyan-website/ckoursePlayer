@@ -1,6 +1,7 @@
 mod courses;
 mod drive;
 mod fs;
+mod keyframes;
 mod lessons;
 mod notes;
 mod reviews;
@@ -10,6 +11,7 @@ mod settings;
 pub use courses::*;
 pub use drive::*;
 pub use fs::*;
+pub use keyframes::*;
 pub use lessons::*;
 pub use notes::*;
 pub use reviews::*;

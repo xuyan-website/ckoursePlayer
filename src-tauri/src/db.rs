@@ -103,6 +103,16 @@ pub struct NoteWithCourse {
 
 #[derive(Debug, Serialize, Clone)]
 #[serde(rename_all = "camelCase")]
+pub struct Keyframe {
+    pub id: i64,
+    pub lesson_id: i64,
+    pub position: f64,
+    pub text: String,
+    pub created_at: String,
+}
+
+#[derive(Debug, Serialize, Clone)]
+#[serde(rename_all = "camelCase")]
 pub struct Review {
     pub id: i64,
     pub course_id: i64,
@@ -237,6 +247,14 @@ pub fn init_db(app_data_dir: &Path) -> SqlResult<Connection> {
             updated_at TEXT NOT NULL
         );
 
+        CREATE TABLE IF NOT EXISTS keyframes (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            lesson_id INTEGER NOT NULL REFERENCES lessons(id) ON DELETE CASCADE,
+            position REAL NOT NULL,
+            text TEXT NOT NULL DEFAULT '',
+            created_at TEXT NOT NULL
+        );
+
         CREATE TABLE IF NOT EXISTS reviews (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             course_id INTEGER NOT NULL REFERENCES courses(id) ON DELETE CASCADE,
@@ -282,6 +300,7 @@ pub fn init_db(app_data_dir: &Path) -> SqlResult<Connection> {
         CREATE INDEX IF NOT EXISTS idx_reviews_course_id ON reviews(course_id);
         CREATE INDEX IF NOT EXISTS idx_subtitles_lesson_id ON subtitles(lesson_id);
         CREATE INDEX IF NOT EXISTS idx_resources_course_id ON resources(course_id);
+        CREATE INDEX IF NOT EXISTS idx_keyframes_lesson_id ON keyframes(lesson_id);
         CREATE INDEX IF NOT EXISTS idx_courses_updated_at ON courses(updated_at DESC);
         ",
     )?;
@@ -2045,4 +2064,53 @@ pub fn search_content(conn: &Connection, query: &str) -> SqlResult<Vec<SearchRes
     }
 
     Ok(results)
+}
+
+pub fn get_lesson_keyframes(conn: &Connection, lesson_id: i64) -> SqlResult<Vec<Keyframe>> {
+    let mut stmt = conn.prepare(
+        "SELECT id, lesson_id, position, text, created_at
+         FROM keyframes WHERE lesson_id = ?1 ORDER BY position ASC",
+    )?;
+
+    let keyframes = stmt
+        .query_map(params![lesson_id], |row| {
+            Ok(Keyframe {
+                id: row.get(0)?,
+                lesson_id: row.get(1)?,
+                position: row.get(2)?,
+                text: row.get(3)?,
+                created_at: row.get(4)?,
+            })
+        })?
+        .collect::<SqlResult<Vec<_>>>()?;
+
+    Ok(keyframes)
+}
+
+pub fn add_keyframe(
+    conn: &Connection,
+    lesson_id: i64,
+    position: f64,
+    text: &str,
+) -> SqlResult<Keyframe> {
+    let now = chrono_now();
+    conn.execute(
+        "INSERT INTO keyframes (lesson_id, position, text, created_at)
+         VALUES (?1, ?2, ?3, ?4)",
+        params![lesson_id, position, text, now],
+    )?;
+
+    let id = conn.last_insert_rowid();
+    Ok(Keyframe {
+        id,
+        lesson_id,
+        position,
+        text: text.to_string(),
+        created_at: now,
+    })
+}
+
+pub fn delete_keyframe(conn: &Connection, keyframe_id: i64) -> SqlResult<()> {
+    conn.execute("DELETE FROM keyframes WHERE id = ?1", params![keyframe_id])?;
+    Ok(())
 }

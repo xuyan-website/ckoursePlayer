@@ -5,6 +5,7 @@ import type {
   Lesson,
   Note,
   NoteWithCourse,
+  Keyframe,
   FavoriteLesson,
   Subtitle,
   SaveCourseConfig,
@@ -171,6 +172,22 @@ export async function updateNote(
 
 export async function deleteNote(noteId: number): Promise<void> {
   return invoke("delete_note", { noteId });
+}
+
+export async function getLessonKeyframes(lessonId: number): Promise<Keyframe[]> {
+  return invoke<Keyframe[]>("get_lesson_keyframes", { lessonId });
+}
+
+export async function addKeyframe(
+  lessonId: number,
+  position: number,
+  text: string,
+): Promise<Keyframe> {
+  return invoke<Keyframe>("add_keyframe", { lessonId, position, text });
+}
+
+export async function deleteKeyframe(keyframeId: number): Promise<void> {
+  return invoke("delete_keyframe", { keyframeId });
 }
 
 export interface ExportNoteData {
