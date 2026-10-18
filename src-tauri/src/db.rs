@@ -1206,6 +1206,186 @@ pub fn reorder_lessons(conn: &Connection, section_id: i64, lesson_ids: &[i64]) -
     Ok(())
 }
 
+pub fn add_section(conn: &Connection, course_id: i64, title: &str) -> SqlResult<i64> {
+    let max_order: i64 = conn.query_row(
+        "SELECT COALESCE(MAX(sort_order), -1) FROM sections WHERE course_id = ?1",
+        params![course_id],
+        |row| row.get(0),
+    )?;
+    let new_order = max_order + 1;
+    conn.execute(
+        "INSERT INTO sections (course_id, title, sort_order) VALUES (?1, ?2, ?3)",
+        params![course_id, title, new_order],
+    )?;
+    Ok(conn.last_insert_rowid())
+}
+
+pub fn add_section_with_lessons(
+    conn: &Connection,
+    course_id: i64,
+    title: &str,
+    lessons: &[(String, String, u64)],
+) -> SqlResult<Section> {
+    let max_order: i64 = conn.query_row(
+        "SELECT COALESCE(MAX(sort_order), -1) FROM sections WHERE course_id = ?1",
+        params![course_id],
+        |row| row.get(0),
+    )?;
+    let new_order = max_order + 1;
+    conn.execute(
+        "INSERT INTO sections (course_id, title, sort_order) VALUES (?1, ?2, ?3)",
+        params![course_id, title, new_order],
+    )?;
+    let section_id = conn.last_insert_rowid();
+
+    let mut result_lessons = Vec::with_capacity(lessons.len());
+    for (i, (ltitle, video_path, duration_secs)) in lessons.iter().enumerate() {
+        let duration_mins = (*duration_secs / 60) as i64;
+        conn.execute(
+            "INSERT INTO lessons (section_id, title, video_path, sort_order, completed, is_last_watched, duration)
+             VALUES (?1, ?2, ?3, ?4, 0, 0, ?5)",
+            params![section_id, ltitle, video_path, i as i64, duration_mins],
+        )?;
+        let lesson_id = conn.last_insert_rowid();
+        result_lessons.push(Lesson {
+            id: lesson_id,
+            title: ltitle.clone(),
+            duration: duration_mins,
+            completed: false,
+            is_last_watched: false,
+            video_path: video_path.clone(),
+            last_position: 0.0,
+            favorited: false,
+        });
+    }
+
+    Ok(Section {
+        id: section_id,
+        title: title.to_string(),
+        lessons: result_lessons,
+    })
+}
+
+pub fn get_course_folder_path(conn: &Connection, course_id: i64) -> SqlResult<String> {
+    conn.query_row(
+        "SELECT folder_path FROM courses WHERE id = ?1",
+        params![course_id],
+        |row| row.get(0),
+    )
+}
+
+fn rebase_path(path: &str, old_base: &str, new_base: &str) -> Option<String> {
+    let p = Path::new(path);
+    let old = Path::new(old_base);
+    if let Ok(rel) = p.strip_prefix(old) {
+        Some(Path::new(new_base).join(rel).to_string_lossy().to_string())
+    } else {
+        None
+    }
+}
+
+pub fn update_course_folder_path(
+    conn: &Connection,
+    course_id: i64,
+    new_folder_path: &str,
+) -> SqlResult<()> {
+    let old_folder_path: String = conn.query_row(
+        "SELECT folder_path FROM courses WHERE id = ?1",
+        params![course_id],
+        |row| row.get(0),
+    )?;
+
+    if old_folder_path == new_folder_path {
+        return Ok(());
+    }
+
+    let now = chrono_now();
+
+    conn.execute(
+        "UPDATE courses SET folder_path = ?1, updated_at = ?2 WHERE id = ?3",
+        params![new_folder_path, now, course_id],
+    )?;
+
+    let thumb: Option<Option<String>> = conn
+        .query_row(
+            "SELECT thumbnail_path FROM courses WHERE id = ?1",
+            params![course_id],
+            |row| row.get(0),
+        )
+        .ok();
+    if let Some(t) = thumb.and_then(|t| t.and_then(|s| rebase_path(&s, &old_folder_path, new_folder_path))) {
+        conn.execute(
+            "UPDATE courses SET thumbnail_path = ?1 WHERE id = ?2",
+            params![t, course_id],
+        )?;
+    }
+
+    let video_paths: Vec<(i64, String)> = {
+        let mut stmt = conn.prepare(
+            "SELECT l.id, l.video_path FROM lessons l
+             JOIN sections s ON s.id = l.section_id
+             WHERE s.course_id = ?1",
+        )?;
+        let rows = stmt.query_map(params![course_id], |row| {
+            Ok((row.get::<_, i64>(0)?, row.get::<_, String>(1)?))
+        })?;
+        rows.collect::<SqlResult<Vec<_>>>()?
+    };
+    for (lid, vp) in &video_paths {
+        if let Some(new_vp) = rebase_path(vp, &old_folder_path, new_folder_path) {
+            if &new_vp != vp {
+                conn.execute(
+                    "UPDATE lessons SET video_path = ?1 WHERE id = ?2",
+                    params![new_vp, lid],
+                )?;
+            }
+        }
+    }
+
+    let res_paths: Vec<(i64, String)> = {
+        let mut stmt = conn.prepare("SELECT id, path FROM resources WHERE course_id = ?1")?;
+        let rows = stmt.query_map(params![course_id], |row| {
+            Ok((row.get::<_, i64>(0)?, row.get::<_, String>(1)?))
+        })?;
+        rows.collect::<SqlResult<Vec<_>>>()?
+    };
+    for (rid, rp) in &res_paths {
+        if let Some(new_rp) = rebase_path(rp, &old_folder_path, new_folder_path) {
+            if &new_rp != rp {
+                conn.execute(
+                    "UPDATE resources SET path = ?1 WHERE id = ?2",
+                    params![new_rp, rid],
+                )?;
+            }
+        }
+    }
+
+    let sub_paths: Vec<(i64, String)> = {
+        let mut stmt = conn.prepare(
+            "SELECT sub.id, sub.path FROM subtitles sub
+             JOIN lessons l ON l.id = sub.lesson_id
+             JOIN sections s ON s.id = l.section_id
+             WHERE s.course_id = ?1",
+        )?;
+        let rows = stmt.query_map(params![course_id], |row| {
+            Ok((row.get::<_, i64>(0)?, row.get::<_, String>(1)?))
+        })?;
+        rows.collect::<SqlResult<Vec<_>>>()?
+    };
+    for (sid, sp) in &sub_paths {
+        if let Some(new_sp) = rebase_path(sp, &old_folder_path, new_folder_path) {
+            if &new_sp != sp {
+                conn.execute(
+                    "UPDATE subtitles SET path = ?1 WHERE id = ?2",
+                    params![new_sp, sid],
+                )?;
+            }
+        }
+    }
+
+    Ok(())
+}
+
 // --- Bookmarks ---
 
 pub fn toggle_bookmark(conn: &Connection, course_id: i64) -> SqlResult<bool> {

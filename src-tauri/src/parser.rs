@@ -1070,6 +1070,36 @@ fn compare_numbered(a_name: &str, b_name: &str) -> std::cmp::Ordering {
 /// if any filename has a leading or embedded number, use `compare_numbered`
 /// (unnumbered files first, then numbered in numeric order); otherwise sort
 /// alphabetically (case-insensitive).
+pub fn scan_section_folder(dir: &Path) -> (String, Vec<PathBuf>) {
+    let folder_name = dir
+        .file_name()
+        .and_then(|n| n.to_str())
+        .unwrap_or("New Section")
+        .to_string();
+    let title = clean_display_name(&folder_name);
+    let mut videos = Vec::new();
+    collect_videos_inner(dir, &mut videos);
+    sort_video_paths(&mut videos);
+    (title, videos)
+}
+
+fn collect_videos_inner(dir: &Path, out: &mut Vec<PathBuf>) {
+    let Ok(entries) = std::fs::read_dir(dir) else {
+        return;
+    };
+    for entry in entries.flatten() {
+        let path = entry.path();
+        if path.is_dir() {
+            collect_videos_inner(&path, out);
+        } else if let Some(ext) = path.extension().and_then(|e| e.to_str()) {
+            let stem = path.file_stem().and_then(|s| s.to_str()).unwrap_or("");
+            if is_video(&ext.to_lowercase()) && !is_sample_video(stem) {
+                out.push(path);
+            }
+        }
+    }
+}
+
 pub fn sort_video_paths(paths: &mut [PathBuf]) {
     let has_numbers = paths.iter().any(|p| {
         let name = p.file_name().and_then(|n| n.to_str()).unwrap_or("");

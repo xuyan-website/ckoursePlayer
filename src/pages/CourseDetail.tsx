@@ -292,6 +292,33 @@ function CourseDetailInner({
 
   const activeLesson = allLessons.find((l) => l.id === activeLessonId) ?? allLessons[0];
 
+  const curriculumScrollRef = useRef<HTMLDivElement>(null);
+  const hasScrolledRef = useRef(false);
+  useEffect(() => {
+    if (isVisible) hasScrolledRef.current = false;
+  }, [isVisible]);
+  useEffect(() => {
+    if (!isVisible || !activeLessonId || hasScrolledRef.current) return;
+    hasScrolledRef.current = true;
+    const raf = requestAnimationFrame(() => {
+      requestAnimationFrame(() => {
+        const container = curriculumScrollRef.current;
+        const el = container?.querySelector(
+          `[data-lesson-id="${activeLessonId}"]`,
+        ) as HTMLElement | null;
+        if (container && el) {
+          const containerRect = container.getBoundingClientRect();
+          const elRect = el.getBoundingClientRect();
+          container.scrollTo({
+            top: elRect.top - containerRect.top + container.scrollTop,
+            behavior: "smooth",
+          });
+        }
+      });
+    });
+    return () => cancelAnimationFrame(raf);
+  }, [isVisible, activeLessonId]);
+
   // Reset note editor when switching lessons
   useEffect(() => {
     setEditingNoteId(null);
@@ -1455,7 +1482,7 @@ function CourseDetailInner({
                 {course.completedLessons}/{course.totalLessons}
               </span>
             </div>
-            <div className="flex-1 overflow-y-auto">
+            <div className="flex-1 overflow-y-auto" ref={curriculumScrollRef}>
               {courseData.sections.map((section) => (
                 <SectionAccordion
                   key={section.id}

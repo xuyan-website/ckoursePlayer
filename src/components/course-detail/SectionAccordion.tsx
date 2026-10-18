@@ -86,6 +86,7 @@ export function SectionAccordion({
             return (
               <button
                 key={lesson.id}
+                data-lesson-id={lesson.id}
                 onClick={() => onSelectLesson(lesson)}
                 className={cn(
                   "group flex items-center gap-3 rounded-lg px-3 py-2.5 text-left transition-colors hover:bg-secondary",

@@ -3,6 +3,7 @@ import type {
   Course,
   CourseDetail,
   Lesson,
+  Section,
   Note,
   NoteWithCourse,
   Keyframe,
@@ -106,6 +107,24 @@ export async function deleteLesson(lessonId: number): Promise<void> {
 
 export async function deleteSection(sectionId: number): Promise<void> {
   return invoke("delete_section", { sectionId });
+}
+
+export async function addSection(courseId: number, title: string): Promise<number> {
+  return invoke<number>("add_section", { courseId, title });
+}
+
+export async function addSectionFromFolder(
+  courseId: number,
+  sourceFolderPath: string,
+): Promise<Section> {
+  return invoke<Section>("add_section_from_folder", { courseId, sourceFolderPath });
+}
+
+export async function updateCourseFolderPath(
+  courseId: number,
+  newFolderPath: string,
+): Promise<void> {
+  return invoke("update_course_folder_path", { courseId, newFolderPath });
 }
 
 export async function toggleLessonCompleted(

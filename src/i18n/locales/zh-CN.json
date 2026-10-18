@@ -408,7 +408,21 @@
     "sectionDeleted": "章节已删除",
     "sectionDeleteFailed": "章节删除失败",
     "lessonDeleted": "课时已删除",
-    "lessonDeleteFailed": "课时删除失败"
+    "lessonDeleteFailed": "课时删除失败",
+    "addSection": "添加章节",
+    "sectionAdded": "章节已添加",
+    "sectionAddFailed": "章节添加失败",
+    "newSectionTitle": "新章节",
+    "editFolderPath": "修改路径",
+    "selectNewFolder": "选择新的课程文件夹位置",
+    "moveFolderWarning": "这将移动磁盘上的整个课程文件夹，所有视频和资源路径会自动更新。",
+    "confirmMove": "确认移动",
+    "movingFolder": "移动中...",
+    "folderPathUpdated": "课程路径已更新",
+    "folderPathUpdateFailed": "课程路径更新失败",
+    "selectSectionFolder": "选择要添加的章节文件夹",
+    "addingSection": "添加中...",
+    "sectionFolderAddFailed": "添加章节失败"
   },
   "courseCard": {
     "UnknownAuthor":"未知作者",

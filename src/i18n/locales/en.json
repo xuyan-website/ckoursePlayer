@@ -407,7 +407,21 @@
     "sectionDeleted": "Section deleted",
     "sectionDeleteFailed": "Failed to delete section",
     "lessonDeleted": "Lesson deleted",
-    "lessonDeleteFailed": "Failed to delete lesson"
+    "lessonDeleteFailed": "Failed to delete lesson",
+    "addSection": "Add Section",
+    "sectionAdded": "Section added",
+    "sectionAddFailed": "Failed to add section",
+    "newSectionTitle": "New Section",
+    "editFolderPath": "Change Folder Path",
+    "selectNewFolder": "Select new course folder location",
+    "moveFolderWarning": "This will move the entire course folder on disk. All video and resource paths will be updated automatically.",
+    "confirmMove": "Confirm Move",
+    "movingFolder": "Moving...",
+    "folderPathUpdated": "Folder path updated",
+    "folderPathUpdateFailed": "Failed to update folder path",
+    "selectSectionFolder": "Select a folder to add as a section",
+    "addingSection": "Adding...",
+    "sectionFolderAddFailed": "Failed to add section"
   },
   "courseCard": {
     "UnknownAuthor":"Unknown author",

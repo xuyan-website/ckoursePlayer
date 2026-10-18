@@ -15,6 +15,8 @@ import {
   PencilSimpleIcon as PencilSimple,
   FilmSlateIcon as FilmSlate,
   StackIcon as Stack,
+  PlusIcon as Plus,
+  ArrowRightIcon as ArrowRight,
 } from "@phosphor-icons/react";
 import {
   DndContext,
@@ -50,6 +52,8 @@ import {
   batchReplaceSectionVideos as storeBatchReplaceSectionVideos,
   deleteLesson as storeDeleteLesson,
   deleteSection as storeDeleteSection,
+  addSectionFromFolder as storeAddSectionFromFolder,
+  updateCourseFolderPath as storeUpdateCourseFolderPath,
 } from "@/lib/store";
 
 const videoExtensions = ["mp4", "mkv", "avi", "mov", "webm", "flv", "wmv", "m4v", "mpg", "mpeg", "ts", "m2ts"];
@@ -116,6 +120,9 @@ export function CourseEditPanel({
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [mounted, setMounted] = useState(false);
   const [localSections, setLocalSections] = useState(sections);
+  const [pendingFolderPath, setPendingFolderPath] = useState<string | null>(null);
+  const [movingFolder, setMovingFolder] = useState(false);
+  const [addingSection, setAddingSection] = useState(false);
 
   const sectionSensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),
@@ -304,6 +311,59 @@ export function CourseEditPanel({
     [t],
   );
 
+  const handleAddSection = useCallback(async () => {
+    const selected = await open({
+      multiple: false,
+      directory: true,
+      title: t("courseEdit.selectSectionFolder"),
+    });
+    if (!selected || typeof selected !== "string") return;
+    setAddingSection(true);
+    try {
+      const newSection = await storeAddSectionFromFolder(course.id, selected);
+      setLocalSections((prev) => [...prev, newSection]);
+      toast.success(t("courseEdit.sectionAdded"), {
+        description: t("courseEdit.batchVideoReplacedDesc", { count: newSection.lessons.length }),
+      });
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : t("courseEdit.sectionFolderAddFailed");
+      toast.error(t("courseEdit.sectionFolderAddFailed"), { description: msg });
+    } finally {
+      setAddingSection(false);
+    }
+  }, [course.id, t]);
+
+  const handleEditFolderPath = useCallback(async () => {
+    const selected = await open({
+      multiple: false,
+      directory: true,
+      title: t("courseEdit.selectNewFolder"),
+    });
+    if (!selected || typeof selected !== "string") return;
+    if (selected === course.folderPath) return;
+    setPendingFolderPath(selected);
+  }, [t, course.folderPath]);
+
+  const handleConfirmMoveFolder = useCallback(async () => {
+    if (!pendingFolderPath || movingFolder) return;
+    setMovingFolder(true);
+    try {
+      await storeUpdateCourseFolderPath(course.id, pendingFolderPath);
+      setPendingFolderPath(null);
+      toast.success(t("courseEdit.folderPathUpdated"));
+      onReorder().catch(() => {});
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : t("courseEdit.folderPathUpdateFailed");
+      toast.error(t("courseEdit.folderPathUpdateFailed"), { description: msg });
+    } finally {
+      setMovingFolder(false);
+    }
+  }, [pendingFolderPath, movingFolder, course.id, t, onReorder]);
+
+  const handleCancelMoveFolder = useCallback(() => {
+    setPendingFolderPath(null);
+  }, []);
+
   useState(() => {
     requestAnimationFrame(() => setMounted(true));
   });
@@ -390,9 +450,53 @@ export function CourseEditPanel({
           <div className="squircle-subtle absolute inset-px bg-card" />
           <div className="relative flex items-center gap-3 px-4 py-3">
             <FolderOpen className="size-4 shrink-0 text-primary" />
-            <span className="truncate font-mono text-xs text-muted-foreground">
-              {course.folderPath}
-            </span>
+            {pendingFolderPath ? (
+              <>
+                <span className="truncate font-mono text-xs text-muted-foreground/60 line-through">
+                  {course.folderPath}
+                </span>
+                <ArrowRight className="size-3 shrink-0 text-muted-foreground" />
+                <span className="truncate font-mono text-xs text-primary">
+                  {pendingFolderPath}
+                </span>
+                <div className="ml-auto flex items-center gap-2">
+                  {movingFolder ? (
+                    <span className="font-sans text-xs text-muted-foreground">
+                      {t("courseEdit.movingFolder")}
+                    </span>
+                  ) : (
+                    <>
+                      <button
+                        onClick={handleConfirmMoveFolder}
+                        className="rounded-md bg-primary/15 px-2 py-1 font-sans text-xs font-medium text-primary transition-colors hover:bg-primary/25"
+                        style={{ transitionTimingFunction: SNAPPY }}
+                      >
+                        {t("courseEdit.confirmMove")}
+                      </button>
+                      <button
+                        onClick={handleCancelMoveFolder}
+                        className="rounded-md px-2 py-1 font-sans text-xs font-medium text-muted-foreground transition-colors hover:text-foreground"
+                      >
+                        {t("common.cancel")}
+                      </button>
+                    </>
+                  )}
+                </div>
+              </>
+            ) : (
+              <>
+                <span className="truncate font-mono text-xs text-muted-foreground">
+                  {course.folderPath}
+                </span>
+                <button
+                  onClick={handleEditFolderPath}
+                  title={t("courseEdit.editFolderPath")}
+                  className="ml-auto flex size-5 shrink-0 items-center justify-center rounded text-muted-foreground/40 opacity-0 transition-opacity hover:text-primary group-hover:opacity-100"
+                >
+                  <PencilSimple className="size-3" weight="bold" />
+                </button>
+              </>
+            )}
           </div>
         </div>
       </div>
@@ -601,9 +705,20 @@ export function CourseEditPanel({
           transition: `opacity 600ms ${EASE_OUT} 200ms, transform 600ms ${EASE_OUT} 200ms`,
         }}
       >
-        <h3 className="mb-4 font-heading text-base font-bold text-foreground">
-          {t("import.courseStructure")}
-        </h3>
+        <div className="mb-4 flex items-center justify-between">
+          <h3 className="font-heading text-base font-bold text-foreground">
+            {t("import.courseStructure")}
+          </h3>
+          <button
+            onClick={handleAddSection}
+            disabled={addingSection}
+            className="inline-flex items-center gap-1.5 rounded-md border border-border px-3 py-1.5 font-sans text-xs font-medium text-muted-foreground transition-colors hover:border-primary/25 hover:text-primary disabled:opacity-50"
+            style={{ transitionTimingFunction: SNAPPY }}
+          >
+            <Plus className="size-3.5" weight="bold" />
+            {addingSection ? t("courseEdit.addingSection") : t("courseEdit.addSection")}
+          </button>
+        </div>
         <div className="h-80 overflow-y-scroll rounded-xl border border-border bg-card px-3 py-2">
           <DndContext
             sensors={sectionSensors}
