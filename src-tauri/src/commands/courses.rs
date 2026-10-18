@@ -283,15 +283,6 @@ fn copy_dir(from: &Path, to: &Path) -> std::io::Result<()> {
     Ok(())
 }
 
-fn move_dir(from: &Path, to: &Path) -> Result<(), String> {
-    if std::fs::rename(from, to).is_ok() {
-        return Ok(());
-    }
-    copy_dir(from, to).map_err(|e| format!("copy failed: {e}"))?;
-    std::fs::remove_dir_all(from).map_err(|e| format!("remove old dir failed: {e}"))?;
-    Ok(())
-}
-
 #[tauri::command]
 pub fn update_course_folder_path(
     state: tauri::State<'_, DbState>,
@@ -321,7 +312,7 @@ pub fn update_course_folder_path(
         if let Some(parent) = new_path.parent() {
             std::fs::create_dir_all(parent).map_err(|e| e.to_string())?;
         }
-        move_dir(old_path, new_path)?;
+        std::fs::rename(old_path, new_path).map_err(|e| e.to_string())?;
     }
 
     let conn = state.conn.lock().map_err(|e| e.to_string())?;

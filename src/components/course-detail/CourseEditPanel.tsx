@@ -16,7 +16,6 @@ import {
   FilmSlateIcon as FilmSlate,
   StackIcon as Stack,
   PlusIcon as Plus,
-  ArrowRightIcon as ArrowRight,
 } from "@phosphor-icons/react";
 import {
   DndContext,
@@ -333,22 +332,20 @@ export function CourseEditPanel({
     }
   }, [course.id, t]);
 
-  const handleEditFolderPath = useCallback(async () => {
-    const selected = await open({
-      multiple: false,
-      directory: true,
-      title: t("courseEdit.selectNewFolder"),
-    });
-    if (!selected || typeof selected !== "string") return;
-    if (selected === course.folderPath) return;
-    setPendingFolderPath(selected);
-  }, [t, course.folderPath]);
+  const handleEditFolderPath = useCallback(() => {
+    setPendingFolderPath(course.folderPath);
+  }, [course.folderPath]);
 
   const handleConfirmMoveFolder = useCallback(async () => {
-    if (!pendingFolderPath || movingFolder) return;
+    if (pendingFolderPath === null || movingFolder) return;
+    const trimmed = pendingFolderPath.trim();
+    if (!trimmed || trimmed === course.folderPath) {
+      setPendingFolderPath(null);
+      return;
+    }
     setMovingFolder(true);
     try {
-      await storeUpdateCourseFolderPath(course.id, pendingFolderPath);
+      await storeUpdateCourseFolderPath(course.id, trimmed);
       setPendingFolderPath(null);
       toast.success(t("courseEdit.folderPathUpdated"));
       onReorder().catch(() => {});
@@ -358,7 +355,7 @@ export function CourseEditPanel({
     } finally {
       setMovingFolder(false);
     }
-  }, [pendingFolderPath, movingFolder, course.id, t, onReorder]);
+  }, [pendingFolderPath, movingFolder, course.id, course.folderPath, t, onReorder]);
 
   const handleCancelMoveFolder = useCallback(() => {
     setPendingFolderPath(null);
@@ -450,16 +447,24 @@ export function CourseEditPanel({
           <div className="squircle-subtle absolute inset-px bg-card" />
           <div className="relative flex items-center gap-3 px-4 py-3">
             <FolderOpen className="size-4 shrink-0 text-primary" />
-            {pendingFolderPath ? (
+            {pendingFolderPath !== null ? (
               <>
-                <span className="truncate font-mono text-xs text-muted-foreground/60 line-through">
-                  {course.folderPath}
-                </span>
-                <ArrowRight className="size-3 shrink-0 text-muted-foreground" />
-                <span className="truncate font-mono text-xs text-primary">
-                  {pendingFolderPath}
-                </span>
-                <div className="ml-auto flex items-center gap-2">
+                <input
+                  value={pendingFolderPath}
+                  onChange={(e) => setPendingFolderPath(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") {
+                      e.preventDefault();
+                      handleConfirmMoveFolder();
+                    } else if (e.key === "Escape") {
+                      e.preventDefault();
+                      handleCancelMoveFolder();
+                    }
+                  }}
+                  autoFocus
+                  className="flex-1 bg-transparent font-mono text-xs text-foreground focus:outline-none"
+                />
+                <div className="flex items-center gap-2">
                   {movingFolder ? (
                     <span className="font-sans text-xs text-muted-foreground">
                       {t("courseEdit.movingFolder")}

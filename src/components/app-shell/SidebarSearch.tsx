@@ -82,10 +82,8 @@ export function SidebarSearch({ collapsed }: SidebarSearchProps) {
 
   const navigateToResult = useCallback(
     (result: SearchResult) => {
-      if (result.kind === "lesson") {
-        navigate(`/course/${result.courseId}`, {
-          state: { focusLessonId: result.lessonId },
-        });
+      if (result.kind === "lesson" && result.lessonId != null) {
+        navigate(`/course/${result.courseId}?lesson=${result.lessonId}`);
       } else {
         navigate(`/course/${result.courseId}`);
       }
