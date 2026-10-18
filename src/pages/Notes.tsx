@@ -505,6 +505,7 @@ export function Notes({ className }: NotesProps) {
               ) : (
                 <NoteItem
                   note={note}
+                  sortField={sortField}
                   onStartEdit={() => setEditingNoteId(note.id)}
                   onDelete={() => handleDelete(note.id)}
                 />
@@ -524,16 +525,18 @@ export function Notes({ className }: NotesProps) {
 
 function NoteItem({
   note,
+  sortField,
   onStartEdit,
   onDelete,
 }: {
   note: NoteWithCourse;
+  sortField: SortField;
   onStartEdit: () => void;
   onDelete: () => void;
 }) {
   const { t } = useTranslation();
   const navigate = useNavigate();
-  const formatted = formatDateTime(note.updatedAt);
+  const formatted = formatDateTime(sortField === "created" ? note.createdAt : note.updatedAt);
 
   // Compare the note's saved videoTime with the first timestamp embedded in
   // its content. If they differ, jump to the first timestamp's position.

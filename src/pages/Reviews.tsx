@@ -473,7 +473,7 @@ export function Reviews() {
                     </div>
                     <div className="flex shrink-0 items-center gap-0.5">
                       <button
-                        onClick={() => navigate(`/course/${review.courseId}?lesson=${review.lessonId}&tab=reviews&from=/reviews`)}
+                        onClick={() => navigate(`/course/${review.courseId}?lesson=${review.lessonId}&tab=reviews&from=/reviews&replay=1`)}
                         className="rounded-md p-1 text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground"
                         title={t("reviews.goToLesson")}
                       >
@@ -506,7 +506,7 @@ export function Reviews() {
                     {review.content.replace(/[#*_`~\[\]()!]/g, "").trim().slice(0, 200)}
                   </p>
                   <p className="mt-1.5 font-sans text-[10px] text-muted-foreground/60">
-                    {review.courseTitle} · {formatDateTime(review.updatedAt)}
+                    {review.courseTitle} · {formatDateTime(sortField === "created" ? review.createdAt : review.updatedAt)}
                   </p>
                 </>
               )}

@@ -87,6 +87,8 @@ export const NoteEditor = forwardRef<NoteEditorHandle, NoteEditorProps>(function
   imagePathsRef.current = imagePaths;
   const lastSavedRef = useRef<{ html: string; imagePaths: string[] } | null>(null);
   const [lightboxIndex, setLightboxIndex] = useState<number | null>(null);
+  const [dragImgIndex, setDragImgIndex] = useState<number | null>(null);
+  const [dragOverImgIndex, setDragOverImgIndex] = useState<number | null>(null);
   const [confirmDialog, setConfirmDialog] = useState(false);
   const handleCancelRef = useRef<() => void>(() => {});
   const consumedNonceRef = useRef<number>(0);
@@ -1253,19 +1255,56 @@ export const NoteEditor = forwardRef<NoteEditorHandle, NoteEditorProps>(function
 
       <div className="flex flex-col gap-1.5 border-b border-border/50 px-2 py-1.5">
         {imagePaths.length > 0 && (
-          <div className="grid grid-cols-3 gap-1.5">
+          <div className="grid max-h-[10.5rem] grid-cols-3 gap-1.5 overflow-y-auto">
             {imagePaths.map((path, idx) => (
-              <div key={idx} className="group/img relative overflow-hidden rounded-md border border-border/50">
+              <div
+                key={idx}
+                draggable
+                onDragStart={(e) => {
+                  setDragImgIndex(idx);
+                  e.dataTransfer.effectAllowed = "move";
+                }}
+                onDragOver={(e) => {
+                  e.preventDefault();
+                  e.dataTransfer.dropEffect = "move";
+                  if (dragOverImgIndex !== idx) setDragOverImgIndex(idx);
+                }}
+                onDragLeave={() => {
+                  if (dragOverImgIndex === idx) setDragOverImgIndex(null);
+                }}
+                onDrop={(e) => {
+                  e.preventDefault();
+                  if (dragImgIndex !== null && dragImgIndex !== idx) {
+                    setImagePaths((prev) => {
+                      const next = [...prev];
+                      const [moved] = next.splice(dragImgIndex, 1);
+                      next.splice(idx, 0, moved);
+                      return next;
+                    });
+                  }
+                  setDragImgIndex(null);
+                  setDragOverImgIndex(null);
+                }}
+                onDragEnd={() => {
+                  setDragImgIndex(null);
+                  setDragOverImgIndex(null);
+                }}
+                className={cn(
+                  "group/img relative overflow-hidden rounded-md border border-border/50",
+                  dragImgIndex === idx && "opacity-40",
+                  dragOverImgIndex === idx && dragImgIndex !== idx && "ring-2 ring-primary",
+                )}
+                onClick={() => setLightboxIndex(idx)}
+              >
                 <img
                   src={convertFileSrc(path)}
-                  className="h-20 w-full cursor-zoom-in object-cover"
-                  onClick={() => setLightboxIndex(idx)}
+                  className="h-20 w-full cursor-zoom-in object-cover pointer-events-none"
                   alt={`note-image-${idx}`}
                 />
                 <button
                   onClick={() => {
-                    const path = imagePaths[idx];
-                    if (path) pendingDeletePathsRef.current.add(path);
+                    const p = imagePaths[idx];
+                    if (p) pendingDeletePathsRef.current.add(p);
                     setImagePaths((prev) => prev.filter((_, i) => i !== idx));
                   }}
                   title={t("noteEditor.removeImage")}

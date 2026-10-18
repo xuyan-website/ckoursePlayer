@@ -129,6 +129,7 @@ export function CourseDetail({ className }: CourseDetailProps) {
   const fromParam = searchParams.get("from") || "/";
   const timeParam = searchParams.get("time");
   const tabParam = searchParams.get("tab");
+  const replayParam = searchParams.get("replay");
 
   const [course, setCourse] = useState<Course | null>(null);
   const [courseData, setCourseData] = useState<CourseDetailData | null>(null);
@@ -219,6 +220,7 @@ export function CourseDetail({ className }: CourseDetailProps) {
       courseData={courseData}
       initialLessonId={lessonParam ? Number(lessonParam) : undefined}
       noteReplayTime={timeParam ? Number(timeParam) : null}
+      noSavePosition={replayParam === "1"}
       backTo={fromParam}
       isVisible={isVisible}
       onDataChange={reload}
@@ -238,6 +240,7 @@ function CourseDetailInner({
   courseData,
   initialLessonId,
   noteReplayTime,
+  noSavePosition,
   backTo,
   isVisible,
   onDataChange,
@@ -250,6 +253,7 @@ function CourseDetailInner({
   courseData: CourseDetailData;
   initialLessonId?: number;
   noteReplayTime?: number | null;
+  noSavePosition?: boolean;
   backTo: string;
   isVisible: boolean;
   onDataChange: () => Promise<void>;
@@ -350,7 +354,10 @@ function CourseDetailInner({
   const [videoTime, setVideoTime] = useState(0);
   const videoTimeRef = useRef(0);
   const videoPlayerRef = useRef<VideoPlayerHandle>(null);
-  const isNoteReplayRef = useRef(noteReplayTime != null);
+  const isNoteReplayRef = useRef(noteReplayTime != null || noSavePosition === true);
+  useEffect(() => {
+    isNoteReplayRef.current = noteReplayTime != null || noSavePosition === true;
+  }, [noteReplayTime, noSavePosition]);
   const [pendingTimestampNav, setPendingTimestampNav] = useState<{
     seconds: number;
     lessonId: number;
