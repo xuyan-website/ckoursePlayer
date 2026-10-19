@@ -15,6 +15,35 @@ import "@milkdown/crepe/theme/common/style.css";
 import "@milkdown/crepe/theme/frame.css";
 import "@milkdown/crepe/theme/nord.css";
 
+interface PMView {
+  dom: HTMLElement;
+  state: { selection: { head: number } };
+  coordsAtPos: (pos: number) => { top: number; bottom: number };
+}
+
+function findScrollContainer(el: HTMLElement): HTMLElement | null {
+  let node = el.parentElement;
+  while (node) {
+    const { overflowY } = getComputedStyle(node);
+    if (overflowY === "auto" || overflowY === "scroll") return node;
+    node = node.parentElement;
+  }
+  return null;
+}
+
+function scrollCaretIntoViewForMilkdown(view: PMView) {
+  const scrollContainer = findScrollContainer(view.dom);
+  if (!scrollContainer) return;
+  const coords = view.coordsAtPos(view.state.selection.head);
+  const containerRect = scrollContainer.getBoundingClientRect();
+  const margin = 4;
+  if (coords.bottom > containerRect.bottom - margin) {
+    scrollContainer.scrollTop += coords.bottom - containerRect.bottom + margin;
+  } else if (coords.top < containerRect.top + margin) {
+    scrollContainer.scrollTop -= containerRect.top - coords.top + margin;
+  }
+}
+
 const centeredTableCellSchema = tableCellSchema.extendSchema((prev) => (ctx) => {
   const base = prev(ctx);
   return {
@@ -212,6 +241,12 @@ export const MilkdownEditor = forwardRef<MilkdownEditorHandle, MilkdownEditorPro
         if (view && isInTable(view.state)) {
           e.preventDefault();
           addRowAfter(view.state, view.dispatch);
+        }
+      }
+      if (e.key === "Enter") {
+        const view = getView();
+        if (view) {
+          requestAnimationFrame(() => scrollCaretIntoViewForMilkdown(view));
         }
       }
     };
