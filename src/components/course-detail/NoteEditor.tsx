@@ -38,6 +38,25 @@ import {
   getLanguageLabel,
 } from "@/lib/highlight";
 
+function scrollCaretIntoView(editor: HTMLElement) {
+  const sel = window.getSelection();
+  if (!sel || sel.rangeCount === 0) return;
+  const range = sel.getRangeAt(0).cloneRange();
+  range.collapse(true);
+  const marker = document.createElement("span");
+  marker.style.lineHeight = "0";
+  range.insertNode(marker);
+  const editorRect = editor.getBoundingClientRect();
+  const markerRect = marker.getBoundingClientRect();
+  const margin = 4;
+  if (markerRect.bottom > editorRect.bottom - margin) {
+    editor.scrollTop += markerRect.bottom - editorRect.bottom + margin;
+  } else if (markerRect.top < editorRect.top + margin) {
+    editor.scrollTop -= editorRect.top - markerRect.top + margin;
+  }
+  marker.remove();
+}
+
 // Matches @current or @m:ss / @h:mm:ss followed by a word boundary (space, end, punctuation)
 const TIMESTAMP_COMMIT_RE = /@(current|\d{1,2}(?::\d{2}){1,2})(?=[\s,.\-!?;:]|$)/;
 
@@ -1114,6 +1133,9 @@ export const NoteEditor = forwardRef<NoteEditorHandle, NoteEditorProps>(function
           sel.removeAllRanges();
           sel.addRange(newRange);
         }
+        requestAnimationFrame(() => {
+          if (editorRef.current) scrollCaretIntoView(editorRef.current);
+        });
         return;
       }
     }
@@ -1123,6 +1145,9 @@ export const NoteEditor = forwardRef<NoteEditorHandle, NoteEditorProps>(function
       if (cell) {
         e.preventDefault();
         addTableRow();
+        requestAnimationFrame(() => {
+          if (editorRef.current) scrollCaretIntoView(editorRef.current);
+        });
         return;
       }
     }
@@ -1150,6 +1175,9 @@ export const NoteEditor = forwardRef<NoteEditorHandle, NoteEditorProps>(function
           sel.addRange(newRange);
         }
         highlightCurrentCodeBlock();
+        requestAnimationFrame(() => {
+          if (editorRef.current) scrollCaretIntoView(editorRef.current);
+        });
         return;
       }
     }
@@ -1339,7 +1367,7 @@ export const NoteEditor = forwardRef<NoteEditorHandle, NoteEditorProps>(function
             updateActiveFormats();
           }}
           data-placeholder={t("notesPanel.writeANote")}
-          className="note-editable max-h-60 min-h-18 w-full overflow-x-hidden overflow-y-auto px-3 pt-2.5 pb-0 font-sans text-xs leading-relaxed text-foreground focus:outline-none"
+          className="note-editable max-h-60 min-h-18 w-full overflow-x-hidden overflow-y-auto px-3 pt-2.5 pb-2.5 font-sans text-xs leading-relaxed text-foreground focus:outline-none"
         />
 
         {codeToolbar && (
