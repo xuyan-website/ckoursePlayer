@@ -1,5 +1,5 @@
-import { useState, useEffect, useCallback, type ReactNode } from "react";
-import { Link } from "react-router-dom";
+import { useState, useEffect, useCallback, useRef, type ReactNode } from "react";
+import { Link, useLocation } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import {
   SquareHalfIcon as SquareHalf,
@@ -53,6 +53,15 @@ function AppShellInner({ children }: AppShellProps) {
   const [collapsed, setCollapsed] = useState(false);
   const [isSmallScreen, setIsSmallScreen] = useState(false);
   const [isFullscreen, setIsFullscreen] = useState(false);
+
+  const location = useLocation();
+  const mainRef = useRef<HTMLElement>(null);
+
+  useEffect(() => {
+    if (location.pathname === "/notes" || location.pathname === "/reviews") {
+      mainRef.current?.scrollTo({ top: 0 });
+    }
+  }, [location.pathname]);
 
   const toggleFullscreen = useCallback(() => {
     const promise = document.fullscreenElement
@@ -228,6 +237,7 @@ function AppShellInner({ children }: AppShellProps) {
         </aside>
 
         <main
+          ref={mainRef}
           className="flex-1 overflow-y-auto rounded-tl-2xl bg-background px-6 py-8 [scrollbar-gutter:stable]"
           style={{
             backgroundImage:

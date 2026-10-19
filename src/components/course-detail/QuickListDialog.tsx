@@ -1,4 +1,4 @@
-import { useRef, useCallback } from "react";
+import { useRef, useCallback, useEffect } from "react";
 import { createPortal } from "react-dom";
 import { XIcon as X } from "@phosphor-icons/react";
 import { useTranslation } from "react-i18next";
@@ -102,9 +102,45 @@ function deleteRangeWithUndo(ta: HTMLTextAreaElement, from: number, to: number) 
   ta.setSelectionRange(from, from);
 }
 
+function autoResize(ta: HTMLTextAreaElement) {
+  ta.style.height = "auto";
+  const borderY = ta.offsetHeight - ta.clientHeight;
+  const target = ta.scrollHeight + borderY;
+  ta.style.height = `${target}px`;
+  if (ta.selectionStart === ta.value.length && ta.scrollHeight > ta.clientHeight) {
+    ta.scrollTop = ta.scrollHeight;
+  }
+}
+
 export function QuickListDialog({ onClose, onInsert }: QuickListDialogProps) {
   const { t } = useTranslation();
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+
+  useEffect(() => {
+    const ta = textareaRef.current;
+    if (!ta) return;
+    autoResize(ta);
+    let composing = false;
+    const onInput = () => {
+      if (!composing) requestAnimationFrame(() => autoResize(ta));
+    };
+    const onCompositionStart = () => { composing = true; };
+    const onCompositionEnd = () => {
+      composing = false;
+      autoResize(ta);
+    };
+    ta.addEventListener("input", onInput);
+    ta.addEventListener("compositionstart", onCompositionStart);
+    ta.addEventListener("compositionend", onCompositionEnd);
+    if (document.fonts?.ready) {
+      document.fonts.ready.then(() => autoResize(ta)).catch(() => {});
+    }
+    return () => {
+      ta.removeEventListener("input", onInput);
+      ta.removeEventListener("compositionstart", onCompositionStart);
+      ta.removeEventListener("compositionend", onCompositionEnd);
+    };
+  }, []);
 
   const handleKeyDown = useCallback((e: React.KeyboardEvent<HTMLTextAreaElement>) => {
     const ta = e.currentTarget;
@@ -161,6 +197,7 @@ export function QuickListDialog({ onClose, onInsert }: QuickListDialogProps) {
       const indent = leadingMatch ? leadingMatch[1] : "";
       if (start !== end) deleteRangeWithUndo(ta, start, end);
       insertTextWithUndo(ta, "\n" + indent);
+      autoResize(ta);
       return;
     }
 
@@ -181,14 +218,17 @@ export function QuickListDialog({ onClose, onInsert }: QuickListDialogProps) {
       deleteRangeWithUndo(ta, lineStart, lineStart + removeCount);
       const newStart = Math.max(lineStart, selectionStart - removeCount);
       ta.setSelectionRange(newStart, newStart);
+      autoResize(ta);
     } else if (isBlankLine) {
       insertTextWithUndo(ta, "    ");
+      autoResize(ta);
     } else {
       const insertPos = lineStart + leadingLen;
       ta.setSelectionRange(insertPos, insertPos);
       insertTextWithUndo(ta, "    ");
       const newStart = selectionStart + 4;
       ta.setSelectionRange(newStart, newStart);
+      autoResize(ta);
     }
   }, []);
 
@@ -203,7 +243,7 @@ export function QuickListDialog({ onClose, onInsert }: QuickListDialogProps) {
   return createPortal(
     <div className="fixed inset-0 z-[10000] flex items-center justify-center bg-black/60">
       <div
-        className="flex h-[70vh] w-[80vw] max-w-3xl flex-col rounded-lg border border-border bg-card shadow-xl"
+        className="flex max-h-[70vh] w-[80vw] max-w-3xl flex-col overflow-hidden rounded-lg border border-border bg-card shadow-xl"
         onClick={(e) => e.stopPropagation()}
       >
         <div className="flex items-center justify-between border-b border-border/50 px-3 py-2">
@@ -218,12 +258,13 @@ export function QuickListDialog({ onClose, onInsert }: QuickListDialogProps) {
             <X className="size-4" />
           </button>
         </div>
-        <div className="flex-1 overflow-hidden p-3">
+        <div className="p-3">
           <textarea
             ref={textareaRef}
             onKeyDown={handleKeyDown}
             placeholder={t("reviewsPanel.quickListPlaceholder")}
-            className="h-full w-full resize-none rounded-md border border-border/60 bg-background p-3 font-mono text-sm leading-relaxed text-foreground outline-none focus:border-primary/50"
+            className="w-full resize-none overflow-y-auto rounded-md border border-border/60 bg-background p-3 font-mono text-sm leading-relaxed text-foreground outline-none focus:border-primary/50 min-h-[6rem] scroll-pb-3 break-words"
+            style={{ maxHeight: "calc(70vh - 7.5rem)" }}
             autoFocus
             spellCheck={false}
           />
