@@ -1,0 +1,19 @@
+diff --git a/node_modules/@milkdown/components/lib/table-block/index.js b/node_modules/@milkdown/components/lib/table-block/index.js
+index 5ecaaae..876a9bc 100644
+--- a/node_modules/@milkdown/components/lib/table-block/index.js
++++ b/node_modules/@milkdown/components/lib/table-block/index.js
+@@ -714,10 +714,10 @@ function createPointerMoveHandler(refs, view) {
+     if (!dom) return;
+     const [rowIndex, colIndex] = index;
+     const boundary = dom.col.getBoundingClientRect();
+-    const closeToBoundaryLeft = Math.abs(e.clientX - boundary.left) < 8;
+-    const closeToBoundaryRight = Math.abs(boundary.right - e.clientX) < 8;
+-    const closeToBoundaryTop = Math.abs(e.clientY - boundary.top) < 8;
+-    const closeToBoundaryBottom = Math.abs(boundary.bottom - e.clientY) < 8;
++    const closeToBoundaryLeft = Math.abs(e.clientX - boundary.left) < 16;
++    const closeToBoundaryRight = Math.abs(boundary.right - e.clientX) < 16;
++    const closeToBoundaryTop = Math.abs(e.clientY - boundary.top) < 16;
++    const closeToBoundaryBottom = Math.abs(boundary.bottom - e.clientY) < 16;
+     const closeToBoundary = closeToBoundaryLeft || closeToBoundaryRight || closeToBoundaryTop || closeToBoundaryBottom;
+     const rowButtonGroup = rowHandle.querySelector(".button-group");
+     const colButtonGroup = colHandle.querySelector(".button-group");

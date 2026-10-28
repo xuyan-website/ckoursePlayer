@@ -1330,7 +1330,8 @@ export const NoteEditor = forwardRef<NoteEditorHandle, NoteEditorProps>(function
                   alt={`note-image-${idx}`}
                 />
                 <button
-                  onClick={() => {
+                  onClick={(e) => {
+                    e.stopPropagation();
                     const p = imagePaths[idx];
                     if (p) pendingDeletePathsRef.current.add(p);
                     setImagePaths((prev) => prev.filter((_, i) => i !== idx));

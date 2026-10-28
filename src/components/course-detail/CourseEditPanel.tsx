@@ -343,6 +343,19 @@ export function CourseEditPanel({
       setPendingFolderPath(null);
       return;
     }
+    const illegalChars = ":*?<>|";
+    const hasIllegal = trimmed
+      .split(/[\\/]/)
+      .some((seg) => {
+        if (!seg) return false;
+        const isDrive = /^[A-Za-z]:$/.test(seg);
+        const chars = isDrive ? "*?<>|" : illegalChars;
+        return [...seg].some((ch) => chars.includes(ch));
+      });
+    if (hasIllegal) {
+      toast.error(t("courseEdit.folderPathInvalidChar"));
+      return;
+    }
     setMovingFolder(true);
     try {
       await storeUpdateCourseFolderPath(course.id, trimmed);

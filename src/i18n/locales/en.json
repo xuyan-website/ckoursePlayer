@@ -419,6 +419,7 @@
     "movingFolder": "Moving...",
     "folderPathUpdated": "Folder path updated",
     "folderPathUpdateFailed": "Failed to update folder path",
+    "folderPathInvalidChar": "Folder names cannot contain any of these characters: \\/:*?<>|",
     "selectSectionFolder": "Select a folder to add as a section",
     "addingSection": "Adding...",
     "sectionFolderAddFailed": "Failed to add section"

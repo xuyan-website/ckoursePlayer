@@ -263,7 +263,7 @@ export function QuickListDialog({ onClose, onInsert }: QuickListDialogProps) {
             ref={textareaRef}
             onKeyDown={handleKeyDown}
             placeholder={t("reviewsPanel.quickListPlaceholder")}
-            className="w-full resize-none overflow-y-auto rounded-md border border-border/60 bg-background p-3 font-mono text-sm leading-relaxed text-foreground outline-none focus:border-primary/50 min-h-[6rem] scroll-pb-3 break-words"
+            className="w-full resize-none overflow-y-auto rounded-md border border-border/60 bg-background p-3 font-mono text-sm leading-relaxed text-foreground outline-none focus:border-primary/50 min-h-[11rem] scroll-pb-3 break-words"
             style={{ maxHeight: "calc(70vh - 7.5rem)" }}
             autoFocus
             spellCheck={false}

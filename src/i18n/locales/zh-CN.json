@@ -420,6 +420,7 @@
     "movingFolder": "移动中...",
     "folderPathUpdated": "课程路径已更新",
     "folderPathUpdateFailed": "课程路径更新失败",
+    "folderPathInvalidChar": "文件名不能包含下列任何字符：\\/:*?<>|",
     "selectSectionFolder": "选择要添加的章节文件夹",
     "addingSection": "添加中...",
     "sectionFolderAddFailed": "添加章节失败"
