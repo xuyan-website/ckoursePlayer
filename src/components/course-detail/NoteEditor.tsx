@@ -1127,6 +1127,10 @@ export const NoteEditor = forwardRef<NoteEditorHandle, NoteEditorProps>(function
           range.deleteContents();
           const br = document.createElement("br");
           range.insertNode(br);
+          if (!br.nextSibling) {
+            const trailing = document.createElement("br");
+            br.parentNode!.insertBefore(trailing, br.nextSibling);
+          }
           const newRange = document.createRange();
           newRange.setStartAfter(br);
           newRange.collapse(true);
@@ -1391,7 +1395,7 @@ export const NoteEditor = forwardRef<NoteEditorHandle, NoteEditorProps>(function
         {tableToolbar && (
           <div
             className="absolute z-20 flex items-center gap-0.5 rounded bg-[#ffffff] p-0.5 shadow-sm"
-            style={{ left: tableToolbar.x, top: tableToolbar.y - 22 }}
+            style={{ left: 10, bottom: -30 }}
           >
             <button
               onMouseDown={(e) => { e.preventDefault(); addTableRow(); }}
