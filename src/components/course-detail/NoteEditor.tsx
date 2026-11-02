@@ -1121,21 +1121,33 @@ export const NoteEditor = forwardRef<NoteEditorHandle, NoteEditorProps>(function
       const cell = getCurrentCell();
       if (cell) {
         e.preventDefault();
-        const sel = window.getSelection();
-        if (sel && sel.rangeCount) {
-          const range = sel.getRangeAt(0);
-          range.deleteContents();
-          const br = document.createElement("br");
-          range.insertNode(br);
-          if (!br.nextSibling) {
-            const trailing = document.createElement("br");
-            br.parentNode!.insertBefore(trailing, br.nextSibling);
+        let inserted = false;
+        try {
+          inserted = document.execCommand("insertLineBreak");
+        } catch {
+          inserted = false;
+        }
+        if (!inserted) {
+          const sel = window.getSelection();
+          if (sel && sel.rangeCount) {
+            const range = sel.getRangeAt(0);
+            range.deleteContents();
+            const br = document.createElement("br");
+            range.insertNode(br);
+            const next = br.nextSibling;
+            if (next && next.nodeName === "BR") {
+              next.parentNode!.removeChild(next);
+            }
+            if (!br.nextSibling) {
+              const trailing = document.createElement("br");
+              br.parentNode!.insertBefore(trailing, br.nextSibling);
+            }
+            const newRange = document.createRange();
+            newRange.setStartAfter(br);
+            newRange.collapse(true);
+            sel.removeAllRanges();
+            sel.addRange(newRange);
           }
-          const newRange = document.createRange();
-          newRange.setStartAfter(br);
-          newRange.collapse(true);
-          sel.removeAllRanges();
-          sel.addRange(newRange);
         }
         requestAnimationFrame(() => {
           if (editorRef.current) scrollCaretIntoView(editorRef.current);
