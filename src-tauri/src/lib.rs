@@ -123,6 +123,7 @@ pub fn run() {
             commands::delete_file,
             commands::get_lesson_resources,
             commands::add_lesson_resource,
+            commands::add_lesson_resource_from_bytes,
             commands::delete_resource,
             commands::update_resource_path,
         ])

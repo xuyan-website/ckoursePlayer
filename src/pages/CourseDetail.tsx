@@ -64,6 +64,7 @@ import {
   openFile,
   getLessonResources,
   addLessonResource,
+  addLessonResourceFromBytes,
   deleteResource,
   updateResourcePath,
   exportNotesToZip,
@@ -334,6 +335,9 @@ function CourseDetailInner({
     initialTab ?? "notes",
   );
   const [lessonResources, setLessonResources] = useState<Resource[]>([]);
+  const [resourceSourceDialog, setResourceSourceDialog] = useState(false);
+  const [resourceDropDialog, setResourceDropDialog] = useState(false);
+  const [isResourceDragOver, setIsResourceDragOver] = useState(false);
   const [notes, setNotes] = useState<Note[]>([]);
   const lessonNotes = activeLesson
     ? notes
@@ -974,7 +978,7 @@ function CourseDetailInner({
     };
   }, [activeLesson?.id]);
 
-  const handleAddResource = async () => {
+  const handlePickResourceFile = async () => {
     if (!activeLesson || !course) return;
     try {
       const selected = await openDialog({
@@ -991,7 +995,32 @@ function CourseDetailInner({
       setLessonResources(resources);
     } catch (err) {
       console.debug("addLessonResource failed", err);
-      reportError(err, "CourseDetail.handleAddResource", { severity: "expected" });
+      reportError(err, "CourseDetail.handlePickResourceFile", { severity: "expected" });
+      toast.error(t("courseDetail.couldntAddResource"));
+    }
+  };
+
+  const handleDropResource = async (e: React.DragEvent) => {
+    e.preventDefault();
+    setIsResourceDragOver(false);
+    if (!activeLesson || !course) return;
+    const files = e.dataTransfer.files;
+    if (files.length === 0) {
+      toast.error(t("courseDetail.couldNotReadDroppedFile"));
+      return;
+    }
+    try {
+      for (let i = 0; i < files.length; i++) {
+        const file = files[i];
+        const data = new Uint8Array(await file.arrayBuffer());
+        await addLessonResourceFromBytes(course.id, activeLesson.id, file.name, data);
+      }
+      const resources = await getLessonResources(activeLesson.id);
+      setLessonResources(resources);
+      setResourceDropDialog(false);
+    } catch (err) {
+      console.debug("addLessonResourceFromBytes failed", err);
+      reportError(err, "CourseDetail.handleDropResource", { severity: "expected" });
       toast.error(t("courseDetail.couldntAddResource"));
     }
   };
@@ -1338,7 +1367,7 @@ function CourseDetailInner({
               <div className="flex flex-col gap-3">
                 {activeLesson && !activeLesson.videoPath.startsWith("gdrive:") && (
                   <button
-                    onClick={handleAddResource}
+                    onClick={() => setResourceSourceDialog(true)}
                     className="flex items-center gap-2 rounded-lg border border-dashed border-border px-3 py-2.5 font-sans text-xs text-muted-foreground transition-colors hover:border-border hover:bg-secondary hover:text-foreground"
                     style={{ transitionTimingFunction: SNAPPY }}
                   >
@@ -1555,6 +1584,81 @@ function CourseDetailInner({
             }
           `}</style>
         </div>
+      )}
+
+      {resourceSourceDialog && createPortal(
+        <div
+          className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/60"
+          onClick={(e) => { if (e.target === e.currentTarget) setResourceSourceDialog(false); }}
+        >
+          <div
+            className="mx-4 w-full max-w-sm rounded-xl border border-border bg-card p-5"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <h3 className="font-heading text-sm font-bold text-foreground">{t("courseDetail.addFile")}</h3>
+            <div className="mt-4 flex flex-col gap-1.5">
+              <button
+                onClick={() => { setResourceSourceDialog(false); handlePickResourceFile(); }}
+                className="rounded-md border border-border/60 px-3 py-2 text-left text-xs text-foreground transition-colors hover:bg-secondary"
+              >
+                {t("courseDetail.addResourceFromFile")}
+              </button>
+              <button
+                onClick={() => { setResourceSourceDialog(false); setResourceDropDialog(true); }}
+                className="rounded-md border border-border/60 px-3 py-2 text-left text-xs text-foreground transition-colors hover:bg-secondary"
+              >
+                {t("courseDetail.addResourceByDrop")}
+              </button>
+            </div>
+            <div className="mt-4 flex justify-end">
+              <button
+                onClick={() => setResourceSourceDialog(false)}
+                className="rounded-lg px-3 py-1.5 font-sans text-xs font-medium text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground"
+              >
+                {t("common.cancel")}
+              </button>
+            </div>
+          </div>
+        </div>,
+        document.body,
+      )}
+
+      {resourceDropDialog && createPortal(
+        <div
+          className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/60"
+          onClick={(e) => { if (e.target === e.currentTarget) { setResourceDropDialog(false); setIsResourceDragOver(false); } }}
+        >
+          <div
+            className="mx-4 w-full max-w-md rounded-xl border border-border bg-card p-5"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <h3 className="font-heading text-sm font-bold text-foreground">
+              {t("courseDetail.addResourceByDrop")}
+            </h3>
+            <div
+              onDragOver={(e) => { e.preventDefault(); setIsResourceDragOver(true); }}
+              onDragLeave={() => setIsResourceDragOver(false)}
+              onDrop={handleDropResource}
+              className={cn(
+                "mt-3 flex min-h-32 items-center justify-center rounded-lg border border-dashed p-3 transition-colors",
+                isResourceDragOver ? "border-primary bg-primary/5" : "border-border/60"
+              )}
+            >
+              <p className="text-center font-sans text-xs text-muted-foreground">
+                {isResourceDragOver ? t("courseDetail.dropFileHere") : t("courseDetail.dropFileHint")}
+              </p>
+            </div>
+            <div className="mt-4 flex justify-end">
+              <button
+                onClick={() => { setResourceDropDialog(false); setIsResourceDragOver(false); }}
+                className="rounded-lg px-3 py-1.5 font-sans text-xs font-medium text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground"
+              >
+                {t("common.cancel")}
+              </button>
+            </div>
+          </div>
+        </div>,
+        document.body,
       )}
 
       {unsavedType && pendingAction && createPortal(

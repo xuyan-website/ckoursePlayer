@@ -378,6 +378,20 @@ export async function addLessonResource(
   return invoke<number>("add_lesson_resource", { courseId, lessonId, path });
 }
 
+export async function addLessonResourceFromBytes(
+  courseId: number,
+  lessonId: number,
+  filename: string,
+  data: Uint8Array,
+): Promise<number> {
+  return invoke<number>("add_lesson_resource_from_bytes", {
+    courseId,
+    lessonId,
+    filename,
+    data: Array.from(data),
+  });
+}
+
 export async function deleteResource(resourceId: number): Promise<void> {
   return invoke("delete_resource", { resourceId });
 }

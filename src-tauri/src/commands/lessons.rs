@@ -218,6 +218,59 @@ pub fn add_lesson_resource(
 }
 
 #[tauri::command]
+pub fn add_lesson_resource_from_bytes(
+    state: tauri::State<'_, DbState>,
+    course_id: i64,
+    lesson_id: i64,
+    filename: String,
+    data: Vec<u8>,
+) -> Result<i64, String> {
+    let conn = state.conn.lock().map_err(|e| e.to_string())?;
+
+    let src = std::path::Path::new(&filename);
+    let ext = src.extension().and_then(|e| e.to_str()).unwrap_or("");
+    let title = resource_title_from_path(&filename);
+    let resource_type = classify_resource_type(ext);
+
+    let video_path = db::get_lesson_video_path(&conn, lesson_id).unwrap_or_default();
+    let video_dir = std::path::Path::new(&video_path).parent();
+    let final_path = match video_dir {
+        Some(dir) if !dir.as_os_str().is_empty() => {
+            let dest_dir = dir.join("resource");
+            std::fs::create_dir_all(&dest_dir).map_err(|e| e.to_string())?;
+            let dest = dest_dir.join(&filename);
+            let final_dest = if dest.exists() {
+                let stem = src
+                    .file_stem()
+                    .unwrap_or_default()
+                    .to_string_lossy()
+                    .to_string();
+                let ext = src
+                    .extension()
+                    .map(|e| format!(".{}", e.to_string_lossy()))
+                    .unwrap_or_default();
+                let mut i = 1;
+                loop {
+                    let candidate = dest_dir.join(format!("{} ({}){}", stem, i, ext));
+                    if !candidate.exists() {
+                        break candidate;
+                    }
+                    i += 1;
+                }
+            } else {
+                dest
+            };
+            std::fs::write(&final_dest, &data).map_err(|e| e.to_string())?;
+            final_dest.to_string_lossy().to_string()
+        }
+        _ => return Err("video directory not found".into()),
+    };
+
+    db::add_lesson_resource(&conn, course_id, lesson_id, &title, &final_path, &resource_type)
+        .map_err(|e| e.to_string())
+}
+
+#[tauri::command]
 pub fn delete_resource(
     state: tauri::State<'_, DbState>,
     resource_id: i64,
