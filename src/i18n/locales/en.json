@@ -358,6 +358,8 @@
     "dropFileHint": "Drag files here to add",
     "dropFileHere": "Drop to add files",
     "couldNotReadDroppedFile": "Couldn't read dropped file path",
+    "resourcesAdded": "{{count}} file(s) added",
+    "resourcesAddFailed": "{{count}} file(s) failed",
     "couldntDeleteResource": "Couldn't delete resource",
     "couldntUpdateResource": "Couldn't update resource",
     "exportNotes": "Export Notes",

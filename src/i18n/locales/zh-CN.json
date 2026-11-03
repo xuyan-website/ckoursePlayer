@@ -359,6 +359,8 @@
     "dropFileHint": "将文件拖到此区域",
     "dropFileHere": "松开以添加文件",
     "couldNotReadDroppedFile": "无法读取拖入的文件路径",
+    "resourcesAdded": "已添加 {{count}} 个文件",
+    "resourcesAddFailed": "{{count}} 个文件添加失败",
     "couldntDeleteResource": "无法删除资源",
     "couldntUpdateResource": "无法更新资源",
     "exportNotes": "导出笔记",

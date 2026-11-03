@@ -1009,19 +1009,27 @@ function CourseDetailInner({
       toast.error(t("courseDetail.couldNotReadDroppedFile"));
       return;
     }
-    try {
-      for (let i = 0; i < files.length; i++) {
-        const file = files[i];
+    let succeeded = 0;
+    let failed = 0;
+    for (let i = 0; i < files.length; i++) {
+      const file = files[i];
+      try {
         const data = new Uint8Array(await file.arrayBuffer());
         await addLessonResourceFromBytes(course.id, activeLesson.id, file.name, data);
+        succeeded++;
+      } catch (err) {
+        failed++;
+        console.debug("addLessonResourceFromBytes failed", err);
+        reportError(err, "CourseDetail.handleDropResource", { severity: "expected" });
       }
+    }
+    if (succeeded > 0) {
       const resources = await getLessonResources(activeLesson.id);
       setLessonResources(resources);
-      setResourceDropDialog(false);
-    } catch (err) {
-      console.debug("addLessonResourceFromBytes failed", err);
-      reportError(err, "CourseDetail.handleDropResource", { severity: "expected" });
-      toast.error(t("courseDetail.couldntAddResource"));
+      toast.success(t("courseDetail.resourcesAdded", { count: succeeded }));
+    }
+    if (failed > 0) {
+      toast.error(t("courseDetail.resourcesAddFailed", { count: failed }));
     }
   };
 
