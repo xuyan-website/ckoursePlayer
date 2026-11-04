@@ -252,8 +252,9 @@ export const NoteEditor = forwardRef<NoteEditorHandle, NoteEditorProps>(function
       highlightAllCodeBlocks(el);
       ensureParagraphAfterCodeBlocks();
     } else {
-      // Auto-insert current video time timestamp when opening a new note
-      el.innerHTML = "<div>" + buildTimestampHtml(videoTimeRef.current) + "</div><div><br></div>";
+      // Auto-insert current video time timestamp when opening a new note;
+      // keep it inline so the user can type right after it on the same line
+      el.innerHTML = "<div>" + buildTimestampHtml(videoTimeRef.current) + " </div>";
     }
     el.focus();
     // Place cursor at the end of the content
