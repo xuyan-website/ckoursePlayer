@@ -41,8 +41,9 @@ import { getSubtitleVtt, captureVideoFrame, deleteFile, getLessonKeyframes, addK
 import { driveAuthStatus, driveConnect, driveCredentialsStatus } from "@/lib/drive";
 import { reportError } from "@/lib/posthog";
 import { EASE_OUT } from "@/lib/constants";
-import { NoteEditor } from "./NoteEditor";
+import { NoteEditor, type NoteEditorHandle } from "./NoteEditor";
 import { useDetachableWindow } from "@/hooks/useDetachableWindow";
+import { useUnsavedGuard } from "@/hooks/useUnsavedGuard";
 
 interface VideoPlayerProps {
   lesson: Lesson | undefined;
@@ -226,6 +227,7 @@ export const VideoPlayer = forwardRef<VideoPlayerHandle, VideoPlayerProps>(funct
 }, ref) {
   const navigate = useNavigate();
   const { t } = useTranslation();
+  const guard = useUnsavedGuard();
   const containerRef = useRef<HTMLDivElement>(null);
   const videoRef = useRef<HTMLVideoElement>(null);
   const hideTimeoutRef = useRef<ReturnType<typeof setTimeout>>(null);
@@ -586,6 +588,14 @@ export const VideoPlayer = forwardRef<VideoPlayerHandle, VideoPlayerProps>(funct
     setScreenshotImagePath(null);
     setSavedNoteId(null);
   }, [screenshotImagePath, savedNoteId]);
+
+  const registerVideoNoteUnsaved = useCallback((api: { check: () => boolean; save: () => void; discard?: () => void } | null) => {
+    guard?.registerGuard("courseDetail-video-note", api ? { ...api, type: "note" as const, discard: () => { api.discard?.(); setShowNoteDialog(false); setSavedNoteId(null); } } : null);
+  }, [guard]);
+
+  const registerVideoScreenshotUnsaved = useCallback((api: { check: () => boolean; save: () => void; discard?: () => void } | null) => {
+    guard?.registerGuard("courseDetail-video-screenshot", api ? { ...api, type: "note" as const, discard: () => { api.discard?.(); void closeScreenshotDialog(); } } : null);
+  }, [guard, closeScreenshotDialog]);
 
   useEffect(() => {
     function handleKeyDown(e: KeyboardEvent) {
@@ -1843,7 +1853,7 @@ export const VideoPlayer = forwardRef<VideoPlayerHandle, VideoPlayerProps>(funct
             }
           }}
           onCancel={() => { setShowNoteDialog(false); setSavedNoteId(null); }}
-          onClose={() => { setShowNoteDialog(false); setSavedNoteId(null); }}
+          onRegisterUnsaved={registerVideoNoteUnsaved}
         />
       )}
 
@@ -1895,9 +1905,7 @@ export const VideoPlayer = forwardRef<VideoPlayerHandle, VideoPlayerProps>(funct
           onCancel={() => {
             closeScreenshotDialog();
           }}
-          onClose={() => {
-            closeScreenshotDialog();
-          }}
+          onRegisterUnsaved={registerVideoScreenshotUnsaved}
         />
       )}
 
@@ -1954,7 +1962,7 @@ function DetachableEditorDialog({
   onSubmit,
   onSaveOnly,
   onCancel,
-  onClose,
+  onRegisterUnsaved,
 }: {
   videoTime: number;
   initialImagePaths?: string[];
@@ -1962,10 +1970,11 @@ function DetachableEditorDialog({
   onSubmit: (content: string, imagePaths: string[]) => void;
   onSaveOnly?: (content: string, imagePaths: string[]) => void | Promise<void>;
   onCancel?: () => void;
-  onClose: () => void;
+  onRegisterUnsaved?: (api: { check: () => boolean; save: () => void; discard?: () => void } | null) => void;
 }) {
   const { t } = useTranslation();
   const { detached, pos, containerRef, handleDetach, startDrag, setDetached } = useDetachableWindow();
+  const editorRef = useRef<NoteEditorHandle>(null);
 
   return createPortal(
     <>
@@ -2002,7 +2011,7 @@ function DetachableEditorDialog({
             </button>
             <button
               onMouseDown={(e) => e.stopPropagation()}
-              onClick={onClose}
+              onClick={() => editorRef.current?.requestCancel()}
               title={t("common.close")}
               className="rounded-md p-1 text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground"
             >
@@ -2015,6 +2024,7 @@ function DetachableEditorDialog({
           onClick={detached ? undefined : (e) => e.stopPropagation()}
         >
           <NoteEditor
+            ref={editorRef}
             videoTime={videoTime}
             initialImagePaths={initialImagePaths}
             externalImage={externalImage}
@@ -2023,6 +2033,7 @@ function DetachableEditorDialog({
             onSubmit={onSubmit}
             onSaveOnly={onSaveOnly}
             onCancel={onCancel}
+            onRegisterUnsaved={onRegisterUnsaved}
           />
         </div>
       </div>

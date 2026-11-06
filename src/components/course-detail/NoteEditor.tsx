@@ -274,7 +274,7 @@ export const NoteEditor = forwardRef<NoteEditorHandle, NoteEditorProps>(function
       sel.removeAllRanges();
       sel.addRange(range);
     }
-    lastSavedRef.current = { html: el.innerHTML, imagePaths: initialImagePaths };
+    lastSavedRef.current = { html: el.innerHTML, imagePaths: initialContent ? initialImagePaths : [] };
   }, []);
 
   const cleanupEmptyCodeBlocks = useCallback((skipCurrent: boolean) => {
@@ -995,13 +995,13 @@ export const NoteEditor = forwardRef<NoteEditorHandle, NoteEditorProps>(function
 
   useEffect(() => {
     onRegisterUnsaved?.({
-      check: () => {
-        if (isEmpty()) return false;
-        const html = editorRef.current?.innerHTML ?? "";
-        const saved = lastSavedRef.current;
-        if (!saved) return true;
-        return html !== saved.html || imagePathsRef.current.join("\n") !== saved.imagePaths.join("\n");
-      },
+    check: () => {
+      if (isEmpty() && imagePathsRef.current.length === 0) return false;
+      const html = editorRef.current?.innerHTML ?? "";
+      const saved = lastSavedRef.current;
+      if (!saved) return true;
+      return html !== saved.html || imagePathsRef.current.join("\n") !== saved.imagePaths.join("\n");
+    },
       save: () => handleSubmitRef.current(),
       discard: () => {
         const newPaths = newImagePathsRef.current;
@@ -1014,7 +1014,7 @@ export const NoteEditor = forwardRef<NoteEditorHandle, NoteEditorProps>(function
   }, [onRegisterUnsaved, isEmpty]);
 
   const hasUnsavedChanges = useCallback(() => {
-    if (isEmpty()) return false;
+    if (isEmpty() && imagePathsRef.current.length === 0) return false;
     const html = editorRef.current?.innerHTML ?? "";
     const saved = lastSavedRef.current;
     if (!saved) return true;
