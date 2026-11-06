@@ -244,6 +244,9 @@ export const VideoPlayer = forwardRef<VideoPlayerHandle, VideoPlayerProps>(funct
         videoRef.current.pause();
       }
     },
+    setKeyframes(kfs: Keyframe[]) {
+      setKeyframesState(kfs);
+    },
   }), [onTimeUpdate]);
 
   const [videoTime, setVideoTime] = useState(0);
@@ -294,7 +297,7 @@ export const VideoPlayer = forwardRef<VideoPlayerHandle, VideoPlayerProps>(funct
     speed: number;
     direction: "forward" | "backward";
   } | null>(null);
-  const [keyframes, setKeyframes] = useState<Keyframe[]>([]);
+  const [keyframes, setKeyframesState] = useState<Keyframe[]>([]);
   const [showKeyframeDialog, setShowKeyframeDialog] = useState(false);
   const [keyframeText, setKeyframeText] = useState("");
 
@@ -537,10 +540,10 @@ export const VideoPlayer = forwardRef<VideoPlayerHandle, VideoPlayerProps>(funct
 
   useEffect(() => {
     if (!lesson) {
-      setKeyframes([]);
+      setKeyframesState([]);
       return;
     }
-    getLessonKeyframes(lesson.id).then(setKeyframes).catch(() => {});
+    getLessonKeyframes(lesson.id).then(setKeyframesState).catch(() => {});
   }, [lesson?.id]);
 
   const handleConfirmKeyframe = useCallback(async () => {
@@ -549,7 +552,7 @@ export const VideoPlayer = forwardRef<VideoPlayerHandle, VideoPlayerProps>(funct
     const position = video.currentTime;
     try {
       const kf = await addKeyframe(lesson.id, position, keyframeText.trim());
-      setKeyframes((prev) => [...prev, kf].sort((a, b) => a.position - b.position));
+      setKeyframesState((prev) => [...prev, kf].sort((a, b) => a.position - b.position));
     } catch (err) {
       reportError(err, "VideoPlayer.addKeyframe");
     }
@@ -560,7 +563,7 @@ export const VideoPlayer = forwardRef<VideoPlayerHandle, VideoPlayerProps>(funct
   const handleDeleteKeyframe = useCallback(async (id: number) => {
     try {
       await deleteKeyframe(id);
-      setKeyframes((prev) => prev.filter((k) => k.id !== id));
+      setKeyframesState((prev) => prev.filter((k) => k.id !== id));
     } catch (err) {
       reportError(err, "VideoPlayer.deleteKeyframe");
     }

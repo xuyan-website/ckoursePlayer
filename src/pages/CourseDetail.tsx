@@ -39,7 +39,7 @@ import { ReviewsPanel } from "@/components/course-detail/ReviewsPanel";
 const CourseEditPanel = lazy(() => import("@/components/course-detail/CourseEditPanel").then(m => ({ default: m.CourseEditPanel })));
 import { CourseCelebration } from "@/components/course-detail/CourseCelebration";
 import { EASE_OUT, SNAPPY } from "@/lib/constants";
-import { formatDuration } from "@/lib/format";
+import { formatDuration, extractTimestampsWithFollowingText } from "@/lib/format";
 import type { Note, Course, CourseDetail as CourseDetailData, Lesson, Subtitle, Resource, Review } from "@/types";
 import { useSettings } from "@/hooks/useSettings";
 import { useCourseTitles } from "@/components/app-shell/CourseTitleContext";
@@ -75,6 +75,8 @@ import {
   deleteReview as storeDeleteReview,
   exportReviewsZip,
   type ExportReviewItemData,
+  syncNoteKeyframes as storeSyncNoteKeyframes,
+  getLessonKeyframes,
 } from "@/lib/store";
 import { htmlToMarkdown } from "@/lib/htmlToMarkdown";
 
@@ -619,6 +621,17 @@ function CourseDetailInner({
     [activeLesson, onDataChange],
   );
 
+  function syncNoteKeyframesAndRefresh(noteId: number, content: string) {
+    if (!activeLesson) return;
+    const items = extractTimestampsWithFollowingText(content);
+    storeSyncNoteKeyframes(activeLesson.id, noteId, items)
+      .then((kfs) => videoPlayerRef.current?.setKeyframes(kfs))
+      .catch((err) => {
+        console.error("syncNoteKeyframes failed", err);
+        reportError(err, "CourseDetail.syncNoteKeyframesAndRefresh", { noteId });
+      });
+  }
+
   async function handleAddNote(content: string, imagePaths: string[] = []): Promise<number | null> {
     if (!activeLesson) return null;
     try {
@@ -631,6 +644,7 @@ function CourseDetailInner({
         imagePaths,
       );
       setNotes((prev) => [note, ...prev]);
+      syncNoteKeyframesAndRefresh(note.id, content);
       setShowEditor(false);
       toast.success(t("courseDetail.saved"));
       return note.id;
@@ -659,6 +673,7 @@ function CourseDetailInner({
             : n,
         ),
       );
+      syncNoteKeyframesAndRefresh(noteId, content);
       setEditingNoteId(null);
       toast.success(t("courseDetail.saved"));
     } catch (err) {
@@ -684,6 +699,7 @@ function CourseDetailInner({
             : n,
         ),
       );
+      syncNoteKeyframesAndRefresh(noteId, content);
       toast.success(t("courseDetail.saved"));
     } catch (err) {
       console.error("updateNote (saveOnly) failed", err);
@@ -706,6 +722,7 @@ function CourseDetailInner({
         imagePaths,
       );
       setNotes((prev) => [note, ...prev]);
+      syncNoteKeyframesAndRefresh(note.id, content);
       toast.success(t("courseDetail.saved"));
       return note.id;
     } catch (err) {
@@ -726,6 +743,11 @@ function CourseDetailInner({
     try {
       await storeDeleteNote(noteId);
       setNotes((prev) => prev.filter((n) => n.id !== noteId));
+      if (activeLesson) {
+        getLessonKeyframes(activeLesson.id)
+          .then((kfs) => videoPlayerRef.current?.setKeyframes(kfs))
+          .catch(() => {});
+      }
       toast(t("courseDetail.deleted"), { className: "toast-red-text" });
     } catch (err) {
       console.error("deleteNote failed", err);
@@ -1207,6 +1229,7 @@ function CourseDetailInner({
                       : n,
                   ),
                 );
+                syncNoteKeyframesAndRefresh(noteId, content);
                 toast.success(t("courseDetail.saved"));
                 return true;
               } catch (err) {

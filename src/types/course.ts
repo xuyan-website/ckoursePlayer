@@ -66,6 +66,7 @@ export interface Keyframe {
   position: number;
   text: string;
   createdAt: string;
+  noteId: number | null;
 }
 
 export interface Subtitle {

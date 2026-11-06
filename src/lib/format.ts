@@ -43,6 +43,50 @@ export function extractFirstTimestamp(html: string): number | null {
   return isNaN(seconds) ? null : seconds;
 }
 
+const BLOCK_TAGS = new Set([
+  "div", "p", "br", "li", "h1", "h2", "h3", "h4", "h5", "h6",
+  "pre", "blockquote", "ul", "ol", "table", "tr", "section", "article",
+]);
+
+/**
+ * Extract every timestamp marker in the note HTML together with the text that
+ * follows it on the same line (within the same block container). Markers with
+ * no following text are skipped. The text stops at the next block-level element,
+ * a <br>, or the next timestamp marker.
+ */
+export function extractTimestampsWithFollowingText(
+  html: string,
+): { seconds: number; text: string }[] {
+  const container = document.createElement("div");
+  container.innerHTML = html;
+  const result: { seconds: number; text: string }[] = [];
+
+  for (const span of Array.from(container.querySelectorAll<HTMLSpanElement>("span[data-timestamp]"))) {
+    const seconds = Number(span.getAttribute("data-timestamp"));
+    if (isNaN(seconds)) continue;
+
+    let text = "";
+    let node: Node | null = span.nextSibling;
+    while (node) {
+      if (node.nodeType === Node.ELEMENT_NODE) {
+        const el = node as HTMLElement;
+        const tag = el.tagName.toLowerCase();
+        if (BLOCK_TAGS.has(tag)) break;
+        if (el.hasAttribute("data-timestamp")) break;
+        text += el.textContent ?? "";
+      } else if (node.nodeType === Node.TEXT_NODE) {
+        text += node.textContent ?? "";
+      }
+      node = node.nextSibling;
+    }
+
+    const trimmed = text.trim();
+    if (trimmed) result.push({ seconds, text: trimmed });
+  }
+
+  return result;
+}
+
 export function formatDateTime(iso: string): string {
   const d = new Date(iso);
   if (isNaN(d.getTime())) return iso;

@@ -65,6 +65,7 @@ pub fn run() {
             commands::get_lesson_keyframes,
             commands::add_keyframe,
             commands::delete_keyframe,
+            commands::sync_note_keyframes,
             commands::export_notes_to_zip,
             commands::get_all_reviews,
             commands::get_course_reviews,

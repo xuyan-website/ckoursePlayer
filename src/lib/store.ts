@@ -201,12 +201,22 @@ export async function addKeyframe(
   lessonId: number,
   position: number,
   text: string,
+  noteId: number | null = null,
 ): Promise<Keyframe> {
-  return invoke<Keyframe>("add_keyframe", { lessonId, position, text });
+  return invoke<Keyframe>("add_keyframe", { lessonId, position, text, noteId });
 }
 
 export async function deleteKeyframe(keyframeId: number): Promise<void> {
   return invoke("delete_keyframe", { keyframeId });
+}
+
+export async function syncNoteKeyframes(
+  lessonId: number,
+  noteId: number,
+  items: { seconds: number; text: string }[],
+): Promise<Keyframe[]> {
+  const payload = items.map((it) => [it.seconds, it.text]);
+  return invoke<Keyframe[]>("sync_note_keyframes", { lessonId, noteId, items: payload });
 }
 
 export interface ExportNoteData {

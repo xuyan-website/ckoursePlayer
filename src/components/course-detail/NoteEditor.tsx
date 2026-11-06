@@ -257,12 +257,20 @@ export const NoteEditor = forwardRef<NoteEditorHandle, NoteEditorProps>(function
       el.innerHTML = "<div>" + buildTimestampHtml(videoTimeRef.current) + " </div>";
     }
     el.focus();
-    // Place cursor at the end of the content
+    // For new notes, place cursor right after the timestamp span so typed text
+    // stays on the same line and can be extracted for keyframe sync. For existing
+    // notes, place cursor at the end of the content.
     const sel = window.getSelection();
     if (sel) {
       const range = document.createRange();
-      range.selectNodeContents(el);
-      range.collapse(false);
+      const span = !initialContent ? el.querySelector("span[data-timestamp]") : null;
+      if (span) {
+        range.setStartAfter(span);
+        range.collapse(true);
+      } else {
+        range.selectNodeContents(el);
+        range.collapse(false);
+      }
       sel.removeAllRanges();
       sel.addRange(range);
     }
@@ -857,13 +865,19 @@ export const NoteEditor = forwardRef<NoteEditorHandle, NoteEditorProps>(function
     replaceRange.setEnd(node, end);
     replaceRange.deleteContents();
 
-    const wrapper = document.createElement("div");
-    wrapper.innerHTML = html;
-    replaceRange.insertNode(wrapper);
+    const temp = document.createElement("span");
+    temp.innerHTML = html;
+    const marker = temp.firstElementChild as HTMLElement | null;
+    if (marker) replaceRange.insertNode(marker);
 
     const sel = window.getSelection();
     const newRange = document.createRange();
-    newRange.setStartAfter(wrapper);
+    if (marker) {
+      newRange.setStartAfter(marker);
+    } else {
+      newRange.selectNodeContents(replaceRange.commonAncestorContainer);
+      newRange.collapse(false);
+    }
     newRange.collapse(true);
     sel?.removeAllRanges();
     sel?.addRange(newRange);
@@ -901,12 +915,18 @@ export const NoteEditor = forwardRef<NoteEditorHandle, NoteEditorProps>(function
     replaceRange.setEnd(node, matchEnd);
     replaceRange.deleteContents();
 
-    const wrapper = document.createElement("div");
-    wrapper.innerHTML = html;
-    replaceRange.insertNode(wrapper);
+    const temp = document.createElement("span");
+    temp.innerHTML = html;
+    const marker = temp.firstElementChild as HTMLElement | null;
+    if (marker) replaceRange.insertNode(marker);
 
     const newRange = document.createRange();
-    newRange.setStartAfter(wrapper);
+    if (marker) {
+      newRange.setStartAfter(marker);
+    } else {
+      newRange.selectNodeContents(replaceRange.commonAncestorContainer);
+      newRange.collapse(false);
+    }
     newRange.collapse(true);
     sel.removeAllRanges();
     sel.addRange(newRange);

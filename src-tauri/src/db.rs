@@ -109,6 +109,7 @@ pub struct Keyframe {
     pub position: f64,
     pub text: String,
     pub created_at: String,
+    pub note_id: Option<i64>,
 }
 
 #[derive(Debug, Serialize, Clone)]
@@ -381,6 +382,10 @@ pub fn init_db(app_data_dir: &Path) -> SqlResult<Connection> {
             name TEXT NOT NULL UNIQUE
         );",
     );
+
+    // Keyframes: add note_id column to distinguish manual keyframes (NULL)
+    // from keyframes auto-synced from a note's timestamp markers.
+    let _ = conn.execute_batch("ALTER TABLE keyframes ADD COLUMN note_id INTEGER;");
 
     Ok(conn)
 }
@@ -960,6 +965,10 @@ pub fn delete_note(conn: &Connection, note_id: i64) -> SqlResult<()> {
     for path in &image_paths {
         let _ = std::fs::remove_file(path);
     }
+
+    // Delete keyframes auto-synced from this note (manual keyframes with
+    // note_id NULL are left untouched).
+    conn.execute("DELETE FROM keyframes WHERE note_id = ?1", params![note_id])?;
 
     conn.execute("DELETE FROM notes WHERE id = ?1", params![note_id])?;
     Ok(())
@@ -2248,7 +2257,7 @@ pub fn search_content(conn: &Connection, query: &str) -> SqlResult<Vec<SearchRes
 
 pub fn get_lesson_keyframes(conn: &Connection, lesson_id: i64) -> SqlResult<Vec<Keyframe>> {
     let mut stmt = conn.prepare(
-        "SELECT id, lesson_id, position, text, created_at
+        "SELECT id, lesson_id, position, text, created_at, note_id
          FROM keyframes WHERE lesson_id = ?1 ORDER BY position ASC",
     )?;
 
@@ -2260,6 +2269,7 @@ pub fn get_lesson_keyframes(conn: &Connection, lesson_id: i64) -> SqlResult<Vec<
                 position: row.get(2)?,
                 text: row.get(3)?,
                 created_at: row.get(4)?,
+                note_id: row.get(5)?,
             })
         })?
         .collect::<SqlResult<Vec<_>>>()?;
@@ -2272,12 +2282,13 @@ pub fn add_keyframe(
     lesson_id: i64,
     position: f64,
     text: &str,
+    note_id: Option<i64>,
 ) -> SqlResult<Keyframe> {
     let now = chrono_now();
     conn.execute(
-        "INSERT INTO keyframes (lesson_id, position, text, created_at)
-         VALUES (?1, ?2, ?3, ?4)",
-        params![lesson_id, position, text, now],
+        "INSERT INTO keyframes (lesson_id, position, text, created_at, note_id)
+         VALUES (?1, ?2, ?3, ?4, ?5)",
+        params![lesson_id, position, text, now, note_id],
     )?;
 
     let id = conn.last_insert_rowid();
@@ -2287,10 +2298,38 @@ pub fn add_keyframe(
         position,
         text: text.to_string(),
         created_at: now,
+        note_id,
     })
 }
 
 pub fn delete_keyframe(conn: &Connection, keyframe_id: i64) -> SqlResult<()> {
     conn.execute("DELETE FROM keyframes WHERE id = ?1", params![keyframe_id])?;
     Ok(())
+}
+
+/// Sync a note's timestamp markers to keyframes: delete all keyframes previously
+/// auto-synced from this note (note_id), then insert the current ones. Manual
+/// keyframes (note_id IS NULL) are left untouched. Returns all keyframes for the
+/// lesson so the caller can refresh the UI in one round-trip.
+pub fn sync_note_keyframes(
+    conn: &Connection,
+    lesson_id: i64,
+    note_id: i64,
+    items: &[(f64, String)],
+) -> SqlResult<Vec<Keyframe>> {
+    conn.execute(
+        "DELETE FROM keyframes WHERE lesson_id = ?1 AND note_id = ?2",
+        params![lesson_id, note_id],
+    )?;
+
+    let now = chrono_now();
+    for (position, text) in items {
+        conn.execute(
+            "INSERT INTO keyframes (lesson_id, position, text, created_at, note_id)
+             VALUES (?1, ?2, ?3, ?4, ?5)",
+            params![lesson_id, position, text, now, note_id],
+        )?;
+    }
+
+    get_lesson_keyframes(conn, lesson_id)
 }
