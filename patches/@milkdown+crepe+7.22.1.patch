@@ -1,7 +1,16 @@
 diff --git a/node_modules/@milkdown/crepe/lib/cjs/feature/block-edit/index.js b/node_modules/@milkdown/crepe/lib/cjs/feature/block-edit/index.js
-index 69a885d..1e3bf7c 100644
+index 69a885d..99ee9f3 100644
 --- a/node_modules/@milkdown/crepe/lib/cjs/feature/block-edit/index.js
 +++ b/node_modules/@milkdown/crepe/lib/cjs/feature/block-edit/index.js
+@@ -709,7 +709,7 @@ function getGroups(filter, config, ctx) {
+           commands.call(commonmark.clearTextInCurrentBlockCommand.key);
+           const { from } = view.state.selection;
+           commands.call(commonmark.addBlockTypeCommand.key, {
+-            nodeType: gfm.createTable(ctx2, 3, 3)
++            nodeType: gfm.createTable(ctx2, 3, 2)
+           });
+           commands.call(commonmark.selectTextNearPosCommand.key, {
+             pos: from
 @@ -992,8 +992,6 @@ class MenuView {
        content: __privateGet$1(this, _content$1),
        debounce: 20,
@@ -20,10 +29,32 @@ index 69a885d..1e3bf7c 100644
          if (!currentText.startsWith("/")) return false;
          return true;
        },
+diff --git a/node_modules/@milkdown/crepe/lib/cjs/feature/top-bar/index.js b/node_modules/@milkdown/crepe/lib/cjs/feature/top-bar/index.js
+index 9f9623b..eee4e4d 100644
+--- a/node_modules/@milkdown/crepe/lib/cjs/feature/top-bar/index.js
++++ b/node_modules/@milkdown/crepe/lib/cjs/feature/top-bar/index.js
+@@ -533,7 +533,7 @@ function getGroups(config, ctx) {
+         const view = ctx2.get(core.editorViewCtx);
+         const { from } = view.state.selection;
+         commands.call(commonmark.addBlockTypeCommand.key, {
+-          nodeType: gfm.createTable(ctx2, 3, 3)
++          nodeType: gfm.createTable(ctx2, 3, 2)
+         });
+         commands.call(commonmark.selectTextNearPosCommand.key, { pos: from });
+       }
 diff --git a/node_modules/@milkdown/crepe/lib/cjs/index.js b/node_modules/@milkdown/crepe/lib/cjs/index.js
-index e3207df..a7a4236 100644
+index e3207df..d524160 100644
 --- a/node_modules/@milkdown/crepe/lib/cjs/index.js
 +++ b/node_modules/@milkdown/crepe/lib/cjs/index.js
+@@ -2473,7 +2473,7 @@ function getGroups$2(filter, config, ctx) {
+           commands.call(commonmark.clearTextInCurrentBlockCommand.key);
+           const { from } = view.state.selection;
+           commands.call(commonmark.addBlockTypeCommand.key, {
+-            nodeType: gfm.createTable(ctx2, 3, 3)
++            nodeType: gfm.createTable(ctx2, 3, 2)
+           });
+           commands.call(commonmark.selectTextNearPosCommand.key, {
+             pos: from
 @@ -2756,8 +2756,6 @@ class MenuView {
        content: __privateGet$5(this, _content$3),
        debounce: 20,
@@ -42,10 +73,28 @@ index e3207df..a7a4236 100644
          if (!currentText.startsWith("/")) return false;
          return true;
        },
+@@ -4060,7 +4060,7 @@ function getGroups(config, ctx) {
+         const view = ctx2.get(core.editorViewCtx);
+         const { from } = view.state.selection;
+         commands.call(commonmark.addBlockTypeCommand.key, {
+-          nodeType: gfm.createTable(ctx2, 3, 3)
++          nodeType: gfm.createTable(ctx2, 3, 2)
+         });
+         commands.call(commonmark.selectTextNearPosCommand.key, { pos: from });
+       }
 diff --git a/node_modules/@milkdown/crepe/lib/esm/feature/block-edit/index.js b/node_modules/@milkdown/crepe/lib/esm/feature/block-edit/index.js
-index e10bae8..1cd03bb 100644
+index e10bae8..e751c05 100644
 --- a/node_modules/@milkdown/crepe/lib/esm/feature/block-edit/index.js
 +++ b/node_modules/@milkdown/crepe/lib/esm/feature/block-edit/index.js
+@@ -707,7 +707,7 @@ function getGroups(filter, config, ctx) {
+           commands.call(clearTextInCurrentBlockCommand.key);
+           const { from } = view.state.selection;
+           commands.call(addBlockTypeCommand.key, {
+-            nodeType: createTable(ctx2, 3, 3)
++            nodeType: createTable(ctx2, 3, 2)
+           });
+           commands.call(selectTextNearPosCommand.key, {
+             pos: from
 @@ -990,8 +990,6 @@ class MenuView {
        content: __privateGet$1(this, _content$1),
        debounce: 20,
@@ -64,10 +113,32 @@ index e10bae8..1cd03bb 100644
          if (!currentText.startsWith("/")) return false;
          return true;
        },
+diff --git a/node_modules/@milkdown/crepe/lib/esm/feature/top-bar/index.js b/node_modules/@milkdown/crepe/lib/esm/feature/top-bar/index.js
+index 82fd0fd..b674198 100644
+--- a/node_modules/@milkdown/crepe/lib/esm/feature/top-bar/index.js
++++ b/node_modules/@milkdown/crepe/lib/esm/feature/top-bar/index.js
+@@ -531,7 +531,7 @@ function getGroups(config, ctx) {
+         const view = ctx2.get(editorViewCtx);
+         const { from } = view.state.selection;
+         commands.call(addBlockTypeCommand.key, {
+-          nodeType: createTable(ctx2, 3, 3)
++          nodeType: createTable(ctx2, 3, 2)
+         });
+         commands.call(selectTextNearPosCommand.key, { pos: from });
+       }
 diff --git a/node_modules/@milkdown/crepe/lib/esm/index.js b/node_modules/@milkdown/crepe/lib/esm/index.js
-index 481d056..8eb16fc 100644
+index 481d056..eaad18d 100644
 --- a/node_modules/@milkdown/crepe/lib/esm/index.js
 +++ b/node_modules/@milkdown/crepe/lib/esm/index.js
+@@ -2471,7 +2471,7 @@ function getGroups$2(filter, config, ctx) {
+           commands.call(clearTextInCurrentBlockCommand.key);
+           const { from } = view.state.selection;
+           commands.call(addBlockTypeCommand.key, {
+-            nodeType: createTable(ctx2, 3, 3)
++            nodeType: createTable(ctx2, 3, 2)
+           });
+           commands.call(selectTextNearPosCommand.key, {
+             pos: from
 @@ -2754,8 +2754,6 @@ class MenuView {
        content: __privateGet$5(this, _content$3),
        debounce: 20,
@@ -86,3 +157,12 @@ index 481d056..8eb16fc 100644
          if (!currentText.startsWith("/")) return false;
          return true;
        },
+@@ -4058,7 +4058,7 @@ function getGroups(config, ctx) {
+         const view = ctx2.get(editorViewCtx);
+         const { from } = view.state.selection;
+         commands.call(addBlockTypeCommand.key, {
+-          nodeType: createTable(ctx2, 3, 3)
++          nodeType: createTable(ctx2, 3, 2)
+         });
+         commands.call(selectTextNearPosCommand.key, { pos: from });
+       }

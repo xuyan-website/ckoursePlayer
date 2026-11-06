@@ -152,7 +152,7 @@ export const NoteEditor = forwardRef<NoteEditorHandle, NoteEditorProps>(function
   } | null>(null);
   const [tableDialog, setTableDialog] = useState(false);
   const [tableRows, setTableRows] = useState(3);
-  const [tableCols, setTableCols] = useState(3);
+  const [tableCols, setTableCols] = useState(2);
   const [imageSourceDialog, setImageSourceDialog] = useState(false);
   const [clipboardDialog, setClipboardDialog] = useState(false);
   const [clipboardImages, setClipboardImages] = useState<string[]>([]);
