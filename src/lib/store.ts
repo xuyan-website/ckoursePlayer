@@ -436,6 +436,10 @@ export async function addReview(
   return invoke<Review>("add_review", { courseId, lessonId, sectionTitle, lessonTitle, title, content });
 }
 
+export async function readTextFile(path: string): Promise<string> {
+  return invoke<string>("read_text_file", { path });
+}
+
 export async function updateReview(reviewId: number, title: string, content: string): Promise<void> {
   return invoke("update_review", { reviewId, title, content });
 }

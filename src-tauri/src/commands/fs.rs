@@ -127,6 +127,16 @@ pub fn delete_file(path: String) -> Result<(), String> {
     std::fs::remove_file(p).map_err(|e| e.to_string())
 }
 
+/// Read a text file and return its contents as a UTF-8 string.
+#[tauri::command]
+pub fn read_text_file(path: String) -> Result<String, String> {
+    let p = std::path::Path::new(&path);
+    if !p.is_file() {
+        return Err(format!("Not a file: {}", path));
+    }
+    std::fs::read_to_string(p).map_err(|e| format!("Failed to read file: {}", e))
+}
+
 /// Open a file with the system default application.
 #[tauri::command]
 pub fn open_file(path: String) -> Result<(), String> {
