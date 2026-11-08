@@ -25,6 +25,7 @@ import {
   TrashIcon as Trash,
   PlusIcon as Plus,
   FileArrowDownIcon as FileArrowDown,
+  FileArrowUpIcon as FileArrowUp,
   BookOpenIcon as BookOpen,
 } from "@phosphor-icons/react";
 import { cn } from "@/lib/utils";
@@ -77,8 +78,20 @@ import {
   type ExportReviewItemData,
   syncNoteKeyframes as storeSyncNoteKeyframes,
   getLessonKeyframes,
+  readTextFile,
 } from "@/lib/store";
 import { htmlToMarkdown } from "@/lib/htmlToMarkdown";
+
+function extractReviewTitle(content: string): string {
+  for (const line of content.split("\n")) {
+    const trimmed = line.trimStart();
+    if (trimmed.startsWith("#")) {
+      const title = trimmed.replace(/^#+\s*/, "");
+      if (title) return title;
+    }
+  }
+  return content.replace(/\s/g, "").slice(0, 10);
+}
 
 const CURRICULUM_OPEN_KEY = "ckoursePlayer:curriculum-open";
 
@@ -846,6 +859,34 @@ function CourseDetailInner({
     [activeLesson, activeSection, course.id, t],
   );
 
+  const handleImportReview = useCallback(
+    async (): Promise<void> => {
+      if (!activeLesson) return;
+      try {
+        const selected = await openDialog({
+          filters: [{ name: "Markdown", extensions: ["md", "markdown"] }],
+          multiple: false,
+        });
+        if (!selected || typeof selected !== "string") return;
+        const content = await readTextFile(selected);
+        if (!content.trim()) {
+          toast.error(t("reviewsPanel.importEmpty"));
+          return;
+        }
+        const title = extractReviewTitle(content);
+        const id = await handleAddReview(title, content);
+        if (id !== null) {
+          toast.success(t("reviewsPanel.importSuccess"));
+        }
+      } catch (err) {
+        console.error("import review failed", err);
+        reportError(err, "CourseDetail.handleImportReview");
+        toast.error(t("reviewsPanel.importFailed"));
+      }
+    },
+    [activeLesson, handleAddReview, t],
+  );
+
   const handleEditReview = useCallback(
     (reviewId: number, title: string, content: string) => {
       storeUpdateReview(reviewId, title, content)
@@ -1383,14 +1424,26 @@ function CourseDetailInner({
                 </span>
               </button>
               {activeTab !== "resources" && (
-                <button
-                  onClick={activeTab === "reviews" ? handleExportReviews : handleExportNotes}
-                  className="ml-auto flex items-center gap-1.5 rounded-md px-2.5 py-1 font-sans text-xs font-medium text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground"
-                  style={{ transitionTimingFunction: SNAPPY }}
-                >
-                  <FileArrowDown className="size-3.5" />
-                  {activeTab === "reviews" ? t("reviewsPanel.export") : t("courseDetail.exportNotes")}
-                </button>
+                <div className="ml-auto flex items-center gap-1.5">
+                  {activeTab === "reviews" && (
+                    <button
+                      onClick={handleImportReview}
+                      className="flex items-center gap-1.5 rounded-md px-2.5 py-1 font-sans text-xs font-medium text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground"
+                      style={{ transitionTimingFunction: SNAPPY }}
+                    >
+                      <FileArrowUp className="size-3.5" />
+                      {t("reviewsPanel.import")}
+                    </button>
+                  )}
+                  <button
+                    onClick={activeTab === "reviews" ? handleExportReviews : handleExportNotes}
+                    className="flex items-center gap-1.5 rounded-md px-2.5 py-1 font-sans text-xs font-medium text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground"
+                    style={{ transitionTimingFunction: SNAPPY }}
+                  >
+                    <FileArrowDown className="size-3.5" />
+                    {activeTab === "reviews" ? t("reviewsPanel.export") : t("courseDetail.exportNotes")}
+                  </button>
+                </div>
               )}
             </div>
 

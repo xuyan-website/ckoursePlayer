@@ -122,6 +122,7 @@ pub fn run() {
             commands::list_directory,
             commands::open_file,
             commands::delete_file,
+            commands::read_text_file,
             commands::get_lesson_resources,
             commands::add_lesson_resource,
             commands::add_lesson_resource_from_bytes,
