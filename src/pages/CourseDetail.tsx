@@ -865,18 +865,30 @@ function CourseDetailInner({
       try {
         const selected = await openDialog({
           filters: [{ name: "Markdown", extensions: ["md", "markdown"] }],
-          multiple: false,
+          multiple: true,
         });
-        if (!selected || typeof selected !== "string") return;
-        const content = await readTextFile(selected);
-        if (!content.trim()) {
-          toast.error(t("reviewsPanel.importEmpty"));
-          return;
+        if (!selected || (Array.isArray(selected) ? selected.length === 0 : true)) return;
+        const paths = Array.isArray(selected) ? selected : [selected];
+        let successCount = 0;
+        let emptyCount = 0;
+        for (const path of paths) {
+          const content = await readTextFile(path);
+          if (!content.trim()) {
+            emptyCount++;
+            continue;
+          }
+          const title = extractReviewTitle(content);
+          const id = await handleAddReview(title, content);
+          if (id !== null) successCount++;
         }
-        const title = extractReviewTitle(content);
-        const id = await handleAddReview(title, content);
-        if (id !== null) {
-          toast.success(t("reviewsPanel.importSuccess"));
+        if (successCount > 0) {
+          toast.success(t("reviewsPanel.importSuccessCount", { count: successCount }));
+        }
+        if (emptyCount > 0) {
+          toast.error(t("reviewsPanel.importEmptyCount", { count: emptyCount }));
+        }
+        if (successCount === 0 && emptyCount === 0) {
+          toast.error(t("reviewsPanel.importFailed"));
         }
       } catch (err) {
         console.error("import review failed", err);
