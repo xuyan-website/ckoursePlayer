@@ -2,6 +2,7 @@ import { useEffect, useRef, forwardRef, useImperativeHandle, useCallback } from 
 import { Crepe } from "@milkdown/crepe";
 import { EditorView } from "@codemirror/view";
 import { convertFileSrc } from "@tauri-apps/api/core";
+import { openUrl } from "@tauri-apps/plugin-opener";
 import { saveReviewImageData } from "@/lib/store";
 import { editorViewCtx, parserCtx } from "@milkdown/kit/core";
 import { addRowAfter, isInTable } from "@milkdown/kit/prose/tables";
@@ -283,8 +284,23 @@ export const MilkdownEditor = forwardRef<MilkdownEditorHandle, MilkdownEditorPro
       }
     };
 
+    const handleLinkClick = (e: MouseEvent) => {
+      if (!rootRef.current) return;
+      if (!rootRef.current.contains(e.target as Node)) return;
+      const anchor = (e.target as HTMLElement).closest("a");
+      if (!anchor) return;
+      const href = anchor.getAttribute("href");
+      if (!href) return;
+      e.preventDefault();
+      e.stopPropagation();
+      if (readOnly) {
+        void openUrl(href).catch(() => {});
+      }
+    };
+
     document.addEventListener("keydown", handleKeyDown, true);
     document.addEventListener("click", handleTableClick, true);
+    document.addEventListener("click", handleLinkClick, true);
 
     crepe.create().then(() => {
       if (!rootRef.current) return;
@@ -304,6 +320,7 @@ export const MilkdownEditor = forwardRef<MilkdownEditorHandle, MilkdownEditorPro
       if (focusTimer) clearTimeout(focusTimer);
       document.removeEventListener("keydown", handleKeyDown, true);
       document.removeEventListener("click", handleTableClick, true);
+      document.removeEventListener("click", handleLinkClick, true);
       crepe.destroy();
       crepeRef.current = null;
     };
