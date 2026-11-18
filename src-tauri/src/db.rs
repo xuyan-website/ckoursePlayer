@@ -1978,6 +1978,7 @@ pub fn delete_all_data(conn: &Connection) -> SqlResult<()> {
         DELETE FROM subtitles;
         DELETE FROM resources;
         DELETE FROM favorites;
+        DELETE FROM keyframes;
         DELETE FROM bookmarks;
         DELETE FROM lessons;
         DELETE FROM sections;
@@ -2006,6 +2007,8 @@ pub struct ExportPayload {
     pub reviews: Vec<serde_json::Value>,
     pub bookmarks: Vec<serde_json::Value>,
     pub favorites: Vec<serde_json::Value>,
+    #[serde(default)]
+    pub keyframes: Vec<serde_json::Value>,
     pub activity_log: Vec<serde_json::Value>,
     pub settings: Vec<serde_json::Value>,
     pub custom_categories: Vec<serde_json::Value>,
@@ -2053,6 +2056,7 @@ pub fn export_all_data(conn: &Connection) -> SqlResult<ExportPayload> {
         reviews: read_table(conn, "reviews")?,
         bookmarks: read_table(conn, "bookmarks")?,
         favorites: read_table(conn, "favorites")?,
+        keyframes: read_table(conn, "keyframes")?,
         activity_log: read_table(conn, "activity_log")?,
         settings: read_table(conn, "settings")?,
         custom_categories: read_table(conn, "custom_categories")?,
@@ -2133,6 +2137,7 @@ pub fn import_all_data(conn: &Connection, payload: &ExportPayload, mode: &str) -
     insert_table(conn, "reviews", &payload.reviews, replace_mode)?;
     insert_table(conn, "bookmarks", &payload.bookmarks, replace_mode)?;
     insert_table(conn, "favorites", &payload.favorites, replace_mode)?;
+    insert_table(conn, "keyframes", &payload.keyframes, replace_mode)?;
     insert_table(conn, "activity_log", &payload.activity_log, replace_mode)?;
     insert_table(conn, "custom_categories", &payload.custom_categories, replace_mode)?;
     // Settings: always upsert by key.
