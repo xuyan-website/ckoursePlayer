@@ -25,6 +25,7 @@ const CODE_FOLDER_NAMES: &[&str] = &[
 const SUBTITLE_FOLDER_NAMES: &[&str] = &[
     "subs", "sub", "subtitles", "subtitle", "captions",
 ];
+const RESOURCE_FOLDER_NAMES: &[&str] = &["resource", "resources"];
 const SAMPLE_VIDEO_STEMS: &[&str] = &[
     "trailer", "preview", "promo", "sample", "teaser", "intro_promo", "course_preview",
     "course_trailer", "advertisement", "ad",
@@ -648,6 +649,35 @@ fn is_subtitle_folder(name: &str) -> bool {
     SUBTITLE_FOLDER_NAMES.contains(&name.to_lowercase().as_str())
 }
 
+fn is_resource_folder(name: &str) -> bool {
+    RESOURCE_FOLDER_NAMES.contains(&name.to_lowercase().as_str())
+}
+
+fn collect_files_recursive(dir: &Path, prefix: &str) -> Vec<(String, PathBuf)> {
+    let mut result = Vec::new();
+    if let Ok((files, folders)) = read_directory(dir) {
+        for file in &files {
+            if !is_hidden(&file.name) {
+                let title = if prefix.is_empty() {
+                    file.name.clone()
+                } else {
+                    format!("{}/{}", prefix, file.name)
+                };
+                result.push((title, file.path.clone()));
+            }
+        }
+        for folder in &folders {
+            let sub_prefix = if prefix.is_empty() {
+                folder.name.clone()
+            } else {
+                format!("{}/{}", prefix, folder.name)
+            };
+            result.extend(collect_files_recursive(&folder.path, &sub_prefix));
+        }
+    }
+    result
+}
+
 /// Check if a video file is a sample/trailer/promo that should be excluded from lessons.
 fn is_sample_video(name: &str) -> bool {
     let stem = name
@@ -755,17 +785,21 @@ fn collect_sections_recursive(
             .filter(|f| !is_video(&f.extension) && !is_subtitle(&f.extension) && !is_hidden(&f.name) && !is_metadata_file(&f.extension))
             .collect();
 
-        let (lessons, positional) = build_lessons_from_files(&videos, &subtitles, &other, folder, progress);
+        let (mut lessons, positional) = build_lessons_from_files(&videos, &subtitles, &other, folder, progress);
         if positional {
             used_positional = true;
         }
 
+        let mut extra_resources: Vec<ParsedResource> = Vec::new();
         for sf in &sub_folders {
+            if is_subtitle_folder(&sf.name) {
+                continue;
+            }
             if is_code_folder(&sf.name) {
                 if let Ok((code_files, _)) = read_directory(&sf.path) {
                     for file in &code_files {
                         if !is_hidden(&file.name) {
-                            course_resources.push(ParsedResource {
+                            extra_resources.push(ParsedResource {
                                 title: file.name.clone(),
                                 path: file.path.to_string_lossy().to_string(),
                                 resource_type: ResourceType::Code,
@@ -773,7 +807,42 @@ fn collect_sections_recursive(
                         }
                     }
                 }
+            } else if is_resource_folder(&sf.name) {
+                let resource_files = collect_files_recursive(&sf.path, "");
+                for (title, path) in resource_files {
+                    let ext = path
+                        .extension()
+                        .and_then(|e| e.to_str())
+                        .unwrap_or("");
+                    let rt = classify_resource(ext, &title);
+                    extra_resources.push(ParsedResource {
+                        title,
+                        path: path.to_string_lossy().to_string(),
+                        resource_type: rt,
+                    });
+                }
+            } else {
+                let sub_files = collect_files_recursive(&sf.path, &sf.name);
+                for (title, path) in sub_files {
+                    let ext = path
+                        .extension()
+                        .and_then(|e| e.to_str())
+                        .unwrap_or("");
+                    if is_video(ext) || is_subtitle(ext) {
+                        continue;
+                    }
+                    let rt = classify_resource(ext, &title);
+                    extra_resources.push(ParsedResource {
+                        title,
+                        path: path.to_string_lossy().to_string(),
+                        resource_type: rt,
+                    });
+                }
             }
+        }
+
+        for lesson in lessons.iter_mut() {
+            lesson.resources.extend(extra_resources.clone());
         }
 
         sections.push(ParsedSection {
@@ -788,7 +857,7 @@ fn collect_sections_recursive(
     // even when this folder already contains direct videos.
     let mut content_sub_folders: Vec<&FolderEntry> = sub_folders
         .iter()
-        .filter(|f| !is_subtitle_folder(&f.name))
+        .filter(|f| !is_subtitle_folder(&f.name) && !is_resource_folder(&f.name))
         .collect();
     content_sub_folders.sort_by(|a, b| a.sort_key.cmp(&b.sort_key));
 

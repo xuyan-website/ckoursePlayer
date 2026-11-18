@@ -349,6 +349,26 @@ pub fn delete_resource(
     db::delete_resource(&conn, resource_id).map_err(|e| e.to_string())?;
     if let Some(p) = path {
         let _ = std::fs::remove_file(&p);
+        let mut current = std::path::Path::new(&p).parent();
+        while let Some(dir) = current {
+            let is_in_resource = dir
+                .components()
+                .any(|c| matches!(c, std::path::Component::Normal(name) if name == "resource"));
+            if !is_in_resource {
+                break;
+            }
+            if std::fs::remove_dir(dir).is_err() {
+                break;
+            }
+            if dir
+                .file_name()
+                .map(|n| n == "resource")
+                .unwrap_or(false)
+            {
+                break;
+            }
+            current = dir.parent();
+        }
     }
     Ok(())
 }
