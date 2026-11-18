@@ -271,6 +271,75 @@ pub fn add_lesson_resource_from_bytes(
 }
 
 #[tauri::command]
+pub fn add_lesson_resource_in_folder(
+    state: tauri::State<'_, DbState>,
+    course_id: i64,
+    lesson_id: i64,
+    folder_name: String,
+    relative_path: String,
+    data: Vec<u8>,
+) -> Result<i64, String> {
+    let conn = state.conn.lock().map_err(|e| e.to_string())?;
+
+    let src = std::path::Path::new(&relative_path);
+    let ext = src.extension().and_then(|e| e.to_str()).unwrap_or("");
+    let resource_type = classify_resource_type(ext);
+
+    let file_name = src
+        .file_name()
+        .map(|n| n.to_string_lossy().to_string())
+        .unwrap_or_else(|| relative_path.clone());
+    let title = format!("{}/{}", folder_name, resource_title_from_path(&file_name));
+
+    let video_path = db::get_lesson_video_path(&conn, lesson_id).unwrap_or_default();
+    let video_dir = std::path::Path::new(&video_path).parent();
+    let final_path = match video_dir {
+        Some(dir) if !dir.as_os_str().is_empty() => {
+            let dest_dir = dir.join("resource").join(&folder_name);
+            if let Some(parent) = src.parent() {
+                if !parent.as_os_str().is_empty() {
+                    std::fs::create_dir_all(dest_dir.join(parent)).map_err(|e| e.to_string())?;
+                } else {
+                    std::fs::create_dir_all(&dest_dir).map_err(|e| e.to_string())?;
+                }
+            } else {
+                std::fs::create_dir_all(&dest_dir).map_err(|e| e.to_string())?;
+            }
+
+            let dest = dest_dir.join(&relative_path);
+            let final_dest = if dest.exists() {
+                let stem = src
+                    .file_stem()
+                    .unwrap_or_default()
+                    .to_string_lossy()
+                    .to_string();
+                let ext = src
+                    .extension()
+                    .map(|e| format!(".{}", e.to_string_lossy()))
+                    .unwrap_or_default();
+                let dest_parent = dest.parent().unwrap_or(&dest_dir);
+                let mut i = 1;
+                loop {
+                    let candidate = dest_parent.join(format!("{} ({}){}", stem, i, ext));
+                    if !candidate.exists() {
+                        break candidate;
+                    }
+                    i += 1;
+                }
+            } else {
+                dest
+            };
+            std::fs::write(&final_dest, &data).map_err(|e| e.to_string())?;
+            final_dest.to_string_lossy().to_string()
+        }
+        _ => return Err("video directory not found".into()),
+    };
+
+    db::add_lesson_resource(&conn, course_id, lesson_id, &title, &final_path, &resource_type)
+        .map_err(|e| e.to_string())
+}
+
+#[tauri::command]
 pub fn delete_resource(
     state: tauri::State<'_, DbState>,
     resource_id: i64,

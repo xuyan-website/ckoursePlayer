@@ -402,6 +402,22 @@ export async function addLessonResourceFromBytes(
   });
 }
 
+export async function addLessonResourceInFolder(
+  courseId: number,
+  lessonId: number,
+  folderName: string,
+  relativePath: string,
+  data: Uint8Array,
+): Promise<number> {
+  return invoke<number>("add_lesson_resource_in_folder", {
+    courseId,
+    lessonId,
+    folderName,
+    relativePath,
+    data: Array.from(data),
+  });
+}
+
 export async function deleteResource(resourceId: number): Promise<void> {
   return invoke("delete_resource", { resourceId });
 }

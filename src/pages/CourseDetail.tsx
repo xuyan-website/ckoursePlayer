@@ -66,6 +66,7 @@ import {
   getLessonResources,
   addLessonResource,
   addLessonResourceFromBytes,
+  addLessonResourceInFolder,
   deleteResource,
   updateResourcePath,
   exportNotesToZip,
@@ -81,6 +82,48 @@ import {
   readTextFile,
 } from "@/lib/store";
 import { htmlToMarkdown } from "@/lib/htmlToMarkdown";
+
+function getFileFromEntry(entry: FileSystemFileEntry): Promise<File | null> {
+  return new Promise((resolve) => entry.file(resolve, () => resolve(null)));
+}
+
+function readDirectoryRecursive(
+  entry: FileSystemDirectoryEntry,
+  prefix = "",
+): Promise<{ relativePath: string; file: File }[]> {
+  return new Promise((resolve, reject) => {
+    const reader = entry.createReader();
+    const allEntries: { relativePath: string; file: File }[] = [];
+    const readBatch = () => {
+      reader.readEntries(async (entries) => {
+        if (entries.length === 0) {
+          resolve(allEntries);
+          return;
+        }
+        for (const child of entries) {
+          const childPath = prefix ? `${prefix}/${child.name}` : child.name;
+          if (child.isDirectory) {
+            try {
+              const subFiles = await readDirectoryRecursive(child as FileSystemDirectoryEntry, childPath);
+              allEntries.push(...subFiles);
+            } catch (err) {
+              console.debug("readDirectoryRecursive subfolder failed", err);
+            }
+          } else {
+            try {
+              const file = await getFileFromEntry(child as FileSystemFileEntry);
+              if (file) allEntries.push({ relativePath: childPath, file });
+            } catch (err) {
+              console.debug("getFileFromEntry failed", err);
+            }
+          }
+        }
+        readBatch();
+      }, reject);
+    };
+    readBatch();
+  });
+}
 
 function extractReviewTitle(content: string): string {
   for (const line of content.split("\n")) {
@@ -1079,6 +1122,68 @@ function CourseDetailInner({
     e.preventDefault();
     setIsResourceDragOver(false);
     if (!activeLesson || !course) return;
+
+    const items = e.dataTransfer.items;
+    if (items && items.length > 0) {
+      const entries: FileSystemEntry[] = [];
+      for (let i = 0; i < items.length; i++) {
+        const item = items[i];
+        if (item.kind === "file") {
+          const entry = item.webkitGetAsEntry?.();
+          if (entry) entries.push(entry);
+        }
+      }
+      if (entries.length > 0) {
+        let succeeded = 0;
+        let failed = 0;
+        for (const entry of entries) {
+          try {
+            if (entry.isDirectory) {
+              const folderName = entry.name;
+              const files = await readDirectoryRecursive(entry as FileSystemDirectoryEntry);
+              for (const { relativePath, file } of files) {
+                try {
+                  const data = new Uint8Array(await file.arrayBuffer());
+                  await addLessonResourceInFolder(course.id, activeLesson.id, folderName, relativePath, data);
+                  succeeded++;
+                } catch (err) {
+                  failed++;
+                  console.debug("addLessonResourceInFolder failed", err);
+                  reportError(err, "CourseDetail.handleDropResource.folder", { severity: "expected" });
+                }
+              }
+            } else {
+              const file = await getFileFromEntry(entry as FileSystemFileEntry);
+              if (file) {
+                try {
+                  const data = new Uint8Array(await file.arrayBuffer());
+                  await addLessonResourceFromBytes(course.id, activeLesson.id, file.name, data);
+                  succeeded++;
+                } catch (err) {
+                  failed++;
+                  console.debug("addLessonResourceFromBytes failed", err);
+                  reportError(err, "CourseDetail.handleDropResource.file", { severity: "expected" });
+                }
+              }
+            }
+          } catch (err) {
+            failed++;
+            console.debug("drop entry processing failed", err);
+            reportError(err, "CourseDetail.handleDropResource.entry", { severity: "expected" });
+          }
+        }
+        if (succeeded > 0) {
+          const resources = await getLessonResources(activeLesson.id);
+          setLessonResources(resources);
+          toast.success(t("courseDetail.resourcesAdded", { count: succeeded }));
+        }
+        if (failed > 0) {
+          toast.error(t("courseDetail.resourcesAddFailed", { count: failed }));
+        }
+        return;
+      }
+    }
+
     const files = e.dataTransfer.files;
     if (files.length === 0) {
       toast.error(t("courseDetail.couldNotReadDroppedFile"));
