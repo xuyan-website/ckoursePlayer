@@ -1567,6 +1567,21 @@ function CourseDetailInner({
             {activeTab === "resources" && (
               <div className="flex flex-col gap-3">
                 {activeLesson && !activeLesson.videoPath.startsWith("gdrive:") && (
+                  <div
+                    onDragOver={(e) => { e.preventDefault(); setIsResourceDragOver(true); }}
+                    onDragLeave={() => setIsResourceDragOver(false)}
+                    onDrop={handleDropResource}
+                    className={cn(
+                      "flex min-h-24 items-center justify-center rounded-lg border border-dashed p-3 transition-colors",
+                      isResourceDragOver ? "border-primary bg-primary/5" : "border-border/60"
+                    )}
+                  >
+                    <p className="text-center font-sans text-xs text-muted-foreground">
+                      {isResourceDragOver ? t("courseDetail.dropFileHere") : t("courseDetail.dropFileHint")}
+                    </p>
+                  </div>
+                )}
+                {activeLesson && !activeLesson.videoPath.startsWith("gdrive:") && (
                   <button
                     onClick={() => setResourceSourceDialog(true)}
                     className="flex items-center gap-2 rounded-lg border border-dashed border-border px-3 py-2.5 font-sans text-xs text-muted-foreground transition-colors hover:border-border hover:bg-secondary hover:text-foreground"
