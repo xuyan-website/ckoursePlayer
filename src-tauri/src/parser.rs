@@ -264,10 +264,68 @@ fn parse_folder_inner(folder_path: &Path, progress: Option<&ProbeProgress>) -> R
         sections = Vec::new();
 
         // Root videos become a virtual section
-        let (root_lessons, positional) = build_lessons_from_files(&root_videos, &all_root_subtitles, &root_other, folder_path, progress);
+        let (mut root_lessons, positional) = build_lessons_from_files(&root_videos, &all_root_subtitles, &root_other, folder_path, progress);
         if positional {
             used_positional_subtitle = true;
         }
+
+        // Collect non-video files from sub-folders that don't contain videos
+        // as lesson resources for the root lessons. Sub-folders with videos
+        // are handled by collect_sections_recursive below.
+        let mut extra_resources: Vec<ParsedResource> = Vec::new();
+        for sf in &content_folders {
+            if is_subtitle_folder(&sf.name) || folder_has_videos(&sf.path) {
+                continue;
+            }
+            if is_code_folder(&sf.name) {
+                if let Ok((code_files, _)) = read_directory(&sf.path) {
+                    for file in &code_files {
+                        if !is_hidden(&file.name) {
+                            extra_resources.push(ParsedResource {
+                                title: file.name.clone(),
+                                path: file.path.to_string_lossy().to_string(),
+                                resource_type: ResourceType::Code,
+                            });
+                        }
+                    }
+                }
+            } else if is_resource_folder(&sf.name) {
+                let resource_files = collect_files_recursive(&sf.path, "");
+                for (title, path) in resource_files {
+                    let ext = path
+                        .extension()
+                        .and_then(|e| e.to_str())
+                        .unwrap_or("");
+                    let rt = classify_resource(ext, &title);
+                    extra_resources.push(ParsedResource {
+                        title,
+                        path: path.to_string_lossy().to_string(),
+                        resource_type: rt,
+                    });
+                }
+            } else {
+                let sub_files = collect_files_recursive(&sf.path, &sf.name);
+                for (title, path) in sub_files {
+                    let ext = path
+                        .extension()
+                        .and_then(|e| e.to_str())
+                        .unwrap_or("");
+                    if is_video(ext) || is_subtitle(ext) {
+                        continue;
+                    }
+                    let rt = classify_resource(ext, &title);
+                    extra_resources.push(ParsedResource {
+                        title,
+                        path: path.to_string_lossy().to_string(),
+                        resource_type: rt,
+                    });
+                }
+            }
+        }
+        for lesson in root_lessons.iter_mut() {
+            lesson.resources.extend(extra_resources.clone());
+        }
+
         sections.push(ParsedSection {
             title: "Introduction".to_string(),
             order: 0,
